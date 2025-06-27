@@ -1,0 +1,67 @@
+.footer {
+    background-color: var(--bg-medium);
+    padding: 3rem 0 0;
+  }
+  
+  .footerContainer {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 3rem;
+  }
+  
+  .footerBrand {
+    max-width: 300px;
+  }
+  
+  .footerLogo {
+    font-size: 1.8rem;
+    font-weight: 700;
+    text-decoration: none;
+    display: block;
+    margin-bottom: 1rem;
+  }
+  
+  .logoPart1 {
+    color: var(--accent-secondary);
+  }
+  
+  .logoPart2 {
+    color: var(--accent-primary);
+  }
+  
+  .footerLinks {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+  }
+  
+  .linkGroup h4 {
+    color: var(--accent-secondary);
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+  }
+  
+  .linkGroup a {
+    display: block;
+    color: var(--text-secondary);
+    text-decoration: none;
+    margin-bottom: 0.5rem;
+    transition: color 0.3s ease;
+  }
+  
+  .linkGroup a:hover {
+    color: var(--accent-secondary);
+  }
+  
+  .footerBottom {
+    text-align: center;
+    padding: 1.5rem 0;
+    margin-top: 3rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+  

@@ -1,0 +1,188 @@
+/* signup/page.module.css */
+.authContainer {
+    display: flex;
+    min-height: 100vh;
+  }
+  .brandPanel {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background:
+      linear-gradient(135deg, rgba(18,99,221,0.25), rgba(26,26,26,0.95)),
+      url('/images/signup-bg.webp') center/cover no-repeat;
+  }
+  .brandOverlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 1;
+  }
+  .brandContent {
+    position: relative;
+    z-index: 2;
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+  }
+  .logoIcon {
+    font-size: 2rem;
+    color: var(--accent-primary);
+  }
+  .logoText {
+    font-size: 1.8rem;
+    font-weight: 700;
+  }
+  .logoPart1 { color: var(--accent-secondary); }
+  .logoPart2 { color: var(--accent-primary); }
+  
+  .brandHeading {
+    font-size: 2.2rem;
+    color: var(--accent-secondary);
+    margin-bottom: 1.5rem;
+  }
+  .brandHeading span { color: var(--accent-primary); }
+  
+  .brandFeatures {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+  }
+  .brandFeatures li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+  }
+  .featureIcon { color: var(--accent-primary); }
+  
+  .formPanel {
+    flex: 1;
+    padding: 3rem;
+    background: var(--bg-light);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .authHeader h2 {
+    font-size: 2rem;
+    color: var(--accent-secondary);
+    margin-bottom: 0.5rem;
+  }
+  .authHeader p {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+  }
+  
+  .authForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .formInput {
+    padding: 0.75rem 1rem;
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(255,255,255,0.1);
+    background: var(--bg-light);
+    color: var(--text-primary);
+    font-size: 1rem;
+  }
+  .formInput:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(18,99,221,0.2);
+  }
+  
+  .fileUpload {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .fileLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border: 1px dashed rgba(255,255,255,0.2);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    color: var(--text-secondary);
+  }
+  .fileInput {
+    display: none;
+  }
+  .fileName {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+  
+  .passwordContainer {
+    position: relative;
+  }
+  .togglePassword {
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+  }
+  
+  .errorMsg {
+    color: var(--negative);
+    font-size: 0.9rem;
+    text-align: center;
+  }
+  
+  .submitBtn {
+    padding: 0.75rem;
+    border-radius: var(--border-radius);
+    background: var(--accent-primary);
+    color: white;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+  }
+  .submitBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  .loginLink {
+    margin-top: 1rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+  .loginLink a {
+    color: var(--accent-primary);
+    text-decoration: none;
+  }
+  .loginLink a:hover {
+    text-decoration: underline;
+  }
+  
+  /* small screens */
+  @media (max-width: 800px) {
+    .authContainer {
+      flex-direction: column;
+    }
+    .brandPanel, .formPanel {
+      width: 100%;
+      padding: 2rem;
+    }
+  }
+  

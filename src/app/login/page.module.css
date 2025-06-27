@@ -1,0 +1,119 @@
+.authContainer {
+    display: flex;
+    min-height: calc(100vh - 80px);
+  }
+  .brandPanel {
+    flex: 1;
+    position: relative;
+    background:
+      linear-gradient(135deg, rgba(18,99,221,0.25), rgba(26,26,26,0.95)),
+      url('/images/login-bg.webp') center/cover;
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .brandOverlay {
+    position: absolute; inset:0;
+    background: rgba(0,0,0,0.6);
+  }
+  .brandContent {
+    position: relative; z-index: 1;
+  }
+  .logo {
+    display: flex; align-items: center; gap:10px; margin-bottom:2rem;
+  }
+  .logoIcon { font-size:2.5rem; color: var(--accent-primary);}
+  .logoText { font-size:1.8rem; font-weight:700;}
+  .logoPart1 { color: var(--accent-secondary);}
+  .logoPart2 { color: var(--accent-primary);}
+  .brandHeading {
+    font-size:2.5rem; line-height:1.2; margin-bottom:1.5rem;
+  }
+  .brandHeading span { color: var(--accent-primary); }
+  .brandFeatures {
+    list-style:none; margin:2rem 0;
+  }
+  .brandFeatures li {
+    display:flex; align-items:center; gap:8px; font-size:1.1rem; margin-bottom:1rem;
+  }
+  .featureIcon { color: var(--accent-primary); }
+  .testimonial {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px);
+    border-left:4px solid var(--accent-primary);
+    padding:1rem; font-style:italic;
+  }
+  .testimonialAuthor {
+    display:flex; align-items:center; gap:8px; margin-top:0.5rem;
+  }
+  .authorAvatar {
+    width:40px; height:40px;
+    background: linear-gradient(135deg,var(--accent-primary),var(--meter-new-up));
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-weight:700;
+  }
+  .authorRank { font-size:0.9rem; color:var(--text-secondary); }
+  
+  .formPanel {
+    flex:1; padding:3rem;
+    background: var(--bg-light);
+    border-left:1px solid rgba(77,184,184,0.1);
+  }
+  .authHeader {
+    text-align:center; margin-bottom:2rem;
+  }
+  .authHeader h2 { font-size:2.2rem; color:var(--accent-secondary); }
+  .authHeader p  { color:var(--text-secondary); }
+  
+  .authForm {
+    display:flex; flex-direction:column; gap:1.5rem;
+  }
+  .formGroup {
+    display:flex; flex-direction:column; gap:0.5rem;
+  }
+  .formInput {
+    padding:1rem; border-radius:var(--border-radius);
+    border:1px solid rgba(255,255,255,0.1);
+    background: var(--bg-light);
+    color: var(--text-primary);
+    font-size:1rem;
+  }
+  .formInput:focus {
+    outline:none; border-color:var(--accent-primary);
+    box-shadow:0 0 0 3px rgba(18,99,221,0.2);
+  }
+  .passwordContainer { position:relative; }
+  .togglePassword {
+    position:absolute; right:1rem; top:50%; transform:translateY(-50%);
+    background:none; border:none; cursor:pointer; color:var(--text-secondary);
+  }
+  .formOptions {
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .rememberMe {
+    display:flex; align-items:center; gap:5px; font-size:0.9rem; cursor:pointer;
+  }
+  .forgotPassword {
+    color: var(--accent-primary); text-decoration:none; font-size:0.9rem;
+  }
+  .submitBtn {
+    padding:1rem; border:none; border-radius:var(--border-radius);
+    background: linear-gradient(135deg,var(--accent-primary),#0a4cb5);
+    color:white; font-weight:600; cursor:pointer;
+  }
+  .submitBtn:disabled {
+    opacity:0.6; cursor:default;
+  }
+  .errorMsg {
+    color: var(--negative); font-size:0.9rem; min-height:1.2rem; text-align:center;
+  }
+  .loginLink {
+    text-align:center; margin-top:1rem; color:var(--text-secondary);
+  }
+  .loginLink a { color:var(--accent-primary); text-decoration:none; }
+  @media(max-width:900px){
+    .authContainer{flex-direction:column;}
+    .brandPanel, .formPanel{padding:2rem;}
+  }
+  

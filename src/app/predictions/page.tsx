@@ -1,0 +1,422 @@
+// src/app/predictions/page.tsx
+'use client'
+
+import React, { useState, useEffect, useMemo } from 'react'
+import styles from './page.module.css'
+
+interface Card {
+  id: string
+  name: string
+  ovr: number
+  rarity: string
+  is_hitter: boolean
+  baked_img?: string
+
+  delta_rank_low: number
+  delta_rank_pred: number
+  delta_rank_high: number
+
+  predicted_rank_low: number
+  predicted_rank: number
+  predicted_rank_high: number
+
+  confidence_percentage: number
+
+  market_price?: number
+
+  qs_actual: number
+  qs_pred_low: number
+  qs_pred: number
+  qs_pred_high: number
+
+  predicted_profit_low: number
+  predicted_profit: number
+  predicted_profit_high: number
+  predicted_ev_profit: number
+  predicted_profit_pct: number
+}
+
+const DEFAULT_KEYS = [
+  'card',
+  'name',
+  'ovr',
+  'delta_rank_pred',
+  'confidence_percentage',
+  'market_price',
+  'qs_pred',
+  'predicted_profit',
+  'predicted_profit_pct',
+]
+
+// define your column groups
+const COLUMN_GROUPS = [
+  {
+    group: 'details',
+    label: 'Details',
+    cols: [
+      { key: 'card', label: 'Card' },
+      { key: 'name', label: 'Name' },
+      { key: 'team', label: 'Team' },
+      { key: 'team_short_name', label: 'Team (abbr)' },
+      { key: 'display_position', label: 'Pos' },
+      { key: 'age', label: 'Age' },
+      { key: 'ovr', label: 'Current Overall' },
+    ]
+  },
+  {
+    group: 'predictions',
+    label: 'Predictions',
+    cols: [
+      { key: 'delta_rank_low',      label: 'Change In Rank Low' },
+      { key: 'delta_rank_pred',     label: 'Change In Rank Predicted' },
+      { key: 'delta_rank_high',     label: 'Change In Rank High' },
+      { key: 'predicted_rank_low',  label: 'Predicted Rank Low' },
+      { key: 'predicted_rank',      label: 'Predicted Rank' },
+      { key: 'predicted_rank_high', label: 'Predicted Rank High' },
+      { key: 'confidence_percentage', label: 'Confidence %' },
+    ]
+  },
+  {
+    group: 'market',
+    label: 'Market',
+    cols: [
+      { key: 'qs_actual',            label: 'Current QS' },
+      { key: 'qs_pred_low',          label: 'QS Predicted Low' },
+      { key: 'qs_pred',              label: 'QS Predicted' },
+      { key: 'qs_pred_high',         label: 'QS Predicted High' },
+      { key: 'market_price',         label: 'Current Price' },
+      { key: 'predicted_profit_low',  label: 'Predicted Profit Low' },
+      { key: 'predicted_profit',      label: 'Predicted Profit' },
+      { key: 'predicted_profit_high', label: 'Predicted Profit High' },
+      { key: 'predicted_ev_profit',   label: 'Expected Profit' },
+      { key: 'predicted_profit_pct',  label: 'Profit %' },
+    ]
+  }
+]
+
+// list of detail‐group keys
+const DETAILS_KEYS = COLUMN_GROUPS
+  .find(g => g.group === 'details')!
+  .cols.map(c => c.key)
+
+// human‐friendly labels
+const LABELS: Record<string,string> = {}
+COLUMN_GROUPS.forEach(g =>
+  g.cols.forEach(c => { LABELS[c.key] = c.label })
+)
+
+// detailed descriptions for tooltip
+const DESCRIPTIONS: Record<string,string> = {
+  card:                   'Card image linking to the player detail page.',
+  name:                   'Player’s full name.',
+  team:                   'Full name of the player’s team.',
+  team_short_name:        'Abbreviated team name.',
+  display_position:       'Player’s primary position.',
+  age:                    'Player’s age in years.',
+  ovr:                    'Current overall rating of the player.',
+  delta_rank_low:         'Lower bound of the predicted change in overall rank.',
+  delta_rank_pred:        'Model’s predicted change in overall rank.',
+  delta_rank_high:        'Upper bound of the predicted change in overall rank.',
+  predicted_rank_low:     'Lower bound of the predicted overall rank.',
+  predicted_rank:         'Model’s predicted overall rank.',
+  predicted_rank_high:    'Upper bound of the predicted overall rank.',
+  confidence_percentage:  'Confidence level based on prediction interval width.',
+  qs_actual:              'Quick-sell value for the current overall rating.',
+  qs_pred_low:            'Quick-sell value for the lower bound of predicted rank.',
+  qs_pred:                'Quick-sell value for the predicted rank.',
+  qs_pred_high:           'Quick-sell value for the upper bound of predicted rank.',
+  market_price:           'Current market (sell) price of the card.',
+  predicted_profit_low:   'Profit if the lower-bound QS value is realized.',
+  predicted_profit:       'Profit based on the predicted QS value.',
+  predicted_profit_high:  'Profit if the upper-bound QS value is realized.',
+  predicted_ev_profit:    'Expected profit across the prediction distribution.',
+  predicted_profit_pct:   'Profit percentage relative to current market price.',
+}
+
+export default function PredictionsPage() {
+  const [cards, setCards] = useState<Card[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // UI state
+  const [rarity, setRarity] = useState<'all'|'common'|'bronze'|'silver'|'gold'|'diamond'>('all')
+  const [typeFilter, setTypeFilter] = useState<'all'|'hitters'|'pitchers'>('all')
+  const [search, setSearch] = useState('')
+  const [columns, setColumns] = useState<string[]>(DEFAULT_KEYS)
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortDesc, setSortDesc] = useState(false)
+  const [pageSize, setPageSize] = useState(25)
+  const [pageIndex, setPageIndex] = useState(0)
+
+  const [tooltipOpen, setTooltipOpen] = useState<string|null>(null)
+
+  // reorder helper
+  const moveColumn = (colKey: string, delta: number) => {
+    setColumns(cols => {
+      const idx = cols.indexOf(colKey)
+      if (idx < 0) return cols
+      const newIdx = idx + delta
+      if (newIdx < 0 || newIdx >= cols.length) return cols
+      const copy = [...cols]
+      copy.splice(idx, 1)
+      copy.splice(newIdx, 0, colKey)
+      return copy
+    })
+  }
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/cards/live')
+        const data: Card[] = await res.json()
+        setCards(data.map(c => ({
+          ...c,
+          is_hitter:
+            c.is_hitter === true ||
+            c.is_hitter === 'true' ||
+            c.is_hitter === 'True'
+        })))
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  // 1) filter
+  const filtered = useMemo(() => {
+    return cards
+      .filter(c => rarity === 'all' || c.rarity.toLowerCase() === rarity)
+      .filter(c =>
+        typeFilter === 'all' ||
+        (typeFilter === 'hitters'  && c.is_hitter) ||
+        (typeFilter === 'pitchers' && !c.is_hitter)
+      )
+      .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
+  }, [cards, rarity, typeFilter, search])
+
+  // 2) sort
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered
+    return [...filtered].sort((a,b) => {
+      const aVal = (a as any)[sortKey], bVal = (b as any)[sortKey]
+      if (aVal === bVal) return 0
+      const cmp = aVal > bVal ? 1 : -1
+      return sortDesc ? -cmp : cmp
+    })
+  }, [filtered, sortKey, sortDesc])
+
+  // 3) paginate
+  const pageCount = Math.ceil(sorted.length / pageSize)
+  const paged     = sorted.slice(pageIndex * pageSize, (pageIndex+1)*pageSize)
+
+  if (loading) return <p>Loading…</p>
+
+  return (
+    <main className={styles.predictionsContainer}>
+      <section className={styles.predictionsHero}>
+        <h1 className={styles.heroTitle}>Player Predictions</h1>
+      </section>
+
+      <section className={styles.predictionsTableSection}>
+        <div className={styles.tableHeader}>
+          <div className={styles.controls}>
+            {/* filters */}
+            <div className={styles.filterGroup}>
+              <label>Rarity:</label>
+              <select
+                value={rarity}
+                onChange={e => { setRarity(e.target.value as any); setPageIndex(0) }}
+              >
+                <option value="all">All</option>
+                <option value="common">Common</option>
+                <option value="bronze">Bronze</option>
+                <option value="silver">Silver</option>
+                <option value="gold">Gold</option>
+                <option value="diamond">Diamond</option>
+              </select>
+
+              <label>Type:</label>
+              <select
+                value={typeFilter}
+                onChange={e => { setTypeFilter(e.target.value as any); setPageIndex(0) }}
+              >
+                <option value="all">All</option>
+                <option value="hitters">Hitters</option>
+                <option value="pitchers">Pitchers</option>
+              </select>
+
+              <label>Search:</label>
+              <input
+                type="text"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPageIndex(0) }}
+                placeholder="Player name…"
+              />
+            </div>
+
+            {/* column toggles */}
+            <div className={styles.columnDropdowns}>
+              {COLUMN_GROUPS.map(group => {
+                const keys = group.cols.map(c => c.key)
+                const inCount = keys.filter(k => columns.includes(k)).length
+                const active = inCount > 0 && inCount < keys.length
+                return (
+                  <details
+                    key={group.group}
+                    className={styles.columnDropdown}
+                  >
+                    <summary className={active ? styles.filterActive : ''}>
+                      {group.label} ▾
+                    </summary>
+                    <div className={styles.dropdownContent}>
+                      <button
+                        type="button"
+                        className={styles.clearFilters}
+                        onClick={() =>
+                          setColumns(cs => cs.filter(k => !keys.includes(k)))
+                        }
+                      >× Clear All</button>
+                      <input
+                        type="text"
+                        className={styles.columnSearch}
+                        placeholder={`Search ${group.label}…`}
+                      />
+                      <div className={styles.columnGroup}>
+                        {group.cols.map(col => {
+                          const checked = columns.includes(col.key)
+                          return (
+                            <label key={col.key}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={e =>
+                                  e.target.checked
+                                    ? setColumns(cs => [...cs, col.key])
+                                    : setColumns(cs => cs.filter(k => k !== col.key))
+                                }
+                              />
+                              {col.label}
+                              {checked && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => moveColumn(col.key, -1)}
+                                  >▲</button>
+                                  <button
+                                    type="button"
+                                    onClick={() => moveColumn(col.key, 1)}
+                                  >▼</button>
+                                </>
+                              )}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </details>
+                )
+              })}
+            </div>
+
+            {/* page size */}
+            <div className={styles.paginationControls}>
+              <label>Show</label>
+              <select
+                value={pageSize}
+                onChange={e => { setPageSize(+e.target.value); setPageIndex(0) }}
+              >
+                {[10,25,50].map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+              <span>per page</span>
+            </div>
+          </div>
+        </div>
+
+        {/* table */}
+        <div className={styles.tableContainer}>
+          <table className={styles.predictionsTable}>
+            <thead>
+              <tr>
+                {columns.map(key => (
+                  <th
+                    key={key}
+                    onClick={() => {
+                      if (sortKey === key) setSortDesc(d => !d)
+                      else { setSortKey(key); setSortDesc(false) }
+                    }}
+                    className={
+                      sortKey === key
+                        ? sortDesc ? styles.sortedDesc : styles.sortedAsc
+                        : ''
+                    }
+                  >
+                    <div style={{ display: 'inline-flex', alignItems: 'center', position: 'relative' }}>
+                      <span>{LABELS[key] ?? key}</span>
+                      {!DETAILS_KEYS.includes(key) && (
+                        <button
+                          className={styles.tooltipBtn}
+                          onClick={e => {
+                            e.stopPropagation()
+                            setTooltipOpen(open => open === key ? null : key)
+                          }}
+                        >?</button>
+                      )}
+                      {tooltipOpen === key && (
+                        <div className={styles.tooltipPopup} onClick={e => e.stopPropagation()}>
+                          {DESCRIPTIONS[key] || 'No description available.'}
+                        </div>
+                      )}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map(c => (
+                <tr key={c.id} data-rarity={c.rarity.toLowerCase()}>
+                  {columns.map(col => {
+                    let cell = (c as any)[col]
+                    if (col.endsWith('_pct') || col === 'confidence_percentage') {
+                      const num = typeof cell === 'number' ? cell : 0
+                      cell = `${num.toFixed(1)}%`
+                    }
+                    return (
+                      <td key={col} data-key={col}>
+                        {col === 'card' ? (
+                          <a href={`/player/${c.id}`}>
+                            <img src={c.baked_img!} alt={c.name} className={styles.cardIcon}/>
+                          </a>
+                        ) : (
+                          cell ?? '-'
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* pagination nav */}
+        <div className={styles.paginationNav}>
+          <button
+            disabled={pageIndex === 0}
+            onClick={() => setPageIndex(i => Math.max(i - 1, 0))}
+          >Prev</button>
+          <span>
+            Page {pageIndex + 1} of {pageCount}
+          </span>
+          <button
+            disabled={pageIndex + 1 >= pageCount}
+            onClick={() => setPageIndex(i => Math.min(i + 1, pageCount - 1))}
+          >Next</button>
+        </div>
+      </section>
+    </main>
+  )
+}
