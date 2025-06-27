@@ -1,0 +1,153 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is the owner of the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Users collection - profiles and settings
+    match /users/{userId} {
+      // Anyone can read user profiles (for public viewing)
+      // Only the user can write/update their own profile
+      allow read: if true;
+      allow write: if isOwner(userId);
+      
+      // User investments subcollection
+      match /investments/{investmentId} {
+        // User can always read/write their own investments
+        allow read, write: if isOwner(userId);
+        
+        // Others can read if user has made investments public
+        allow read: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/users/$(userId)) &&
+          get(/databases/$(database)/documents/users/$(userId)).data.investmentsPublic == true;
+      }
+    }
+    
+    // Cards collection - player data and predictions
+    match /cards/{cardId} {
+      // Anyone can read card data (public information)
+      allow read: if true;
+      // Only authenticated users can write (admin functionality)
+      allow write: if isAuthenticated();
+      
+      // Predictions subcollection
+      match /predictions/{predictionId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+      
+      // Comments on cards
+      match /comments/{commentId} {
+        // Anyone can read comments
+        allow read: if true;
+        // Only authenticated users can create comments
+        allow create: if isAuthenticated() && 
+          request.auth.uid == resource.data.userId;
+        // Only comment author can update/delete
+        allow update, delete: if isAuthenticated() && 
+          request.auth.uid == resource.data.userId;
+        
+        // Likes on comments
+        match /likes/{likeId} {
+          allow read: if true;
+          allow create: if isAuthenticated() && 
+            request.auth.uid == resource.data.userId;
+          allow delete: if isAuthenticated() && 
+            request.auth.uid == resource.data.userId;
+        }
+      }
+    }
+    
+    // Global comments collection
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+      allow update, delete: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+    }
+    
+    // Chat rooms - main, investing, flipping, stub
+    match /chat_main/{messageId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+      allow update, delete: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+      
+      match /likes/{likeId} {
+        allow read: if true;
+        allow create: if isAuthenticated() && 
+          request.auth.uid == resource.data.userId;
+        allow delete: if isAuthenticated() && 
+          request.auth.uid == resource.data.userId;
+      }
+    }
+    
+    match /chat_investing/{messageId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+      allow update, delete: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+      
+      match /likes/{likeId} {
+        allow read: if true;
+        allow create: if isAuthenticated() && 
+          request.auth.uid == resource.data.userId;
+        allow delete: if isAuthenticated() && 
+          request.auth.uid == resource.data.userId;
+      }
+    }
+    
+    match /chat_flipping/{messageId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+      allow update, delete: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+      
+      match /likes/{likeId} {
+        allow read: if true;
+        allow create: if isAuthenticated() && 
+          request.auth.uid == resource.data.userId;
+        allow delete: if isAuthenticated() && 
+          request.auth.uid == resource.data.userId;
+      }
+    }
+    
+    match /chat_stub/{messageId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+      allow update, delete: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+      
+      match /likes/{likeId} {
+        allow read: if true;
+        allow create: if isAuthenticated() && 
+          request.auth.uid == resource.data.userId;
+        allow delete: if isAuthenticated() && 
+          request.auth.uid == resource.data.userId;
+      }
+    }
+    
+    // Investment tracking
+    match /investments/{investmentId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+      allow update, delete: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+    }
+  }
+}

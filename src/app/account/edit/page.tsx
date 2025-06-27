@@ -19,7 +19,7 @@ import {
   uploadBytes,
   getDownloadURL,
 } from 'firebase/storage'
-import { doc, updateDoc } from 'firebase/firestore'
+import { doc, updateDoc, setDoc } from 'firebase/firestore'
 
 export default function EditProfilePage() {
   const router = useRouter()
@@ -107,13 +107,13 @@ export default function EditProfilePage() {
         await updatePassword(user, newPw)
       }
 
-      // 2e) mirror changes into Firestore user doc
+      // 2e) mirror changes into Firestore user doc (create if doesn't exist)
       const userRef = doc(db, 'users', user.uid)
-      await updateDoc(userRef, {
+      await setDoc(userRef, {
         username:   displayName,
         email:      email,
         profilePic: photoURL
-      })
+      }, { merge: true })
 
       // done → back to profile
       router.push(`/account/${user.uid}`)

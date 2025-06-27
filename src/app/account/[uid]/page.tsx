@@ -63,18 +63,20 @@ export default function AccountPage() {
       if (snap.exists()) {
         setProfile(snap.data() as ProfileData)
       } else {
-        setProfile({
-          username: viewingUid,
-          email: '',
+        // Create default profile using current user info if available
+        const defaultProfile = {
+          username: currentUser?.displayName || viewingUid,
+          email: currentUser?.email || '',
           rating: 0,
-          profilePic: '',
+          profilePic: currentUser?.photoURL || '',
           createdAt: Timestamp.now(),
           investmentsPublic: false
-        })
+        }
+        setProfile(defaultProfile)
       }
     }
     loadProfile()
-  }, [viewingUid])
+  }, [viewingUid, currentUser])
 
   // 3) load stats once we know viewingUid
   useEffect(() => {
@@ -123,7 +125,7 @@ export default function AccountPage() {
     return <p style={{ padding:'2rem', textAlign:'center' }}>Loading…</p>
   }
 
-  const createdDate = profile.createdAt.toDate().toLocaleDateString()
+  const createdDate = profile.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown'
 
   // toggle public/private
   const toggleVisibility = async () => {

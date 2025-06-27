@@ -1,8 +1,24 @@
 [
   {
-    "origin": ["*"],
-    "method": ["GET","HEAD","PUT","POST","DELETE","OPTIONS"],
-    "responseHeader": ["Content-Type","Authorization","X-Goog-Resumable"],
+    "origin": [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://localhost:3000",
+      "https://localhost:3001",
+      "https://theshow-587b1.web.app",
+      "https://theshow-587b1.firebaseapp.com"
+    ],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE", "OPTIONS"],
+    "responseHeader": [
+      "Content-Type",
+      "Content-Length",
+      "Authorization", 
+      "X-Requested-With",
+      "X-Goog-Resumable",
+      "Access-Control-Allow-Origin",
+      "Access-Control-Allow-Headers",
+      "Access-Control-Allow-Methods"
+    ],
     "maxAgeSeconds": 3600
   }
 ]

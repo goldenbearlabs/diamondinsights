@@ -14,4 +14,4 @@ if (!admin.apps.length) {
 }
 
 export const firestore = admin.firestore()
-export const bucket    = admin.storage().bucket()
+export const bucket    = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET!);
