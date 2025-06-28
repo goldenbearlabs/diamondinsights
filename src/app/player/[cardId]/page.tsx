@@ -6,6 +6,7 @@ import styles from './page.module.css'
 import Link from 'next/link'
 import { auth } from '@/lib/firebaseClient'                           // ← import your firebase client
 import { onAuthStateChanged, type User } from 'firebase/auth'
+import { FaArrowLeft } from 'react-icons/fa'
 
 type SortBy = 'recent'|'liked'|'replies'
 
@@ -172,9 +173,13 @@ export default function CardPage() {
     <main className={styles.playerPageContainer}>
       <button
         className={styles.backButton}
-        onClick={() => router.back()}
+        onClick={() => {
+          // Always use browser back to preserve state - sessionStorage will handle it
+          window.history.back()
+        }}
       >
-        ← Back
+        <FaArrowLeft />
+        Back to Predictions
       </button>
 
       {/* Header */}

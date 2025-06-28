@@ -2,6 +2,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import styles from './page.module.css'
 
 interface Card {
@@ -133,19 +134,64 @@ const DESCRIPTIONS: Record<string,string> = {
   predicted_profit_pct:   'Profit percentage relative to current market price.',
 }
 
+// Helper functions for URL state management
+const encodeColumns = (cols: string[]) => cols.join(',')
+const decodeColumns = (str: string) => str ? str.split(',') : DEFAULT_KEYS
+
+const updateURL = (router: any, params: Record<string, string>) => {
+  const url = new URL(window.location.href)
+  Object.entries(params).forEach(([key, value]) => {
+    if (value && value !== 'all' && value !== '0' && value !== '25') {
+      url.searchParams.set(key, value)
+    } else {
+      url.searchParams.delete(key)
+    }
+  })
+  router.replace(url.pathname + url.search, { scroll: false })
+}
+
 export default function PredictionsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  
   const [cards, setCards] = useState<Card[]>([])
   const [loading, setLoading] = useState(true)
 
-  // UI state
-  const [rarity, setRarity] = useState<'all'|'common'|'bronze'|'silver'|'gold'|'diamond'>('all')
-  const [typeFilter, setTypeFilter] = useState<'all'|'hitters'|'pitchers'>('all')
-  const [search, setSearch] = useState('')
-  const [columns, setColumns] = useState<string[]>(DEFAULT_KEYS)
-  const [sortKey, setSortKey] = useState<string | null>(null)
-  const [sortDesc, setSortDesc] = useState(false)
-  const [pageSize, setPageSize] = useState(25)
-  const [pageIndex, setPageIndex] = useState(0)
+  // Initialize state from sessionStorage first, then URL parameters
+  const getInitialState = () => {
+    if (typeof window === 'undefined') return null
+    try {
+      const saved = sessionStorage.getItem('predictions-state')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  }
+
+  const savedState = getInitialState()
+
+  const [rarity, setRarity] = useState<'all'|'common'|'bronze'|'silver'|'gold'|'diamond'>(
+    savedState?.rarity || (searchParams.get('rarity') as any) || 'all'
+  )
+  const [typeFilter, setTypeFilter] = useState<'all'|'hitters'|'pitchers'>(
+    savedState?.typeFilter || (searchParams.get('type') as any) || 'all'
+  )
+  const [search, setSearch] = useState(savedState?.search || searchParams.get('search') || '')
+  const [columns, setColumns] = useState<string[]>(
+    savedState?.columns || decodeColumns(searchParams.get('columns') || '')
+  )
+  const [sortKey, setSortKey] = useState<string | null>(
+    savedState?.sortKey || searchParams.get('sort') || null
+  )
+  const [sortDesc, setSortDesc] = useState(
+    savedState?.sortDesc !== undefined ? savedState.sortDesc : searchParams.get('desc') === 'true'
+  )
+  const [pageSize, setPageSize] = useState(
+    savedState?.pageSize || parseInt(searchParams.get('size') || '25')
+  )
+  const [pageIndex, setPageIndex] = useState(
+    savedState?.pageIndex || parseInt(searchParams.get('page') || '0')
+  )
 
   const [tooltipOpen, setTooltipOpen] = useState<string|null>(null)
 
@@ -183,6 +229,34 @@ export default function PredictionsPage() {
     }
     load()
   }, [])
+
+  // Save state to sessionStorage and sync to URL
+  useEffect(() => {
+    // Save to sessionStorage for instant state restoration
+    const state = {
+      rarity,
+      typeFilter,
+      search,
+      columns,
+      sortKey,
+      sortDesc,
+      pageSize,
+      pageIndex
+    }
+    sessionStorage.setItem('predictions-state', JSON.stringify(state))
+
+    // Also update URL for shareability
+    updateURL(router, {
+      rarity: rarity !== 'all' ? rarity : '',
+      type: typeFilter !== 'all' ? typeFilter : '',
+      search: search,
+      columns: columns.join(',') !== DEFAULT_KEYS.join(',') ? encodeColumns(columns) : '',
+      sort: sortKey || '',
+      desc: sortDesc ? 'true' : '',
+      size: pageSize !== 25 ? pageSize.toString() : '',
+      page: pageIndex !== 0 ? pageIndex.toString() : ''
+    })
+  }, [router, rarity, typeFilter, search, columns, sortKey, sortDesc, pageSize, pageIndex])
 
   // 1) filter
   const filtered = useMemo(() => {

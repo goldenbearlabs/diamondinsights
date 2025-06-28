@@ -14,24 +14,33 @@
   
   .backButton {
     position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: var(--accent-primary);
-    color: #fff;
-    border: none;
-    border-radius: 9999px;
-    padding: 0.5rem 1rem;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    top: 1.5rem;
+    right: 1.5rem;
+    background: var(--bg-medium);
+    color: var(--text-primary);
+    border: 2px solid var(--accent-primary);
+    border-radius: 12px;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);
     cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(8px);
+    z-index: 10;
   }
   .backButton:hover {
-    transform: translateY(-1px);
-    background: var(--accent-primary-hover);
+    transform: translateY(-2px);
+    background: var(--accent-primary);
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(18, 99, 221, 0.3), 0 4px 8px rgba(0,0,0,0.15);
   }
   .backButton:active {
-    transform: translateY(1px);
-    background: var(--accent-primary-active);
+    transform: translateY(0px);
+    box-shadow: 0 2px 8px rgba(18, 99, 221, 0.4), 0 1px 3px rgba(0,0,0,0.1);
   }
   
   .playerHeader {
