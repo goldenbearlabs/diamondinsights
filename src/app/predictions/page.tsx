@@ -194,6 +194,22 @@ export default function PredictionsPage() {
   )
 
   const [tooltipOpen, setTooltipOpen] = useState<string|null>(null)
+  const [openDropdown, setOpenDropdown] = useState<string|null>(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element
+      if (!target.closest(`.${styles.columnDropdown}`)) {
+        setOpenDropdown(null)
+      }
+    }
+
+    if (openDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [openDropdown])
 
   // reorder helper
   const moveColumn = (colKey: string, delta: number) => {
@@ -276,6 +292,15 @@ export default function PredictionsPage() {
     return [...filtered].sort((a,b) => {
       const aVal = (a as any)[sortKey], bVal = (b as any)[sortKey]
       if (aVal === bVal) return 0
+      
+      // Try numeric comparison first
+      const aNum = Number(aVal), bNum = Number(bVal)
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        const cmp = aNum > bNum ? 1 : -1
+        return sortDesc ? -cmp : cmp
+      }
+      
+      // Fall back to string comparison
       const cmp = aVal > bVal ? 1 : -1
       return sortDesc ? -cmp : cmp
     })
@@ -335,16 +360,24 @@ export default function PredictionsPage() {
               {COLUMN_GROUPS.map(group => {
                 const keys = group.cols.map(c => c.key)
                 const inCount = keys.filter(k => columns.includes(k)).length
-                const active = inCount > 0 && inCount < keys.length
+                const defaultKeysForGroup = keys.filter(k => DEFAULT_KEYS.includes(k))
+                const currentKeysForGroup = keys.filter(k => columns.includes(k))
+                const active = JSON.stringify(defaultKeysForGroup.sort()) !== JSON.stringify(currentKeysForGroup.sort())
+                const isOpen = openDropdown === group.group
                 return (
-                  <details
+                  <div
                     key={group.group}
-                    className={styles.columnDropdown}
+                    className={`${styles.columnDropdown} ${isOpen ? styles.open : ''}`}
                   >
-                    <summary className={active ? styles.filterActive : ''}>
-                      {group.label} ▾
-                    </summary>
-                    <div className={styles.dropdownContent}>
+                    <button
+                      type="button"
+                      className={`${styles.dropdownSummary} ${active ? styles.filterActive : ''}`}
+                      onClick={() => setOpenDropdown(isOpen ? null : group.group)}
+                    >
+                      {group.label}
+                    </button>
+                    {isOpen && (
+                      <div className={styles.dropdownContent}>
                       <button
                         type="button"
                         className={styles.clearFilters}
@@ -376,20 +409,23 @@ export default function PredictionsPage() {
                                 <>
                                   <button
                                     type="button"
+                                    className={styles.columnMoveButton}
                                     onClick={() => moveColumn(col.key, -1)}
-                                  >▲</button>
+                                  >◀</button>
                                   <button
                                     type="button"
+                                    className={styles.columnMoveButton}
                                     onClick={() => moveColumn(col.key, 1)}
-                                  >▼</button>
+                                  >▶</button>
                                 </>
                               )}
                             </label>
                           )
                         })}
                       </div>
-                    </div>
-                  </details>
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>
