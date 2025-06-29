@@ -27,6 +27,12 @@ interface Message {
   liked: boolean
 }
 
+interface UserSearchResult {
+  uid: string
+  username: string
+  profilePic: string
+}
+
 const TABS = [
   { key: 'live',   label: 'Live Comments', icon: <FaBroadcastTower /> },
   { key: 'main',   label: 'Main Chat',     icon: <FaComments      /> },
@@ -45,11 +51,55 @@ export default function CommunityPage() {
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [cardThumbs, setCardThumbs] = useState<Record<string, string>>({})
   const [cardNames, setCardNames]   = useState<Record<string, string>>({})
+  
+  // User search state
+  const [userSearch, setUserSearch] = useState('')
+  const [userMatches, setUserMatches] = useState<UserSearchResult[]>([])
+  const [userSearchOpen, setUserSearchOpen] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef    = useRef<HTMLTextAreaElement>(null)
+  const userSearchRef  = useRef<HTMLDivElement>(null)
 
   useEffect(() => onAuthStateChanged(auth, u => setUser(u)), [auth])
+
+  // User search effect
+  useEffect(() => {
+    const searchUsers = async () => {
+      const val = userSearch.trim()
+      if (val.length < 2) {
+        setUserMatches([])
+        setUserSearchOpen(false)
+        return
+      }
+
+      try {
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(val)}`)
+        const data = await res.json()
+        setUserMatches(data)
+        setUserSearchOpen(true)
+      } catch (error) {
+        console.error('User search failed:', error)
+        setUserMatches([])
+      }
+    }
+
+    const timeoutId = setTimeout(searchUsers, 300) // Debounce
+    return () => clearTimeout(timeoutId)
+  }, [userSearch])
+
+  // Close user search on outside click
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (userSearchRef.current && !userSearchRef.current.contains(e.target as Node)) {
+        setUserSearchOpen(false)
+      }
+    }
+    if (userSearchOpen) {
+      document.addEventListener('click', onClick)
+      return () => document.removeEventListener('click', onClick)
+    }
+  }, [userSearchOpen])
 
   useEffect(() => {
     setLoading(true)
@@ -182,6 +232,44 @@ export default function CommunityPage() {
           <div className={styles.sidebarHeader}>
             <h2 className={styles.head}>Community</h2>
           </div>
+
+          {/* User Search */}
+          <div className={styles.userSearchContainer} ref={userSearchRef}>
+            <input
+              type="text"
+              className={styles.userSearchInput}
+              placeholder="Search users..."
+              value={userSearch}
+              onChange={e => setUserSearch(e.target.value)}
+            />
+            {userSearchOpen && userMatches.length > 0 && (
+              <div className={styles.userSearchResults}>
+                {userMatches.map(user => (
+                  <div
+                    key={user.uid}
+                    className={styles.userResult}
+                    onClick={() => {
+                      window.location.href = `/account/${user.uid}`
+                      setUserSearch('')
+                      setUserSearchOpen(false)
+                    }}
+                  >
+                    <img
+                      src={user.profilePic || '/placeholder-user.png'}
+                      alt={user.username}
+                      className={styles.userResultAvatar}
+                    />
+                    <span className={styles.userResultName}>{user.username}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {userSearchOpen && userSearch.length >= 2 && userMatches.length === 0 && (
+              <div className={styles.userSearchResults}>
+                <div className={styles.noResults}>No users found</div>
+              </div>
+            )}
+          </div>
           <nav className={styles.tabs}>
             {TABS.map(t => (
               <button
@@ -233,9 +321,6 @@ export default function CommunityPage() {
               <h3 className={styles.roomName}>
                 {TABS.find(t=>t.key===activeTab)?.label}
               </h3>
-              {activeTab==='live' && (
-                <span className={styles.liveBadge}>LIVE</span>
-              )}
             </div>
           </header>
 
@@ -351,7 +436,12 @@ function MessageItem({
           <a href={`/account/${msg.userId}`} className={styles.user}>{msg.username}</a>
           {showTime && (
             <span className={styles.time}>
-              {new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+              {new Date(msg.timestamp).toLocaleString([], {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
             </span>
           )}
           {isLive && msg.playerId && (

@@ -78,6 +78,7 @@
   .profileHeader {
     display: flex;
     align-items: center;
+    gap: 1.5rem;
     margin-bottom: 30px;
     position: relative;
     z-index: 2;
@@ -132,6 +133,11 @@
     margin-bottom: 10px;
     text-transform: uppercase;
     letter-spacing: 1px;
+  }
+
+  /* Remove margin when h4 is in flex container with tooltip */
+  .detailCard div[style*="display: flex"] h4 {
+    margin-bottom: 0;
   }
   
   .detailCard p {
@@ -332,4 +338,50 @@
     margin-top: 8px;
     font-size: 0.85rem;
     color: var(--text-secondary);
+  }
+
+  /* Tooltip styles copied from predictions page */
+  .tooltipBtn {
+    background: var(--accent-primary);
+    border: none;
+    cursor: pointer;
+    font-size: 0.8rem;
+    line-height: 1;
+    color: var(--text-secondary);
+    margin-left: 8px;
+    padding: 2px 4px;
+    border-radius: 50%;
+    transition: color 0.2s ease, background 0.2s ease;
+  }
+  .tooltipBtn:hover {
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.1);
+  }
+
+  .tooltipPopup {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 0.25rem;
+    width: 280px;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    padding: 0.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    font-size: 0.85rem;
+    z-index: 1000;
+    white-space: normal;
+  }
+
+  .tooltipPopup::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: transparent transparent var(--bg-dark) transparent;
   }

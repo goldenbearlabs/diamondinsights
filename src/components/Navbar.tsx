@@ -120,7 +120,7 @@ export default function Navbar() {
               <Link href={accountHref} className={styles.navLink}>
                 Account
               </Link>
-              <button onClick={() => signOut(auth)} className={styles.navLink}>
+              <button onClick={() => signOut(auth)} className="btn btn-secondary">
                 Logout
               </button>
             </>

@@ -160,16 +160,6 @@
   font-weight: 600;
 }
 
-.liveBadge {
-  background: var(--negative);
-  color: white;
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  margin-left: 10px;
-}
 
 /* Messages Container */
 .messagesContainer {
@@ -453,4 +443,87 @@
   margin: 0;
   color: var(--text-secondary);
   max-width: 400px;
+}
+
+/* User Search Styles */
+.userSearchContainer {
+  position: relative;
+  margin: 0 16px 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.userSearchInput {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(30, 30, 30, 0.5);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+}
+
+.userSearchInput:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.userSearchInput::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.userSearchResults {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-dark);
+  border-radius: 6px;
+  margin-top: 4px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(77, 184, 184, 0.2);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.userResult {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.userResult:last-child {
+  border-bottom: none;
+}
+
+.userResult:hover {
+  background-color: rgba(77, 184, 184, 0.1);
+}
+
+.userResultAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent-primary);
+}
+
+.userResultName {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.noResults {
+  padding: 12px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }

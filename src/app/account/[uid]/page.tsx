@@ -37,6 +37,7 @@ export default function AccountPage() {
   const [profile, setProfile]         = useState<ProfileData|null>(null)
   const [loading, setLoading]         = useState(true)
   const [saving, setSaving]           = useState(false)
+  const [tooltipOpen, setTooltipOpen] = useState<string|null>(null)
   const [stats, setStats] = useState<{
     invCount: number
     totalInvested: number
@@ -125,7 +126,38 @@ export default function AccountPage() {
     return <p style={{ padding:'2rem', textAlign:'center' }}>Loading…</p>
   }
 
-  const createdDate = profile.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown'
+  const createdDate = (() => {
+    // Try profile.createdAt first
+    if (profile.createdAt) {
+      try {
+        // Try Firestore Timestamp first
+        if (typeof profile.createdAt.toDate === 'function') {
+          return profile.createdAt.toDate().toLocaleDateString()
+        }
+        
+        // Try if it's a Firestore timestamp object with seconds
+        if (profile.createdAt.seconds) {
+          return new Date(profile.createdAt.seconds * 1000).toLocaleDateString()
+        }
+        
+        // Try direct Date conversion
+        return new Date(profile.createdAt as any).toLocaleDateString()
+      } catch {
+        // Fall through to Firebase Auth fallback
+      }
+    }
+    
+    // Fallback to Firebase Auth creation time for existing accounts
+    if (currentUser?.metadata?.creationTime) {
+      try {
+        return new Date(currentUser.metadata.creationTime).toLocaleDateString()
+      } catch {
+        return 'Unknown'
+      }
+    }
+    
+    return 'Unknown'
+  })()
 
   // toggle public/private
   const toggleVisibility = async () => {
@@ -174,18 +206,27 @@ export default function AccountPage() {
             )}
 
             <div className={styles.detailCard}>
-              <h4>Online Rating</h4>
-              <p className={styles.value}>{profile.rating}</p>
-            </div>
-
-            <div className={styles.detailCard}>
               <h4>Account Created</h4>
               <p className={styles.value}>{createdDate}</p>
             </div>
 
             {isOwner ? (
               <div className={styles.detailCard}>
-                <h4>Investments Visibility</h4>
+                <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                  <h4>Investments Visibility</h4>
+                  <button
+                    className={styles.tooltipBtn}
+                    onClick={e => {
+                      e.stopPropagation()
+                      setTooltipOpen(open => open === 'investments' ? null : 'investments')
+                    }}
+                  >?</button>
+                  {tooltipOpen === 'investments' && (
+                    <div className={styles.tooltipPopup} onClick={e => e.stopPropagation()}>
+                      Public investments are viewable by anyone visiting your profile. Private investments are only visible to you.
+                    </div>
+                  )}
+                </div>
                 <label className={styles.switch}>
                   <input
                     type="checkbox"
@@ -206,7 +247,7 @@ export default function AccountPage() {
                 <div className={styles.detailCard}>
                   <Link
                     href={`/investment/${viewingUid}`}
-                    className="btn btn-primary"
+                    className="btn btn-secondary"
                   >
                     View {profile.username}’s Investments
                   </Link>
