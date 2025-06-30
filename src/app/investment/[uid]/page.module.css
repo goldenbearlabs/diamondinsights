@@ -415,6 +415,14 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.playerCell:hover {
+  background-color: rgba(18, 99, 221, 0.08);
+  transform: translateY(-1px);
 }
 
 .cardIcon {

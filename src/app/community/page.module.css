@@ -527,3 +527,142 @@
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
+
+/* Section Header */
+.sectionHeader {
+  padding: 16px 16px 8px;
+  margin-top: 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Trending Cards Grid */
+.trendingGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.trendingCard {
+  background: var(--bg-medium);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+
+.trendingCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.trendingRank {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: var(--accent-primary);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 12px;
+  min-width: 24px;
+}
+
+.trendingCardImage {
+  width: 120px;
+  height: auto;
+  border-radius: 8px;
+  margin: 8px 0 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.trendingCardImage:hover {
+  transform: scale(1.05);
+}
+
+.trendingCardInfo {
+  width: 100%;
+}
+
+.trendingCardName {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--text-primary);
+}
+
+.trendingCardMeta {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.trendingVotes {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.upvotes {
+  color: #10b981;
+}
+
+.downvotes {
+  color: #ef4444;
+}
+
+.netVotes {
+  color: var(--accent-primary);
+  font-weight: 700;
+}
+
+/* Refresh Button */
+.refreshButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: auto;
+}
+
+.refreshButton:hover:not(:disabled) {
+  background: #0a4daf;
+  transform: translateY(-1px);
+}
+
+.refreshButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

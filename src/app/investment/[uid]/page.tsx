@@ -537,7 +537,11 @@ export default function InvestmentPage() {
                       <React.Fragment key={i.id}>
                         <tr>
                           <td>
-                            <div className={styles.playerCell}>
+                            <div 
+                              className={styles.playerCell}
+                              onClick={() => router.push(`/player/${i.playerUUID}`)}
+                              style={{ cursor: 'pointer' }}
+                            >
                               {c?.baked_img ? (
                                 <img src={c.baked_img} alt={c.name} className={styles.cardIcon} />
                               ) : (

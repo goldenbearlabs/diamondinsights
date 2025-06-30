@@ -19,6 +19,7 @@ import {
   FaCrown,
   FaUsers,
   FaDiscord,
+  FaTwitter,
   FaInstagram,
   FaTiktok
 } from 'react-icons/fa'
@@ -246,7 +247,7 @@ export default function LandingPage() {
             <p>Connect with thousands of MLB The Show investors</p>
           </div>
           <div className={styles.communityCta}>
-            <a href="#" className={styles.communityLink}><FaDiscord /> Join Discord</a>
+            <a href="#" className={styles.communityLink}><FaTwitter /> Follow on Twitter</a>
             <a href="#" className={styles.communityLink}><FaInstagram /> Follow on Instagram</a>
             <a href="#" className={styles.communityLink}><FaTiktok /> Follow on TikTok</a>
           </div>

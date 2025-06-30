@@ -10,7 +10,9 @@ import {
   FaSyncAlt,
   FaDollarSign,
   FaHeart,
-  FaReply
+  FaReply,
+  FaFire,
+  FaSync
 } from 'react-icons/fa'
 
 interface Message {
@@ -33,12 +35,28 @@ interface UserSearchResult {
   profilePic: string
 }
 
+interface TrendingCard {
+  id: string
+  name: string
+  team_short_name: string
+  display_position: string
+  baked_img: string
+  ovr: number
+  predicted_rank: number
+  delta_rank_pred: number
+  upvotes: number
+  downvotes: number
+  netVotes: number
+  totalVotes: number
+}
+
 const TABS = [
-  { key: 'live',   label: 'Live Comments', icon: <FaBroadcastTower /> },
-  { key: 'main',   label: 'Main Chat',     icon: <FaComments      /> },
-  { key: 'invest', label: 'Investing',     icon: <FaChartLine     /> },
-  { key: 'flip',   label: 'Flipping',      icon: <FaSyncAlt       /> },
-  { key: 'stub',   label: 'Stub Making',   icon: <FaDollarSign    /> },
+  { key: 'live',     label: 'Live Comments', icon: <FaBroadcastTower /> },
+  { key: 'trending', label: 'Trending',      icon: <FaFire           /> },
+  { key: 'main',     label: 'Main Chat',     icon: <FaComments       /> },
+  { key: 'invest',   label: 'Investing',     icon: <FaChartLine      /> },
+  { key: 'flip',     label: 'Flipping',      icon: <FaSyncAlt        /> },
+  { key: 'stub',     label: 'Stub Making',   icon: <FaDollarSign     /> },
 ] as const
 
 export default function CommunityPage() {
@@ -51,6 +69,8 @@ export default function CommunityPage() {
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [cardThumbs, setCardThumbs] = useState<Record<string, string>>({})
   const [cardNames, setCardNames]   = useState<Record<string, string>>({})
+  const [trendingCards, setTrendingCards] = useState<TrendingCard[]>([])
+  const [trendingLoading, setTrendingLoading] = useState(false)
   
   // User search state
   const [userSearch, setUserSearch] = useState('')
@@ -62,6 +82,23 @@ export default function CommunityPage() {
   const userSearchRef  = useRef<HTMLDivElement>(null)
 
   useEffect(() => onAuthStateChanged(auth, u => setUser(u)), [auth])
+
+  // Function to fetch trending cards
+  const fetchTrendingCards = async () => {
+    setTrendingLoading(true)
+    try {
+      const response = await fetch('/api/trending/cards', {
+        cache: 'no-store' // Ensure fresh data
+      })
+      const data: TrendingCard[] = await response.json()
+      setTrendingCards(data)
+    } catch (error) {
+      console.error('Error fetching trending cards:', error)
+      setTrendingCards([])
+    } finally {
+      setTrendingLoading(false)
+    }
+  }
 
   // User search effect
   useEffect(() => {
@@ -101,7 +138,24 @@ export default function CommunityPage() {
     }
   }, [userSearchOpen])
 
+  // Auto-refresh trending data on window focus
   useEffect(() => {
+    const handleFocus = () => {
+      if (activeTab === 'trending') {
+        fetchTrendingCards()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab === 'trending') {
+      fetchTrendingCards()
+      return
+    }
+
     setLoading(true)
     setMsgs([])
     setReplyTo(null)
@@ -271,7 +325,37 @@ export default function CommunityPage() {
             )}
           </div>
           <nav className={styles.tabs}>
-            {TABS.map(t => (
+            {/* Live Comments */}
+            <button
+              key="live"
+              className={`${styles.tab} ${activeTab==='live'?styles.active:''}`}
+              onClick={()=>{
+                setActive('live')
+                setReplyTo(null)
+              }}
+            >
+              <span className={styles.tabIcon}><FaBroadcastTower /></span>
+              <span className={styles.tabLabel}>Live Comments</span>
+            </button>
+
+            {/* Trending */}
+            <button
+              key="trending"
+              className={`${styles.tab} ${activeTab==='trending'?styles.active:''}`}
+              onClick={()=>{
+                setActive('trending')
+                setReplyTo(null)
+              }}
+            >
+              <span className={styles.tabIcon}><FaFire /></span>
+              <span className={styles.tabLabel}>Trending</span>
+            </button>
+
+            {/* Chat Rooms Section */}
+            <div className={styles.sectionHeader}>Chat Rooms</div>
+            
+            {/* Chat Room Tabs */}
+            {TABS.slice(2).map(t => (
               <button
                 key={t.key}
                 className={`${styles.tab} ${activeTab===t.key?styles.active:''}`}
@@ -322,40 +406,90 @@ export default function CommunityPage() {
                 {TABS.find(t=>t.key===activeTab)?.label}
               </h3>
             </div>
+            {activeTab === 'trending' && (
+              <button 
+                className={styles.refreshButton}
+                onClick={fetchTrendingCards}
+                disabled={trendingLoading}
+                title="Refresh trending data"
+              >
+                <FaSync className={trendingLoading ? styles.spinning : ''} />
+                Refresh
+              </button>
+            )}
           </header>
 
           <div className={styles.messagesContainer}>
-            {loading
-              ? <div className={styles.loadingContainer}>
+            {activeTab === 'trending' ? (
+              trendingLoading ? (
+                <div className={styles.loadingContainer}>
                   <div className={styles.loadingSpinner}></div>
-                  <p>Loading messages…</p>
+                  <p>Loading trending cards…</p>
                 </div>
-              : msgs.length===0
-                ? <div className={styles.emptyState}>
-                    <div className={styles.emptyIcon}>💬</div>
-                    <h4>No messages yet</h4>
-                    <p>Be the first to start the conversation!</p>
-                  </div>
-                : <ul className={styles.messages}>
-                    {buildTree(msgs).map(m => (
-                      <MessageItem
-                        key={m.id}
-                        msg={m}
-                        depth={0}
-                        isLive={activeTab==='live'}
-                        thumb={cardThumbs[m.playerId!]||''}
-                        cardName={cardNames[m.playerId!]||''}
-                        userLoggedIn={!!user}
-                        onReply={setReplyTo}
-                        onLike={toggleLike}
+              ) : trendingCards.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <div className={styles.emptyIcon}>🔥</div>
+                  <h4>No trending cards yet</h4>
+                  <p>Cards with votes will appear here!</p>
+                </div>
+              ) : (
+                <div className={styles.trendingGrid}>
+                  {trendingCards.map((card, index) => (
+                    <div key={card.id} className={styles.trendingCard}>
+                      <div className={styles.trendingRank}>#{index + 1}</div>
+                      <img 
+                        src={card.baked_img} 
+                        alt={card.name}
+                        className={styles.trendingCardImage}
+                        onClick={() => window.location.href = `/player/${card.id}`}
                       />
-                    ))}
-                    <div ref={messagesEndRef}/>
-                  </ul>
-            }
+                      <div className={styles.trendingCardInfo}>
+                        <h4 className={styles.trendingCardName}>{card.name}</h4>
+                        <div className={styles.trendingCardMeta}>
+                          {card.team_short_name} • {card.display_position} • {card.ovr} OVR
+                        </div>
+                        <div className={styles.trendingVotes}>
+                          <span className={styles.upvotes}>↑ {card.upvotes}</span>
+                          <span className={styles.downvotes}>↓ {card.downvotes}</span>
+                          <span className={styles.netVotes}>Net: {card.netVotes > 0 ? '+' : ''}{card.netVotes}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : (
+              loading
+                ? <div className={styles.loadingContainer}>
+                    <div className={styles.loadingSpinner}></div>
+                    <p>Loading messages…</p>
+                  </div>
+                : msgs.length===0
+                  ? <div className={styles.emptyState}>
+                      <div className={styles.emptyIcon}>💬</div>
+                      <h4>No messages yet</h4>
+                      <p>Be the first to start the conversation!</p>
+                    </div>
+                  : <ul className={styles.messages}>
+                      {buildTree(msgs).map(m => (
+                        <MessageItem
+                          key={m.id}
+                          msg={m}
+                          depth={0}
+                          isLive={activeTab==='live'}
+                          thumb={cardThumbs[m.playerId!]||''}
+                          cardName={cardNames[m.playerId!]||''}
+                          userLoggedIn={!!user}
+                          onReply={setReplyTo}
+                          onLike={toggleLike}
+                        />
+                      ))}
+                      <div ref={messagesEndRef}/>
+                    </ul>
+            )}
           </div>
 
-          {activeTab !== 'live' && (
+          {activeTab !== 'live' && activeTab !== 'trending' && (
             <div className={styles.formWrap}>
               {replyTo && (
                 <div className={styles.replyIndicator}>

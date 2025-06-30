@@ -78,6 +78,11 @@ export default function CardPage() {
   const [user, setUser]         = useState<User|null>(auth.currentUser)
   const [sortBy, setSortBy]     = useState<SortBy>('recent')
   const [openReplies, setOpenReplies] = useState<Record<string,boolean>>({})
+  const [votes, setVotes] = useState<{upvotes: number, downvotes: number, userVote: 'up'|'down'|null}>({
+    upvotes: 0,
+    downvotes: 0,
+    userVote: null
+  })
   useEffect(() => onAuthStateChanged(auth, u => setUser(u)), [])
 
   // fixed destructuring
@@ -103,12 +108,45 @@ export default function CardPage() {
     return d > 0 ? (n * 9 / d).toFixed(digits) : '–'
   }
 
+  // Helper function to render text with @mentions highlighted
+  const renderCommentText = (text: string) => {
+    const mentionRegex = /@(\w+)/g
+    const parts = text.split(mentionRegex)
+    
+    return parts.map((part, index) => {
+      // Every odd index is a username from the regex capture group
+      if (index % 2 === 1) {
+        return (
+          <span key={index} className={styles.mention}>
+            @{part}
+          </span>
+        )
+      }
+      return part
+    })
+  }
+
   useEffect(() => {
-    if (!commentsOpen || !card) return
+    if (!card) return
     fetch(`/api/cards/${card.id}/comments`)
       .then(r => r.json())
       .then((comms: Comment[]) => setComments(comms))
-  }, [commentsOpen, card])
+  }, [card])
+
+  // Fetch vote data when card loads
+  useEffect(() => {
+    if (!card) return
+    fetch(`/api/cards/${card.id}/votes`)
+      .then(r => r.json())
+      .then((voteData) => {
+        setVotes(prev => ({
+          ...prev,
+          upvotes: voteData.upvotes || 0,
+          downvotes: voteData.downvotes || 0
+        }))
+      })
+      .catch(err => console.error('Failed to fetch votes:', err))
+  }, [card])
 
   if (loading) return <p className={styles.loading}>Loading…</p>
   if (!card)  return <p className={styles.error}>Not found.</p>
@@ -116,12 +154,30 @@ export default function CardPage() {
   const postComment = async () => {
     if (!newComment.trim()) return
     if (!user) return router.push('/login')
+    
+    let finalText = newComment
+    let finalParentId = replyTo
+    
+    // If replying to someone, add @username and flatten the reply structure
+    if (replyTo) {
+      const replyTarget = comments.find(c => c.id === replyTo)
+      if (replyTarget) {
+        // Add @username if not already present
+        if (!newComment.toLowerCase().startsWith(`@${replyTarget.username.toLowerCase()}`)) {
+          finalText = `@${replyTarget.username} ${newComment}`
+        }
+        
+        // Flatten: if replying to a reply, make it a reply to the root comment instead
+        finalParentId = replyTarget.parentId || replyTarget.id
+      }
+    }
+    
     await fetch(`/api/cards/${card!.id}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        text:     newComment,
-        parentId: replyTo,
+        text:     finalText,
+        parentId: finalParentId,
         userId:   user.uid
       })
     })
@@ -167,6 +223,79 @@ export default function CardPage() {
     ))
   }
 
+  const deleteComment = async (cid: string) => {
+    if (!user) return router.push('/login')
+    
+    // Confirmation dialog
+    if (!window.confirm('Are you sure you want to delete this comment? This action cannot be undone.')) {
+      return
+    }
+    
+    try {
+      const token = await user.getIdToken()
+      const response = await fetch(`/api/cards/${card!.id}/comments/${cid}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        alert(error.error || 'Failed to delete comment')
+        return
+      }
+      
+      // Refetch all comments to ensure accurate count and state
+      const res = await fetch(`/api/cards/${card!.id}/comments`)
+      setComments(await res.json())
+      
+    } catch (error) {
+      console.error('Delete comment error:', error)
+      alert('Failed to delete comment. Please try again.')
+    }
+  }
+
+  const handleVote = async (voteType: 'up' | 'down') => {
+    if (!user) return router.push('/login')
+    if (!card) return
+
+    try {
+      const token = await user.getIdToken()
+      
+      // If user clicks the same vote they already made, remove it
+      const method = votes.userVote === voteType ? 'DELETE' : 'POST'
+      const body = method === 'POST' ? JSON.stringify({ vote: voteType }) : undefined
+      
+      const response = await fetch(`/api/cards/${card.id}/votes`, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        alert(error.error || 'Failed to submit vote')
+        return
+      }
+      
+      const result = await response.json()
+      setVotes({
+        upvotes: result.upvotes,
+        downvotes: result.downvotes,
+        userVote: result.userVote
+      })
+      
+    } catch (error) {
+      console.error('Vote error:', error)
+      alert('Failed to submit vote. Please try again.')
+    }
+  }
+
   console.log(card)
 
   return (
@@ -179,7 +308,7 @@ export default function CardPage() {
         }}
       >
         <FaArrowLeft />
-        Back to Predictions
+        Back
       </button>
 
       {/* Header */}
@@ -195,6 +324,24 @@ export default function CardPage() {
         <div className={styles.playerBasicInfo}>
           <div className={styles.playerNameRow}>
             <h1 className={styles.playerName}>{card.name}</h1>
+            <div className={styles.voteButtons}>
+              <button 
+                className={`${styles.voteBtn} ${styles.upvoteBtn} ${votes.userVote === 'up' ? styles.active : ''}`}
+                onClick={() => handleVote('up')}
+                disabled={!user}
+                title={user ? 'Upvote this prediction' : 'Login to vote'}
+              >
+                ↑ {votes.upvotes}
+              </button>
+              <button 
+                className={`${styles.voteBtn} ${styles.downvoteBtn} ${votes.userVote === 'down' ? styles.active : ''}`}
+                onClick={() => handleVote('down')}
+                disabled={!user}
+                title={user ? 'Downvote this prediction' : 'Login to vote'}
+              >
+                ↓ {votes.downvotes}
+              </button>
+            </div>
             <div className={styles.playerMeta}>
               <span>{card.team_short_name}</span>
               <span>{card.display_position}</span>
@@ -322,18 +469,13 @@ export default function CardPage() {
                 <div className={styles.newCommentForm}>
                   <textarea
                     placeholder="Add a comment…"
-                    value={newComment}
-                    onChange={e => setNewComment(e.target.value)}
+                    value={replyTo ? '' : newComment}
+                    onChange={e => !replyTo && setNewComment(e.target.value)}
+                    disabled={!!replyTo}
                   />
-                  <button onClick={postComment}>Post</button>
-                  {replyTo && (
-                    <button
-                      onClick={() => setReplyTo(null)}
-                      className={styles.cancelReply}
-                    >
-                      Cancel reply
-                    </button>
-                  )}
+                  <button onClick={postComment} disabled={!!replyTo}>
+                    Post
+                  </button>
                 </div>
               ) : (
                 <p><Link href="/login">Log in</Link> to leave a comment.</p>
@@ -361,7 +503,7 @@ export default function CardPage() {
                       </span>
                     </div>
 
-                    <p className={styles.commentText}>{c.text}</p>
+                    <p className={styles.commentText}>{renderCommentText(c.text)}</p>
 
                     <div className={styles.commentActions}>
                       <button
@@ -378,7 +520,41 @@ export default function CardPage() {
                           Reply
                         </button>
                       )}
+                      {user && c.userId === user.uid && (
+                        <button
+                          className={styles.deleteButton}
+                          onClick={() => deleteComment(c.id)}
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
+
+                    {/* Inline Reply Form */}
+                    {replyTo === c.id && user && (
+                      <div className={styles.inlineReplyForm}>
+                        <textarea
+                          placeholder={`Reply to @${c.username}…`}
+                          value={newComment}
+                          onChange={e => setNewComment(e.target.value)}
+                          autoFocus
+                        />
+                        <div className={styles.replyActions}>
+                          <button onClick={postComment} disabled={!newComment.trim()}>
+                            Reply
+                          </button>
+                          <button
+                            onClick={() => {
+                              setReplyTo(null)
+                              setNewComment('')
+                            }}
+                            className={styles.cancelReplyBtn}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* ─── Show / Hide Replies ──────────────────────────────── */}
                     {repliesMap[c.id]?.length > 0 && (
@@ -415,7 +591,7 @@ export default function CardPage() {
                                   </span>
                                 </div>
 
-                                <p className={styles.commentText}>{r.text}</p>
+                                <p className={styles.commentText}>{renderCommentText(r.text)}</p>
 
                                 <div className={styles.commentActions}>
                                   <button
@@ -434,7 +610,41 @@ export default function CardPage() {
                                       Reply
                                     </button>
                                   )}
+                                  {user && r.userId === user.uid && (
+                                    <button
+                                      className={styles.deleteButton}
+                                      onClick={() => deleteComment(r.id)}
+                                    >
+                                      Delete
+                                    </button>
+                                  )}
                                 </div>
+
+                                {/* Inline Reply Form for nested replies */}
+                                {replyTo === r.id && user && (
+                                  <div className={styles.inlineReplyForm}>
+                                    <textarea
+                                      placeholder={`Reply to @${r.username}…`}
+                                      value={newComment}
+                                      onChange={e => setNewComment(e.target.value)}
+                                      autoFocus
+                                    />
+                                    <div className={styles.replyActions}>
+                                      <button onClick={postComment} disabled={!newComment.trim()}>
+                                        Reply
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setReplyTo(null)
+                                          setNewComment('')
+                                        }}
+                                        className={styles.cancelReplyBtn}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
                               </li>
                             ))}
                           </ul>
