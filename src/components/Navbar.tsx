@@ -115,6 +115,44 @@ export default function Navbar() {
             >
               Community
             </Link>
+            
+            {/* Mobile-only account links */}
+            <div className={styles.mobileAccountLinks}>
+              {user ? (
+                <>
+                  <Link
+                    href={accountHref}
+                    className={styles.mobileAccountLink}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <FaUser /> My Account
+                  </Link>
+                  <button 
+                    onClick={() => signOut(auth)} 
+                    className={styles.mobileAccountLink}
+                  >
+                    <FaSignOutAlt /> Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link 
+                    href="/login" 
+                    className={styles.mobileAccountLink}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <FaUser /> Login
+                  </Link>
+                  <Link 
+                    href="/signup" 
+                    className={styles.mobileSignUpLink}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Sign Up
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
 
           <div className={styles.autocompleteContainer}>
@@ -177,32 +215,6 @@ export default function Navbar() {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Mobile auth buttons */}
-        <div className={styles.authButtonsMobile}>
-          {user ? (
-            <div className={styles.mobileUserSection}>
-              <Link href={accountHref} className={styles.profilePicLinkMobile}>
-                <img
-                  src={user.photoURL || '/placeholder-user.png'}
-                  alt={user.displayName || 'Profile'}
-                  className={styles.profilePicMobile}
-                />
-              </Link>
-              <button 
-                onClick={() => signOut(auth)} 
-                className="btn btn-secondary"
-              >
-                Logout
-              </button>
-            </div>
-          ) : (
-            <>
-              <Link href="/signup" className="btn btn-primary">Sign Up</Link>
-              <Link href="/login" className="btn btn-secondary">Login</Link>
-            </>
-          )}
         </div>
       </div>
     </nav>

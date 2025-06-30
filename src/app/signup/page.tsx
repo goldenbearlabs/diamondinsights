@@ -159,19 +159,6 @@ export default function SignupPage() {
             />
           </div>
 
-          <div className={styles.formGroup}>
-            <label htmlFor="rating">Skill Rating (100–2000)</label>
-            <input
-              id="rating"
-              type="number"
-              className={styles.formInput}
-              value={rating || ''}
-              onChange={e => setRating(+e.target.value)}
-              min={100}
-              max={2000}
-            />
-          </div>
-
           <div className={styles.fileUpload}>
             <label htmlFor="file" className={styles.fileLabel}>
               <FaCloudUploadAlt/> Upload Profile Pic (optional)

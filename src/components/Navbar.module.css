@@ -347,3 +347,67 @@
       display: none;
     }
   }
+
+  /* Add these new styles to your CSS */
+.mobileAccountLinks {
+  display: none; /* Hidden on desktop */
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  margin-top: 1rem;
+}
+
+.mobileAccountLink {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  background: rgba(255,255,255,0.05);
+  border-radius: var(--border-radius);
+  transition: background 0.3s ease;
+}
+
+.mobileAccountLink:hover {
+  background: rgba(77,184,184,0.15);
+  color: var(--accent-secondary);
+}
+
+.mobileSignUpLink {
+  display: block;
+  padding: 0.75rem 1rem;
+  background: var(--accent-primary);
+  color: white;
+  border-radius: var(--border-radius);
+  text-decoration: none;
+  text-align: center;
+  font-weight: 600;
+  transition: background 0.3s ease;
+}
+
+.mobileSignUpLink:hover {
+  background: var(--accent-primary-dark);
+}
+
+/* Remove the old mobile auth buttons */
+.authButtonsMobile {
+  display: none !important;
+}
+
+/* Show mobile account links only on mobile */
+@media (max-width: 1024px) {
+  .mobileAccountLinks {
+    display: flex;
+  }
+  
+  .userDropdown {
+    display: none;
+  }
+  
+  .authLinks {
+    display: none;
+  }
+}
