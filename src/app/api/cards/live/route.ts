@@ -111,7 +111,7 @@ export async function GET() {
   return NextResponse.json(merged, {
     status: 200,
     headers: {
-      'Cache-Control': 'public, max-age=600, s-maxage=600, stale-while-revalidate=300'
+      'Cache-Control': 'public, max-age=900, s-maxage=900, stale-while-revalidate=600'
     }
   })
 }

@@ -1,4 +1,5 @@
 'use client'
+
 import React, { useState, useEffect, useRef } from 'react'
 import styles from './page.module.css'
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth'
@@ -50,6 +51,9 @@ interface TrendingCard {
   totalVotes: number
 }
 
+// Recursive message type with replies
+type MessageTree = Message & { replies: MessageTree[] }
+
 const TABS = [
   { key: 'live',     label: 'Live Comments', icon: <FaBroadcastTower /> },
   { key: 'trending', label: 'Trending',      icon: <FaFire           /> },
@@ -63,7 +67,7 @@ export default function CommunityPage() {
   const auth = getAuth()
   const [user, setUser] = useState<User | null>(null)
   const [activeTab, setActive] = useState<typeof TABS[number]['key']>('live')
-  const [msgs, setMsgs] = useState<Message[]>([])
+  const [msgs, setLoadingMsgs] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
   const [newText, setNewText] = useState('')
   const [replyTo, setReplyTo] = useState<string | null>(null)
@@ -88,7 +92,7 @@ export default function CommunityPage() {
     setTrendingLoading(true)
     try {
       const response = await fetch('/api/trending/cards', {
-        cache: 'no-store' // Ensure fresh data
+        cache: 'no-store'
       })
       const data: TrendingCard[] = await response.json()
       setTrendingCards(data)
@@ -121,7 +125,7 @@ export default function CommunityPage() {
       }
     }
 
-    const timeoutId = setTimeout(searchUsers, 300) // Debounce
+    const timeoutId = setTimeout(searchUsers, 300)
     return () => clearTimeout(timeoutId)
   }, [userSearch])
 
@@ -157,7 +161,7 @@ export default function CommunityPage() {
     }
 
     setLoading(true)
-    setMsgs([])
+    setLoadingMsgs([])
     setReplyTo(null)
     setCardThumbs({})
     setCardNames({})
@@ -171,12 +175,16 @@ export default function CommunityPage() {
       .then(r => r.json())
       .then(async (data: Message[]) => {
         data.forEach(m => { if (m.likes == null) m.likes = 0 })
-        setMsgs(data)
+        setLoadingMsgs(data)
 
         if (activeTab === 'live') {
+          // filter out undefined and narrow type to string
           const ids = Array.from(new Set(
-            data.map(m => m.playerId).filter(Boolean)
+            data
+              .map(m => m.playerId)
+              .filter((x): x is string => Boolean(x))
           ))
+
           const thumbs: Record<string, string> = {}
           const names:  Record<string, string> = {}
 
@@ -202,13 +210,17 @@ export default function CommunityPage() {
       Math.min(textareaRef.current.scrollHeight, 150) + 'px'
   }, [newText])
 
-  const buildTree = (list: Message[]) => {
-    const byId: Record<string, (Message & { replies: Message[] })> = {}
+  // Build a tree of messages with replies
+  const buildTree = (list: Message[]): MessageTree[] => {
+    const byId: Record<string, MessageTree> = {}
     list.forEach(m => byId[m.id] = { ...m, replies: [] })
-    const roots: (Message & { replies: Message[] })[] = []
+    const roots: MessageTree[] = []
     Object.values(byId).forEach(m => {
-      if (m.parentId && byId[m.parentId]) byId[m.parentId].replies.push(m)
-      else roots.push(m)
+      if (m.parentId && byId[m.parentId]) {
+        byId[m.parentId].replies.push(m)
+      } else {
+        roots.push(m)
+      }
     })
     return roots
   }
@@ -241,7 +253,7 @@ export default function CommunityPage() {
     const r2 = await fetch(endpoint)
     const data = await r2.json()
     data.forEach((m:Message)=>{ if (m.likes==null) m.likes=0 })
-    setMsgs(data)
+    setLoadingMsgs(data)
   }
 
   async function toggleLike(id: string) {
@@ -260,7 +272,7 @@ export default function CommunityPage() {
     )
     if (!res.ok) return console.error('Like failed', await res.json())
     const { toggled } = await res.json()
-    setMsgs(ms => ms.map(m =>
+    setLoadingMsgs(ms => ms.map(m =>
         m.id===id
             ? {
                 ...m,
@@ -541,15 +553,15 @@ export default function CommunityPage() {
 
 function MessageItem({
   msg, depth, isLive, thumb, cardName, userLoggedIn, onReply, onLike
-}:{
-  msg: Message & { replies: Message[] },
+}: {
+  msg: MessageTree,
   depth: number,
   isLive: boolean,
   thumb: string,
   cardName: string,
   userLoggedIn: boolean,
-  onReply: (id:string)=>void,
-  onLike: (id:string)=>void
+  onReply: (id: string) => void,
+  onLike: (id: string) => void
 }) {
   const [showTime, setShowTime]   = useState(false)
   const [collapsed, setCollapsed] = useState(true)
@@ -614,7 +626,7 @@ function MessageItem({
         </div>
       </div>
 
-      {msg.replies.length>0 && (
+      {msg.replies.length > 0 && (
         <>
           <button
             className={styles.collapseBtn}

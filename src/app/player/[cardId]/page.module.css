@@ -831,3 +831,22 @@
   color: var(--text-secondary);
   z-index: 5;
 }
+
+.quantityInput,
+.investmentEdit input,
+.ovrInput {
+  padding: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--bg-medium);
+  background: rgba(40, 40, 40, 0.5);
+  color: var(--text-primary);
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.quantityInput:focus,
+.investmentEdit input:focus,
+.ovrInput:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}

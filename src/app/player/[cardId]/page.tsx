@@ -60,7 +60,7 @@ interface Card {
   height: string
   weight: string
 
-  is_hitter: boolean
+  is_hitter: boolean | string
 
   // any other dynamic stats...
   [key: string]: any
@@ -104,7 +104,7 @@ export default function CardPage() {
 
   // helper to compute rate stats for pitchers
   const rate = (numKey: string, denKey: string, digits = 1) => {
-    const n = Number(card[numKey]), d = Number(card[denKey])
+    const n = Number(card![numKey]), d = Number(card![denKey])
     return d > 0 ? (n * 9 / d).toFixed(digits) : '–'
   }
 
@@ -196,7 +196,7 @@ export default function CardPage() {
   })
 
   const sortedThreads = [...threads].sort((a,b) => {
-    if (sortBy === 'recent') return (b.timestamp - a.timestamp)
+    if (sortBy === 'recent') return (b.timestamp! - a.timestamp!)
     if (sortBy === 'liked')  return b.likes.length - a.likes.length
     if (sortBy === 'replies')
       return (repliesMap[b.id]?.length || 0) - (repliesMap[a.id]?.length || 0)
@@ -296,7 +296,59 @@ export default function CardPage() {
     }
   }
 
-  console.log(card)
+  const hitterGroups: [string, [string, string][]][] = [
+    [
+      'Hitting',
+      [
+        ['Contact vs L', 'contact_left'],
+        ['Contact vs R', 'contact_right'],
+        ['Power vs L',   'power_left'],
+        ['Power vs R',   'power_right'],
+        ['Plate Vision', 'plate_vision'],
+        ['Batting Clutch','batting_clutch'],
+      ],
+    ],
+    [
+      'Fielding',
+      [
+        ['Fielding Ability','fielding_ability'],
+        ['Arm Strength',    'arm_strength'],
+        ['Arm Accuracy',    'arm_accuracy'],
+        ['Reaction Time',   'reaction_time'],
+        ['Blocking',        'blocking'],
+      ],
+    ],
+    [
+      'Running',
+      [
+        ['Speed',      'speed'],
+        ['Stealing',   'baserunning_ability'],
+        ['Aggression', 'baserunning_aggression'],
+      ],
+    ],
+  ]
+  
+  const pitcherGroups: [string, [string, string][]][] = [
+    [
+      'Pitching',
+      [
+        ['Stamina',         'stamina'],
+        ['Pitching Clutch','pitching_clutch'],
+        ['Hits/BF',         'hits_per_bf'],
+        ['K/BF',            'k_per_bf'],
+        ['BB/BF',           'bb_per_bf'],
+        ['HR/BF',           'hr_per_bf'],
+      ],
+    ],
+    [
+      'Pitch Attributes',
+      [
+        ['Velocity',      'pitch_velocity'],
+        ['Pitch Control', 'pitch_control'],
+        ['Pitch Movement','pitch_movement'],
+      ],
+    ],
+  ]
 
   return (
     <main className={styles.playerPageContainer}>
@@ -499,7 +551,7 @@ export default function CardPage() {
                         {c.username}
                       </button>
                       <span className={styles.commentTime}>
-                        {new Date(c.timestamp).toLocaleString()}
+                        {new Date(c.timestamp!).toLocaleString()}
                       </span>
                     </div>
 
@@ -587,7 +639,7 @@ export default function CardPage() {
                                     {r.username}
                                   </button>
                                   <span className={styles.commentTime}>
-                                    {new Date(r.timestamp).toLocaleString()}
+                                    {new Date(r.timestamp!).toLocaleString()}
                                   </span>
                                 </div>
 
@@ -664,170 +716,61 @@ export default function CardPage() {
       <section className={styles.playerSection}>
         <h2 className={styles.sectionTitle}>Attributes</h2>
         <div className={styles.attributesContainer}>
-          {card.is_hitter ? (
-            <>
-              {[
-                [
-                  'Hitting',
-                  [
-                    ['Contact vs L', 'contact_left'],
-                    ['Contact vs R', 'contact_right'],
-                    ['Power vs L',   'power_left'],
-                    ['Power vs R',   'power_right'],
-                    ['Plate Vision', 'plate_vision'],
-                    ['Batting Clutch','batting_clutch'],
-                  ],
-                ],
-                [
-                  'Fielding',
-                  [
-                    ['Fielding Ability','fielding_ability'],
-                    ['Arm Strength',    'arm_strength'],
-                    ['Arm Accuracy',    'arm_accuracy'],
-                    ['Reaction Time',   'reaction_time'],
-                    ['Blocking',        'blocking'],
-                  ],
-                ],
-                [
-                  'Running',
-                  [
-                    ['Speed',      'speed'],
-                    ['Stealing',   'baserunning_ability'],
-                    ['Aggression', 'baserunning_aggression'],
-                  ],
-                ],
-              ].map(([groupTitle, attrs]) => (
-                <div key={groupTitle} className={styles.attributesGroup}>
-                  <h3 className={styles.groupTitle}>{groupTitle}</h3>
-                  {attrs.map(([label, key]) => {
-                    const currentVal   = Number(card[key] ?? 0)
-                    const predictedVal = Number(card[`${key}_new_pred`] ?? currentVal)
-                    const currentPct   = (currentVal   / 125) * 100
-                    const predictedPct = (predictedVal / 125) * 100
-                    const delta        = predictedVal - currentVal
-                    const isUpgrade    = delta > 0
-                    const isDowngrade  = delta < 0
+          {(card.is_hitter ? hitterGroups : pitcherGroups).map(
+            ([groupTitle, attrs]) => (
+              <div key={groupTitle} className={styles.attributesGroup}>
+                <h3 className={styles.groupTitle}>{groupTitle}</h3>
+                {attrs.map(([label, key]) => {
+                  const currentVal   = Number(card[key] ?? 0)
+                  const predictedVal = Number(card[`${key}_new_pred`] ?? currentVal)
+                  const currentPct   = (currentVal   / 125) * 100
+                  const predictedPct = (predictedVal / 125) * 100
+                  const delta        = predictedVal - currentVal
+                  const isUpgrade    = delta > 0
+                  const isDowngrade  = delta < 0
 
-                    return (
-                      <div key={label} className={styles.attributeRow}>
-                        <span className={styles.attributeLabel}>{label}</span>
-                        <div className={styles.attributeBar}>
-                          {/* Δ label */}
-                          <span className={styles.attributeDelta}>
-                            {delta >= 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}
-                          </span>
+                  return (
+                    <div key={label} className={styles.attributeRow}>
+                      <span className={styles.attributeLabel}>{label}</span>
+                      <div className={styles.attributeBar}>
+                        {/* Δ label */}
+                        <span className={styles.attributeDelta}>
+                          {delta >= 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}
+                        </span>
 
-                          {/* base track */}
-                          <div className={styles.barBase} />
+                        {/* base track */}
+                        <div className={styles.barBase} />
 
-                          {/* current (blue) */}
+                        {/* current (blue) */}
+                        <div
+                          className={styles.barCurrent}
+                          style={{ width: `${currentPct}%` }}
+                        />
+
+                        {/* predicted overlay */}
+                        {isUpgrade && (
                           <div
-                            className={styles.barCurrent}
-                            style={{ width: `${currentPct}%` }}
+                            className={styles.barUpgrade}
+                            style={{ width: `${predictedPct}%` }}
                           />
-
-                          {/* predicted overlay */}
-                          {isUpgrade && (
-                            <div
-                              className={styles.barUpgrade}
-                              style={{ width: `${predictedPct}%` }}
-                            />
-                          )}
-                          {isDowngrade && (
-                            <div
-                              className={styles.barDowngrade}
-                              style={{ width: `${predictedPct}%` }}
-                            />
-                          )}
-
-                          {/* current value */}
-                          <span className={styles.attributeValue}>
-                            {currentVal}
-                          </span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              ))}
-            </>
-          ) : (
-            <>
-              {[
-                [
-                  'Pitching',
-                  [
-                    ['Stamina',         'stamina'],
-                    ['Pitching Clutch','pitching_clutch'],
-                    ['Hits/BF',         'hits_per_bf'],
-                    ['K/BF',            'k_per_bf'],
-                    ['BB/BF',           'bb_per_bf'],
-                    ['HR/BF',           'hr_per_bf'],
-                  ],
-                ],
-                [
-                  'Pitch Attributes',
-                  [
-                    ['Velocity',      'pitch_velocity'],
-                    ['Pitch Control', 'pitch_control'],
-                    ['Pitch Movement','pitch_movement'],
-                  ],
-                ],
-              ].map(([groupTitle, attrs]) => (
-                <div key={groupTitle} className={styles.attributesGroup}>
-                  <h3 className={styles.groupTitle}>{groupTitle}</h3>
-                  {attrs.map(([label, key]) => {
-                    const currentVal   = Number(card[key] ?? 0)
-                    const predictedVal = Number(card[`${key}_new_pred`] ?? currentVal)
-                    const currentPct   = (currentVal   / 125) * 100
-                    const predictedPct = (predictedVal / 125) * 100
-                    const delta        = predictedVal - currentVal
-                    const isUpgrade    = delta > 0
-                    const isDowngrade  = delta < 0
-
-                    return (
-                      <div key={label} className={styles.attributeRow}>
-                        <span className={styles.attributeLabel}>{label}</span>
-                        <div className={styles.attributeBar}>
-                          {/* Δ label */}
-                          <span className={styles.attributeDelta}>
-                            {delta >= 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}
-                          </span>
-
-                          {/* base track */}
-                          <div className={styles.barBase} />
-
-                          {/* current (blue) */}
+                        )}
+                        {isDowngrade && (
                           <div
-                            className={styles.barCurrent}
-                            style={{ width: `${currentPct}%` }}
+                            className={styles.barDowngrade}
+                            style={{ width: `${predictedPct}%` }}
                           />
+                        )}
 
-                          {/* predicted overlay */}
-                          {isUpgrade && (
-                            <div
-                              className={styles.barUpgrade}
-                              style={{ width: `${predictedPct}%` }}
-                            />
-                          )}
-                          {isDowngrade && (
-                            <div
-                              className={styles.barDowngrade}
-                              style={{ width: `${predictedPct}%` }}
-                            />
-                          )}
-
-                          {/* current value */}
-                          <span className={styles.attributeValue}>
-                            {currentVal}
-                          </span>
-                        </div>
+                        {/* current value */}
+                        <span className={styles.attributeValue}>
+                          {currentVal}
+                        </span>
                       </div>
-                    )
-                  })}
-                </div>
-              ))}
-            </>
+                    </div>
+                  )
+                })}
+              </div>
+            )
           )}
         </div>
       </section>
