@@ -65,3 +65,28 @@
     font-size: 0.9rem;
   }
   
+  /* Add to the bottom */
+  @media (max-width: 768px) {
+    .footerContainer {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      text-align: center;
+    }
+    
+    .footerBrand {
+      max-width: 100%;
+    }
+    
+    .footerLogo {
+      justify-content: center;
+    }
+    
+    .footerLinks {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    
+    .linkGroup {
+      margin-bottom: 1.5rem;
+    }
+  }

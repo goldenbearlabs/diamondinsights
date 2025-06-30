@@ -6,16 +6,20 @@ import { useState, useEffect, useRef } from 'react'
 import { auth } from '@/lib/firebaseClient'
 import { onAuthStateChanged, signOut, User } from 'firebase/auth'
 import styles from './Navbar.module.css'
+import { FaBars, FaTimes, FaCaretDown, FaUser, FaSignOutAlt } from 'react-icons/fa'
 
 interface Player { name: string; uuid: string }
 
 export default function Navbar() {
   const pathname = usePathname()
-  const [search, setSearch]     = useState('')
-  const [allPlayers, setAll]    = useState<Player[]>([])
-  const [matches, setMatches]   = useState<Player[]>([])
-  const [user, setUser]         = useState<User | null>(null)
+  const [search, setSearch] = useState('')
+  const [allPlayers, setAll] = useState<Player[]>([])
+  const [matches, setMatches] = useState<Player[]>([])
+  const [user, setUser] = useState<User | null>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
+  const userDropdownRef = useRef<HTMLDivElement>(null)
 
   // fetch all players for autocomplete
   useEffect(() => {
@@ -37,13 +41,20 @@ export default function Navbar() {
     )
   }, [search, allPlayers])
 
-  // close dropdown on outside click
+  // close dropdowns on outside click
   useEffect(() => {
     function onClick(e: MouseEvent) {
+      // Close autocomplete
       if (listRef.current && !listRef.current.contains(e.target as Node)) {
         setMatches([])
       }
+      
+      // Close user dropdown
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node)) {
+        setUserDropdownOpen(false)
+      }
     }
+    
     document.addEventListener('click', onClick)
     return () => document.removeEventListener('click', onClick)
   }, [])
@@ -55,7 +66,7 @@ export default function Navbar() {
   }, [])
 
   // build your account & investment hrefs
-  const accountHref    = user ? `/account/${user.uid}`    : '/login'
+  const accountHref = user ? `/account/${user.uid}` : '/login'
   const investmentHref = user ? `/investment/${user.uid}` : '/login'
 
   return (
@@ -66,80 +77,112 @@ export default function Navbar() {
           <span className={styles.logoPart2}>Insights</span>
         </Link>
 
-        <div className={styles.navLinks}>
-          <Link
-            href="/"
-            className={`${styles.navLink} ${pathname === '/' ? styles.active : ''}`}
-          >
-            Home
-          </Link>
-          <Link
-            href="/predictions"
-            className={`${styles.navLink} ${pathname.startsWith('/predictions') ? styles.active : ''}`}
-          >
-            Predictions
-          </Link>
-          <Link
-            href={investmentHref}
-            className={`${styles.navLink} ${pathname.startsWith('/investment') ? styles.active : ''}`}
-          >
-            Investment Tracker
-          </Link>
-          <Link
-            href="/community"
-            className={`${styles.navLink} ${pathname.startsWith('/community') ? styles.active : ''}`}
-          >
-            Community
-          </Link>
-        </div>
+        {/* Mobile menu button */}
+        <button 
+          className={styles.mobileMenuButton}
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        >
+          {mobileMenuOpen ? <FaTimes /> : <FaBars />}
+        </button>
 
-        <div className={styles.autocompleteContainer}>
-          <input
-            type="text"
-            className={styles.autocompleteInput}
-            placeholder="Search player…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          <div ref={listRef} className={styles.autocompleteItems}>
-            {matches.map(p => (
-              <div
-                key={p.uuid}
-                className={styles.autocompleteItem}
-                onClick={() => window.location.href = `/player/${p.uuid}`}
-              >
-                {p.name}
-              </div>
-            ))}
+        <div className={`${styles.navMain} ${mobileMenuOpen ? styles.mobileMenuOpen : ''}`}>
+          <div className={styles.navLinks}>
+            <Link
+              href="/"
+              className={`${styles.navLink} ${pathname === '/' ? styles.active : ''}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Home
+            </Link>
+            <Link
+              href="/predictions"
+              className={`${styles.navLink} ${pathname.startsWith('/predictions') ? styles.active : ''}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Predictions
+            </Link>
+            <Link
+              href={investmentHref}
+              className={`${styles.navLink} ${pathname.startsWith('/investment') ? styles.active : ''}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Investment Tracker
+            </Link>
+            <Link
+              href="/community"
+              className={`${styles.navLink} ${pathname.startsWith('/community') ? styles.active : ''}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Community
+            </Link>
           </div>
-        </div>
 
-        <div className={styles.navAuthLinks}>
-          {user ? (
-            <>
-              <Link href={accountHref} className={styles.profilePicLink}>
+          <div className={styles.autocompleteContainer}>
+            <input
+              type="text"
+              className={styles.autocompleteInput}
+              placeholder="Search player…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            <div ref={listRef} className={styles.autocompleteItems}>
+              {matches.map(p => (
+                <div
+                  key={p.uuid}
+                  className={styles.autocompleteItem}
+                  onClick={() => {
+                    window.location.href = `/player/${p.uuid}`;
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  {p.name}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* User dropdown for desktop */}
+          <div className={styles.userDropdown} ref={userDropdownRef}>
+            {user ? (
+              <div 
+                className={styles.userProfile}
+                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+              >
                 <img
                   src={user.photoURL || '/placeholder-user.png'}
                   alt={user.displayName || 'Profile'}
                   className={styles.profilePic}
                 />
-              </Link>
-              <button onClick={() => signOut(auth)} className="btn btn-secondary">
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link href="/login"  className={styles.navLink}>Login</Link>
-              <Link href="/signup" className="btn btn-primary">Sign Up</Link>
-            </>
-          )}
+                <span>{user.displayName || 'Account'}</span>
+                <FaCaretDown className={styles.dropdownIcon} />
+                
+                {userDropdownOpen && (
+                  <div className={styles.dropdownMenu}>
+                    <Link href={accountHref} className={styles.dropdownItem}>
+                      <FaUser /> My Account
+                    </Link>
+                    <button 
+                      onClick={() => signOut(auth)} 
+                      className={styles.dropdownItem}
+                    >
+                      <FaSignOutAlt /> Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className={styles.authLinks}>
+                <Link href="/login" className={styles.navLink}>Login</Link>
+                <Link href="/signup" className="btn btn-primary">Sign Up</Link>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Mobile fallback */}
+        {/* Mobile auth buttons */}
         <div className={styles.authButtonsMobile}>
           {user ? (
-            <>
+            <div className={styles.mobileUserSection}>
               <Link href={accountHref} className={styles.profilePicLinkMobile}>
                 <img
                   src={user.photoURL || '/placeholder-user.png'}
@@ -147,12 +190,17 @@ export default function Navbar() {
                   className={styles.profilePicMobile}
                 />
               </Link>
-              <button onClick={() => signOut(auth)} className="btn btn-secondary">Logout</button>
-            </>
+              <button 
+                onClick={() => signOut(auth)} 
+                className="btn btn-secondary"
+              >
+                Logout
+              </button>
+            </div>
           ) : (
             <>
               <Link href="/signup" className="btn btn-primary">Sign Up</Link>
-              <Link href="/login"  className="btn btn-secondary">Login</Link>
+              <Link href="/login" className="btn btn-secondary">Login</Link>
             </>
           )}
         </div>

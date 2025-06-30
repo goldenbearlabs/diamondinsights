@@ -169,3 +169,181 @@
     }
   }
   
+  .mobileMenuButton {
+    display: none;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    z-index: 1001;
+  }
+  
+  .navMain {
+    display: flex;
+    flex: 1;
+    align-items: center;
+  }
+  
+  @media (max-width: 1024px) {
+    .mobileMenuButton {
+      display: block;
+      margin-left: auto;
+    }
+    
+    .navMain {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg-medium);
+      flex-direction: column;
+      padding: 5rem 2rem 2rem;
+      transform: translateY(-100%);
+      transition: transform 0.3s ease;
+      z-index: 1000;
+      overflow-y: auto;
+    }
+    
+    .mobileMenuOpen {
+      transform: translateY(0);
+    }
+    
+    .navLinks {
+      flex-direction: column;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+      width: 100%;
+      text-align: center;
+    }
+    
+    .autocompleteContainer {
+      max-width: 100%;
+      margin: 0 0 2rem;
+      width: 100%;
+    }
+    
+    .navAuthLinks {
+      display: none;
+    }
+    
+    .authButtonsMobile {
+      display: flex;
+      gap: 1rem;
+      flex-direction: column;
+      width: 100%;
+      max-width: 300px;
+    }
+    
+    .navLink {
+      font-size: 1.2rem;
+      padding: 0.5rem 0;
+    }
+    
+    .active::after {
+      display: none;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .navContainer {
+      padding: 0 1rem;
+    }
+    
+    .navLogo {
+      font-size: 1.3rem;
+    }
+  }
+
+  .userDropdown {
+    position: relative;
+    margin-left: 1rem;
+  }
+  
+  .userProfile {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    position: relative;
+    padding: 0.5rem;
+    border-radius: var(--border-radius);
+    transition: background-color 0.3s ease;
+  }
+  
+  .userProfile:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .dropdownIcon {
+    font-size: 0.8rem;
+    transition: transform 0.3s ease;
+  }
+  
+  .userDropdownOpen .dropdownIcon {
+    transform: rotate(180deg);
+  }
+  
+  .dropdownMenu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--bg-medium);
+    border-radius: var(--border-radius);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    width: 200px;
+    z-index: 1001;
+    margin-top: 0.5rem;
+    overflow: hidden;
+  }
+  
+  .dropdownItem {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+    width: 100%;
+    background: none;
+    border: none;
+    text-align: left;
+    font-family: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  
+  .dropdownItem:hover {
+    background-color: rgba(77, 184, 184, 0.15);
+    color: var(--accent-secondary);
+  }
+  
+  .authLinks {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .mobileUserSection {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  @media (max-width: 1024px) {
+    .userDropdown {
+      display: none;
+    }
+    
+    .authLinks {
+      display: none;
+    }
+  }
+  
+  @media (min-width: 1025px) {
+    .authButtonsMobile {
+      display: none;
+    }
+  }

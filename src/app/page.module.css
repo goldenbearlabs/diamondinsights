@@ -1,4 +1,9 @@
 /* Hero Section */
+
+.landingContainer {
+  margin-top: 2rem;
+}
+
 .heroSection {
   display: flex;
   flex-direction: column;
@@ -565,4 +570,42 @@
   font-variant: normal;
   text-rendering: auto;
   line-height: 1;
+}
+
+.spinner {
+  font-size: 3rem;
+  color: var(--accent-primary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+
+@media (max-width: 480px) {
+  .heroTitle {
+    font-size: 1.5rem;
+  }
+  
+  .heroSubtitle {
+    font-size: 1rem;
+  }
+  
+  .playerCard {
+    padding: 1rem;
+  }
+  
+  .playerName {
+    font-size: 1.2rem;
+  }
+  
+  .ratingValue {
+    font-size: 1.5rem;
+  }
+  
+  .step, .benefitCard {
+    padding: 1.5rem;
+  }
 }

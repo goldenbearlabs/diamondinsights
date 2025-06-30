@@ -13,7 +13,9 @@ import {
   FaHeart,
   FaReply,
   FaFire,
-  FaSync
+  FaSync,
+  FaBars,
+  FaTimes
 } from 'react-icons/fa'
 
 interface Message {
@@ -75,6 +77,7 @@ export default function CommunityPage() {
   const [cardNames, setCardNames]   = useState<Record<string, string>>({})
   const [trendingCards, setTrendingCards] = useState<TrendingCard[]>([])
   const [trendingLoading, setTrendingLoading] = useState(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   
   // User search state
   const [userSearch, setUserSearch] = useState('')
@@ -141,6 +144,23 @@ export default function CommunityPage() {
       return () => document.removeEventListener('click', onClick)
     }
   }, [userSearchOpen])
+
+  // Close sidebar when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const sidebar = document.querySelector(`.${styles.sidebar}`)
+      if (mobileSidebarOpen && sidebar && !sidebar.contains(event.target as Node)) {
+        setMobileSidebarOpen(false)
+      }
+    }
+    
+    if (mobileSidebarOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [mobileSidebarOpen])
 
   // Auto-refresh trending data on window focus
   useEffect(() => {
@@ -293,8 +313,27 @@ export default function CommunityPage() {
   return (
     <main className={styles.page}>
       <div className={styles.container}>
+        {/* Mobile header */}
+        <div className={styles.mobileHeader}>
+          <button 
+            className={styles.mobileMenuButton}
+            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+          >
+            {mobileSidebarOpen ? <FaTimes /> : <FaBars />}
+          </button>
+          <h2 className={styles.mobileTitle}>Community</h2>
+          <div className={styles.mobileRoomInfo}>
+            <span className={styles.roomIcon}>
+              {TABS.find(t=>t.key===activeTab)?.icon}
+            </span>
+            <span className={styles.roomName}>
+              {TABS.find(t=>t.key===activeTab)?.label}
+            </span>
+          </div>
+        </div>
+
         {/* SIDEBAR */}
-        <aside className={styles.sidebar}>
+        <aside className={`${styles.sidebar} ${mobileSidebarOpen ? styles.sidebarOpen : ''}`}>
           <div className={styles.sidebarHeader}>
             <h2 className={styles.head}>Community</h2>
           </div>
@@ -344,6 +383,7 @@ export default function CommunityPage() {
               onClick={()=>{
                 setActive('live')
                 setReplyTo(null)
+                setMobileSidebarOpen(false)
               }}
             >
               <span className={styles.tabIcon}><FaBroadcastTower /></span>
@@ -357,6 +397,7 @@ export default function CommunityPage() {
               onClick={()=>{
                 setActive('trending')
                 setReplyTo(null)
+                setMobileSidebarOpen(false)
               }}
             >
               <span className={styles.tabIcon}><FaFire /></span>
@@ -374,6 +415,7 @@ export default function CommunityPage() {
                 onClick={()=>{
                   setActive(t.key)
                   setReplyTo(null)
+                  setMobileSidebarOpen(false)
                 }}
               >
                 <span className={styles.tabIcon}>{t.icon}</span>

@@ -3,6 +3,7 @@
 import Head from 'next/head'
 import { useState, useEffect } from 'react'
 import styles from './page.module.css'
+import { FaSpinner } from 'react-icons/fa'
 
 // FA5 icons
 import {
@@ -62,7 +63,19 @@ export default function LandingPage() {
   }, [])
 
   if (loading || players.length === 0) {
-    return <p style={{ padding: '2rem', textAlign: 'center' }}>Loading…</p>
+    return (
+      <div style={{ 
+        padding: '2rem', 
+        textAlign: 'center',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        marginTop: '2rem'
+      }}>
+        <FaSpinner className={styles.spinner} />
+      </div>
+    )
   }
 
   const fmt = (n: number, d = 2) => n.toFixed(d)
