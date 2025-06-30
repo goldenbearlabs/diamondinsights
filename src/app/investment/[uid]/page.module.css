@@ -131,9 +131,48 @@
 /* Portfolio Summary */
 .portfolioSummary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.2rem;
   margin-bottom: 2.5rem;
+}
+
+.portfolioSummary .summaryCard:nth-child(4) {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.portfolioSummary .summaryCard:nth-child(5) {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .portfolioSummary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .portfolioSummary .summaryCard:nth-child(4) {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  
+  .portfolioSummary .summaryCard:nth-child(5) {
+    grid-column: 2;
+    grid-row: 3;
+  }
+}
+
+@media (max-width: 480px) {
+  .portfolioSummary {
+    grid-template-columns: 1fr;
+  }
+  
+  .portfolioSummary .summaryCard:nth-child(4),
+  .portfolioSummary .summaryCard:nth-child(5) {
+    grid-column: 1;
+    grid-row: auto;
+  }
 }
 
 .summaryCard {

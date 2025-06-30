@@ -117,8 +117,12 @@ export default function Navbar() {
         <div className={styles.navAuthLinks}>
           {user ? (
             <>
-              <Link href={accountHref} className={styles.navLink}>
-                Account
+              <Link href={accountHref} className={styles.profilePicLink}>
+                <img
+                  src={user.photoURL || '/placeholder-user.png'}
+                  alt={user.displayName || 'Profile'}
+                  className={styles.profilePic}
+                />
               </Link>
               <button onClick={() => signOut(auth)} className="btn btn-secondary">
                 Logout
@@ -136,7 +140,13 @@ export default function Navbar() {
         <div className={styles.authButtonsMobile}>
           {user ? (
             <>
-              <Link href={accountHref} className="btn btn-secondary">Account</Link>
+              <Link href={accountHref} className={styles.profilePicLinkMobile}>
+                <img
+                  src={user.photoURL || '/placeholder-user.png'}
+                  alt={user.displayName || 'Profile'}
+                  className={styles.profilePicMobile}
+                />
+              </Link>
               <button onClick={() => signOut(auth)} className="btn btn-secondary">Logout</button>
             </>
           ) : (

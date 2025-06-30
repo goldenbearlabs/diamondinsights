@@ -113,6 +113,50 @@
     align-items: center;
     gap: 1rem;
   }
+
+  .profilePicLink {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    transition: transform 0.2s ease;
+  }
+
+  .profilePicLink:hover {
+    transform: translateY(-1px);
+  }
+
+  .profilePic {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--bg-medium);
+  }
+
+  .profilePic:hover {
+    border-color: var(--accent-secondary);
+    box-shadow: 0 0 10px rgba(18, 99, 221, 0.3);
+  }
+
+  .profilePicLinkMobile {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+  }
+
+  .profilePicMobile {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--bg-medium);
+  }
   
   .authButtonsMobile {
     display: none;
