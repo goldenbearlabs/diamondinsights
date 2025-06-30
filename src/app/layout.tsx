@@ -8,6 +8,9 @@ import { SpeedInsights } from "@vercel/speed-insights/next"
 export const metadata = {
   title: 'DiamondInsights',
   description: 'AI-powered roster predictions for MLB The Show',
+  icons: {
+    icon: '/diamond_icon.png',
+  }
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
