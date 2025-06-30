@@ -6,7 +6,9 @@
       "https://localhost:3000",
       "https://localhost:3001",
       "https://theshow-587b1.web.app",
-      "https://theshow-587b1.firebaseapp.com"
+      "https://theshow-587b1.firebaseapp.com",
+      "*",
+      "https://www.diamondinsights.app/"
     ],
     "method": ["GET", "HEAD", "PUT", "POST", "DELETE", "OPTIONS"],
     "responseHeader": [
