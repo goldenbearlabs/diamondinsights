@@ -334,10 +334,10 @@ export default function CardPage() {
       [
         ['Stamina',         'stamina'],
         ['Pitching Clutch','pitching_clutch'],
-        ['Hits/BF',         'hits_per_bf'],
-        ['K/BF',            'k_per_bf'],
-        ['BB/BF',           'bb_per_bf'],
-        ['HR/BF',           'hr_per_bf'],
+        ['H/9',         'hits_per_bf'],
+        ['K/9',            'k_per_bf'],
+        ['BB/9',           'bb_per_bf'],
+        ['HR/9',           'hr_per_bf'],
       ],
     ],
     [
@@ -738,28 +738,24 @@ export default function CardPage() {
                           {delta >= 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}
                         </span>
 
-                        {/* base track */}
-                        <div className={styles.barBase} />
-
-                        {/* current (blue) */}
+                        {/* Single gradient bar */}
                         <div
-                          className={styles.barCurrent}
-                          style={{ width: `${currentPct}%` }}
+                          className={styles.barGradient}
+                          style={{
+                            background: (() => {
+                              if (delta === 0) {
+                                // No change - solid blue
+                                return `linear-gradient(to right, var(--accent-primary) ${currentPct}%, var(--bg-medium) ${currentPct}%)`
+                              } else if (isUpgrade) {
+                                // Upgrade - blue to green gradient (current% < predicted%)
+                                return `linear-gradient(to right, var(--accent-primary) ${currentPct}%, var(--positive) ${predictedPct}%, var(--bg-medium) ${predictedPct}%)`
+                              } else {
+                                // Downgrade - blue to red gradient (predicted% < current%)
+                                return `linear-gradient(to right, var(--accent-primary) ${predictedPct}%, var(--negative) ${currentPct}%, var(--bg-medium) ${currentPct}%)`
+                              }
+                            })()
+                          }}
                         />
-
-                        {/* predicted overlay */}
-                        {isUpgrade && (
-                          <div
-                            className={styles.barUpgrade}
-                            style={{ width: `${predictedPct}%` }}
-                          />
-                        )}
-                        {isDowngrade && (
-                          <div
-                            className={styles.barDowngrade}
-                            style={{ width: `${predictedPct}%` }}
-                          />
-                        )}
 
                         {/* current value */}
                         <span className={styles.attributeValue}>

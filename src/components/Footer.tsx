@@ -26,7 +26,9 @@ export default function Footer() {
             <span className={styles.logoPart1}>Diamond</span>
             <span className={styles.logoPart2}>Insights</span>
           </Link>
-          <p>AI-powered roster predictions for MLB The Show</p>
+          <p>AI-powered roster predictions for MLB The Show.</p>
+          <p> </p>
+          <p>Not affiliated with San Diego Studios or Major League Baseball.</p>
         </div>
 
         <div className={styles.footerLinks}>

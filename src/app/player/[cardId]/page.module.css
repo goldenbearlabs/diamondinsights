@@ -391,44 +391,14 @@
   .positive { color: var(--positive); }
   .negative { color: var(--negative); }
   
-  .barBase {
+  .barGradient {
     position: absolute;
     top: 0;
     left: 0;
     height: 100%;
     width: 100%;
-    background: var(--bg-medium);
     border-radius: 14px;
-  }
-  
-  .barUpgrade {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    background: var(--positive);
-    border-radius: 14px;
-    z-index: 1;
-  }
-  
-  .barDowngrade {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    background: var(--negative);
-    border-radius: 14px;
-    z-index: 2;
-  }
-  
-  .barCurrent {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    background: var(--accent-primary);
-    border-radius: 14px;
-    z-index: 3;
+    transition: background 0.3s ease;
   }
   
   .attributeBar {
@@ -804,19 +774,7 @@
   border-color: var(--accent-primary);
 }
 
-/* existing */
-.barBase {
-  z-index: 1;
-}
-.barCurrent {
-  z-index: 2;
-}
-.barUpgrade {
-  z-index: 1;      /* improvement */
-}
-.barDowngrade {
-  z-index: 3;      /* regression */
-}
+/* Attribute value positioning */
 .attributeValue {
   z-index: 4;      /* current number */
 }
