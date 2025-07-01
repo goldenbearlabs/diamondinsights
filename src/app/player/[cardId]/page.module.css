@@ -850,3 +850,389 @@
   outline: none;
   border-color: var(--accent-primary);
 }
+
+/* ===== MOBILE RESPONSIVE STYLES ===== */
+
+/* Tablet and small desktop adjustments */
+@media (max-width: 1024px) {
+  .playerPageContainer {
+    padding: 15px;
+    margin-top: 2rem;
+  }
+  
+  .playerHeader {
+    gap: 20px;
+    padding: 15px;
+  }
+  
+  .attributesContainer {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+  }
+  
+  .predictionsGrid,
+  .marketGrid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+}
+
+/* Mobile landscape and small tablets */
+@media (max-width: 768px) {
+  .playerPageContainer {
+    padding: 10px;
+    margin-top: 1rem;
+  }
+  
+  .backButton {
+    top: 1rem;
+    right: 1rem;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .playerHeader {
+    flex-direction: column;
+    gap: 15px;
+    padding: 15px;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .playerImage {
+    width: 180px;
+    height: auto;
+  }
+  
+  .playerBasicInfo {
+    width: 100%;
+  }
+  
+  .playerName {
+    font-size: 26px;
+    text-align: center;
+  }
+  
+  .voteButtons {
+    justify-content: center;
+    gap: 12px;
+  }
+  
+  .playerMeta {
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  
+  .playerStatsRow {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  .statCard {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 140px;
+  }
+  
+  .statValue {
+    font-size: 22px;
+  }
+  
+  .playerDetailsRow {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .attributesContainer {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .predictionsGrid,
+  .marketGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+  
+  .predictionValue,
+  .marketValue {
+    font-size: 24px;
+  }
+  
+  .sectionTitle {
+    font-size: 20px;
+  }
+  
+  .groupTitle {
+    font-size: 16px;
+  }
+  
+  /* Table responsiveness */
+  .predictionTable,
+  .statsTable {
+    overflow-x: auto;
+    display: block;
+    white-space: nowrap;
+  }
+  
+  .predictionTable table,
+  .statsTable {
+    min-width: 500px;
+  }
+  
+  /* Comments adjustments */
+  .commentsSection {
+    padding: 1rem;
+  }
+  
+  .commentItem {
+    padding: 1rem;
+  }
+  
+  .replyList {
+    padding-left: 1.5rem;
+  }
+}
+
+/* Mobile portrait - primary mobile experience */
+@media (max-width: 480px) {
+  .playerPageContainer {
+    padding: 8px;
+    margin-top: 0.5rem;
+  }
+  
+  .backButton {
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  
+  .playerHeader {
+    padding: 10px;
+    gap: 12px;
+  }
+  
+  .playerImage {
+    width: 140px;
+  }
+  
+  .playerName {
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+  
+  .voteButtons {
+    gap: 8px;
+    margin: 6px 0 10px;
+  }
+  
+  .voteBtn {
+    padding: 4px 8px;
+    font-size: 12px;
+    min-width: 50px;
+  }
+  
+  .playerMeta {
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+  
+  .playerMeta span::after {
+    margin-left: 8px;
+  }
+  
+  .playerStatsRow {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .statCard {
+    flex: none;
+    padding: 12px;
+    text-align: center;
+  }
+  
+  .statLabel {
+    font-size: 12px;
+  }
+  
+  .statValue {
+    font-size: 20px;
+  }
+  
+  .playerDetailsRow {
+    gap: 8px;
+  }
+  
+  .detailItem {
+    padding: 6px 0;
+    font-size: 0.9rem;
+  }
+  
+  .playerSection {
+    padding: 15px;
+    margin-bottom: 20px;
+  }
+  
+  .sectionTitle {
+    font-size: 18px;
+    margin-bottom: 15px;
+  }
+  
+  .attributesGroup {
+    padding: 15px;
+  }
+  
+  .groupTitle {
+    font-size: 15px;
+    margin-bottom: 15px;
+  }
+  
+  .attributeRow {
+    margin-bottom: 12px;
+  }
+  
+  .attributeLabel {
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  
+  .attributeBar {
+    height: 24px;
+  }
+  
+  .attributeValue {
+    font-size: 11px;
+    right: 8px;
+  }
+  
+  .attributeDelta {
+    font-size: 0.8rem;
+    left: calc(100% + 6px);
+  }
+  
+  .predictionsGrid,
+  .marketGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .predictionCard,
+  .marketCard {
+    padding: 15px;
+  }
+  
+  .predictionTitle,
+  .marketTitle {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  
+  .predictionValue,
+  .marketValue {
+    font-size: 20px;
+  }
+  
+  /* Table mobile optimization */
+  .predictionTable table,
+  .statsTable {
+    font-size: 0.85rem;
+    min-width: 400px;
+  }
+  
+  .predictionTable th,
+  .predictionTable td,
+  .statsTable th,
+  .statsTable td {
+    padding: 8px 6px;
+  }
+  
+  .timePeriodTabs {
+    gap: 5px;
+    margin-bottom: 15px;
+  }
+  
+  .periodTab {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+  }
+  
+  /* Comments mobile optimization */
+  .commentsHeader {
+    margin-top: 1rem;
+    text-align: center;
+  }
+  
+  .commentsToggle {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+  }
+  
+  .commentsSection {
+    padding: 0.8rem;
+  }
+  
+  .commentItem {
+    padding: 0.8rem;
+  }
+  
+  .commentHeader {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .commentAvatar {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .commentTime {
+    font-size: 0.75rem;
+    width: 100%;
+    margin-top: 0.3rem;
+  }
+  
+  .commentText {
+    font-size: 0.9rem;
+    margin: 0.4rem 0 0.6rem;
+  }
+  
+  .commentActions {
+    gap: 0.8rem;
+    font-size: 0.8rem;
+  }
+  
+  .replyList {
+    padding-left: 1rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .newCommentForm,
+  .inlineReplyForm {
+    padding: 0.8rem;
+  }
+  
+  .newCommentForm textarea,
+  .inlineReplyForm textarea {
+    min-height: 80px;
+    padding: 0.6rem;
+    font-size: 0.9rem;
+  }
+  
+  .replyActions {
+    gap: 0.5rem;
+  }
+  
+  .replyActions button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  
+  /* Player description mobile */
+  .playerDescription {
+    margin-top: 15px;
+    padding: 12px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+}
