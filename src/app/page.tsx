@@ -166,7 +166,7 @@ export default function LandingPage() {
           </div>
           <div className={styles.statItem}>
             <div className={styles.statValue}>#1</div>
-            <div className={styles.statLabel}>MLB The Show Tool</div>
+            <div className={styles.statLabel}>MLB The Show Investment Tool</div>
           </div>
           <div className={styles.statItem}>
             <div className={styles.statValue}>2k+</div>
@@ -210,7 +210,7 @@ export default function LandingPage() {
         {/* Benefits */}
         <section className={styles.benefitsSection}>
           <div className={styles.sectionHeader}>
-            <h2>Why Choose RosterPredict</h2>
+            <h2>Why Choose DiamondInsights</h2>
             <p>Maximize your MLB The Show investments with our powerful tools</p>
           </div>
           <div className={styles.benefitsGrid}>
