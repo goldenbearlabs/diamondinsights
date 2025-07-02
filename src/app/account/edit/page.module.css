@@ -77,4 +77,38 @@
   .submit:not(:disabled):hover {
     background: var(--accent-secondary);
   }
+  .errorBanner {
+    background-color: #fdecea;
+    color: #991b1b;
+    border: 1px solid #f5c2c7;
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+    margin-bottom: 1rem;
+    font-weight: 500;
+  }
   
+  /* If you don’t already have it, make sure your avatar preview is sized */
+  .avatar {
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* And a placeholder box for when there's no avatar */
+  .avatarPlaceholder {
+    width: 96px;
+    height: 96px;
+    background-color: #e5e7eb;
+    border-radius: 50%;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Optional: style for the help text under labels */
+  .helpText {
+    display: block;
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+  }

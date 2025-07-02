@@ -12,7 +12,11 @@ import {
 import {
   doc,
   setDoc,
-  serverTimestamp
+  serverTimestamp,
+  collection,
+  query,
+  where,
+  getDocs
 } from 'firebase/firestore';
 import {
   ref as storageRef,
@@ -36,71 +40,120 @@ export default function SignupPage() {
   const router = useRouter();
 
   const [username, setUsername] = useState('');
-  const [email,    setEmail]    = useState('');
-  const [rating,   setRating]   = useState<number>(0);
-  const [file,     setFile]     = useState<File|null>(null);
+  const [email, setEmail]       = useState('');
+  const [rating, setRating]     = useState<number>(0);
+  const [file, setFile]         = useState<File|null>(null);
   const [password, setPassword] = useState('');
-  const [confirm,  setConfirm]  = useState('');
-  const [showPw,   setShowPw]   = useState(false);
-  const [showCf,   setShowCf]   = useState(false);
-  const [error,    setError]    = useState('');
-  const [loading,  setLoading]  = useState(false);
+  const [confirm, setConfirm]   = useState('');
+  const [showPw, setShowPw]     = useState(false);
+  const [showCf, setShowCf]     = useState(false);
+
+  const [error, setError]     = useState('');
+  const [loading, setLoading] = useState(false);
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFile(e.target.files?.[0] ?? null);
+    setError('');
+    const chosen = e.target.files?.[0] ?? null;
+    if (chosen && chosen.size > 5_000_000) {
+      setError('Profile picture must be under 5 MB');
+      setFile(null);
+    } else {
+      setFile(chosen);
+    }
   };
-
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
+    // ----- CLIENT-SIDE VALIDATION -----
+    if (!username.trim()) {
+      return setError('Username is required');
+    }
+    if (!email.trim()) {
+      return setError('Email is required');
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return setError('Please enter a valid email address');
+    }
     if (password !== confirm) {
       return setError("Passwords don't match");
     }
     if (password.length < 6) {
-      return setError("Password must be at least 6 characters");
+      return setError('Password must be at least 6 characters');
     }
     if (rating && (rating < 100 || rating > 2000)) {
-      return setError("Rating must be between 100 and 2000");
+      return setError('Rating must be between 100 and 2000');
+    }
+
+    // ----- USERNAME UNIQUENESS CHECK -----
+    try {
+      const usersCol = collection(db, 'users');
+      const q = query(usersCol, where('username', '==', username.trim()));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        return setError('That username is already taken');
+      }
+    } catch (queryErr: any) {
+      console.error('Username check error', queryErr);
+      return setError('Unable to verify username uniqueness');
     }
 
     setLoading(true);
 
     try {
-      const credential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      // 1) Create Auth user
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
       const user = credential.user;
 
+      // 2) Optional upload profile pic
       let photoURL = '';
       if (file) {
-        const ext  = file.name.split('.').pop();
-        const path = `profilePics/${user.uid}.${ext}`;
-        const ref  = storageRef(storage, path);
-
-        const uploadResult = await uploadBytes(ref, file);
-
-        photoURL = await getDownloadURL(ref);
+        try {
+          const ext  = file.name.split('.').pop();
+          const path = `profilePics/${user.uid}.${ext}`;
+          const ref  = storageRef(storage, path);
+          await uploadBytes(ref, file);
+          photoURL = await getDownloadURL(ref);
+        } catch (uploadErr: any) {
+          console.error('Storage upload error', uploadErr);
+          throw new Error('Failed to upload profile picture');
+        }
       }
 
-      await updateProfile(user, { displayName: username, photoURL });
+      // 3) Update displayName + photoURL
+      try {
+        await updateProfile(user, { displayName: username.trim(), photoURL });
+      } catch (profileErr: any) {
+        console.error('Profile update error', profileErr);
+        // Not fatal: continue on to firestore write
+      }
 
+      // 4) Write user doc
       await setDoc(doc(db, 'users', user.uid), {
-        uid:        user.uid,
-        username,
-        email:      user.email,
+        uid:               user.uid,
+        username:          username.trim(),
+        email:             user.email,
         rating,
-        profilePic: photoURL,
-        createdAt:  serverTimestamp(),
-        investmentsPublic: false
+        profilePic:        photoURL,
+        createdAt:         serverTimestamp(),
+        investmentsPublic: false,
       });
 
       router.push('/');
     } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+      console.error('Signup flow error', err);
+      // Map known Firebase errors
+      if (err.code === 'auth/email-already-in-use') {
+        setError('This email is already registered');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('Invalid email address');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password is too weak');
+      } else {
+        setError(err.message || 'Something went wrong');
+      }
       setLoading(false);
     }
   }
@@ -135,6 +188,8 @@ export default function SignupPage() {
         </header>
 
         <form onSubmit={handleSubmit} className={styles.authForm}>
+          {error && <div className={styles.authError}>{error}</div>}
+
           <div className={styles.formGroup}>
             <label htmlFor="username">Username</label>
             <input
@@ -142,7 +197,8 @@ export default function SignupPage() {
               type="text"
               className={styles.formInput}
               value={username}
-              onChange={e => setUsername(e.target.value)}
+              onChange={e => { setError(''); setUsername(e.target.value); }}
+              disabled={loading}
               required
             />
           </div>
@@ -154,7 +210,8 @@ export default function SignupPage() {
               type="email"
               className={styles.formInput}
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={e => { setError(''); setEmail(e.target.value); }}
+              disabled={loading}
               required
             />
           </div>
@@ -169,6 +226,7 @@ export default function SignupPage() {
               accept="image/*"
               className={styles.fileInput}
               onChange={onFileChange}
+              disabled={loading}
             />
             <div className={styles.fileName}>{file?.name || 'No file chosen'}</div>
           </div>
@@ -181,13 +239,15 @@ export default function SignupPage() {
                 type={showPw ? 'text' : 'password'}
                 className={styles.formInput}
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={e => { setError(''); setPassword(e.target.value); }}
+                disabled={loading}
                 required
               />
               <button
                 type="button"
                 className={styles.togglePassword}
                 onClick={() => setShowPw(v => !v)}
+                disabled={loading}
               >
                 {showPw ? <FaEye/> : <FaEyeSlash/>}
               </button>
@@ -202,13 +262,15 @@ export default function SignupPage() {
                 type={showCf ? 'text' : 'password'}
                 className={styles.formInput}
                 value={confirm}
-                onChange={e => setConfirm(e.target.value)}
+                onChange={e => { setError(''); setConfirm(e.target.value); }}
+                disabled={loading}
                 required
               />
               <button
                 type="button"
                 className={styles.togglePassword}
                 onClick={() => setShowCf(v => !v)}
+                disabled={loading}
               >
                 {showCf ? <FaEye/> : <FaEyeSlash/>}
               </button>
@@ -222,12 +284,11 @@ export default function SignupPage() {
           >
             {loading ? 'Creating…' : 'Sign Up'}
           </button>
-          <div className={styles.errorMsg}>{error}</div>
-        </form>
 
-        <p className={styles.loginLink}>
-          Already have an account? <Link href="/login">Log In</Link>
-        </p>
+          <p className={styles.loginLink}>
+            Already have an account? <Link href="/login">Log In</Link>
+          </p>
+        </form>
       </section>
     </main>
   );

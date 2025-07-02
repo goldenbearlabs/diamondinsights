@@ -18,23 +18,54 @@ import styles from './page.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(false);
-  const [error, setError]       = useState('');
-  const [loading, setLoading]   = useState(false);
-  const [showPw, setShowPw]     = useState(false);
+
+  const [email, setEmail]         = useState('');
+  const [password, setPassword]   = useState('');
+  const [remember, setRemember]   = useState(false);
+  const [error, setError]         = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [showPw, setShowPw]       = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // --- CLIENT-SIDE VALIDATION ---
+    if (!email.trim()) {
+      return setError('Email is required');
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return setError('Please enter a valid email address');
+    }
+    if (!password) {
+      return setError('Password is required');
+    }
+
     setLoading(true);
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
       router.push('/');
     } catch (err: any) {
-      setError(err.message);
+      console.error('Login error', err);
+      // Map Firebase error codes to friendly messages
+      switch (err.code) {
+        case 'auth/user-not-found':
+          setError('No account found with this email');
+          break;
+        case 'auth/wrong-password':
+          setError('Incorrect password');
+          break;
+        case 'auth/invalid-email':
+          setError('Invalid email address');
+          break;
+        case 'auth/too-many-requests':
+          setError('Too many failed attempts. Try again later.');
+          break;
+        default:
+          setError(err.message || 'Something went wrong');
+      }
       setLoading(false);
     }
   };
@@ -69,6 +100,8 @@ export default function LoginPage() {
         </header>
 
         <form onSubmit={handleSubmit} className={styles.authForm}>
+          {error && <div className={styles.authError}>{error}</div>}
+
           <div className={styles.formGroup}>
             <label htmlFor="email">Email</label>
             <input
@@ -76,7 +109,8 @@ export default function LoginPage() {
               type="email"
               className={styles.formInput}
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={e => { setError(''); setEmail(e.target.value); }}
+              disabled={loading}
               required
             />
           </div>
@@ -89,13 +123,15 @@ export default function LoginPage() {
                 type={showPw ? 'text' : 'password'}
                 className={styles.formInput}
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={e => { setError(''); setPassword(e.target.value); }}
+                disabled={loading}
                 required
               />
               <button
                 type="button"
                 className={styles.togglePassword}
                 onClick={() => setShowPw(v => !v)}
+                disabled={loading}
               >
                 {showPw ? <FaEye/> : <FaEyeSlash/>}
               </button>
@@ -108,6 +144,7 @@ export default function LoginPage() {
                 type="checkbox"
                 checked={remember}
                 onChange={e => setRemember(e.target.checked)}
+                disabled={loading}
               />
               Remember me
             </label>
@@ -123,7 +160,6 @@ export default function LoginPage() {
           >
             {loading ? 'Logging In…' : 'Log In'}
           </button>
-          <div className={styles.errorMsg}>{error}</div>
         </form>
 
         <p className={styles.loginLink}>

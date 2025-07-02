@@ -44,17 +44,13 @@ export default function Navbar() {
   // close dropdowns on outside click
   useEffect(() => {
     function onClick(e: MouseEvent) {
-      // Close autocomplete
       if (listRef.current && !listRef.current.contains(e.target as Node)) {
         setMatches([])
       }
-      
-      // Close user dropdown
       if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node)) {
         setUserDropdownOpen(false)
       }
     }
-    
     document.addEventListener('click', onClick)
     return () => document.removeEventListener('click', onClick)
   }, [])
@@ -65,7 +61,6 @@ export default function Navbar() {
     return () => unsubscribe()
   }, [])
 
-  // build your account & investment hrefs
   const accountHref = user ? `/account/${user.uid}` : '/login'
   const investmentHref = user ? `/investment/${user.uid}` : '/login'
 
@@ -78,7 +73,7 @@ export default function Navbar() {
         </Link>
 
         {/* Mobile menu button */}
-        <button 
+        <button
           className={styles.mobileMenuButton}
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >
@@ -115,7 +110,7 @@ export default function Navbar() {
             >
               Community
             </Link>
-            
+
             {/* Mobile-only account links */}
             <div className={styles.mobileAccountLinks}>
               {user ? (
@@ -127,8 +122,8 @@ export default function Navbar() {
                   >
                     <FaUser /> My Account
                   </Link>
-                  <button 
-                    onClick={() => signOut(auth)} 
+                  <button
+                    onClick={() => signOut(auth)}
                     className={styles.mobileAccountLink}
                   >
                     <FaSignOutAlt /> Logout
@@ -136,15 +131,15 @@ export default function Navbar() {
                 </>
               ) : (
                 <>
-                  <Link 
-                    href="/login" 
+                  <Link
+                    href="/login"
                     className={styles.mobileAccountLink}
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <FaUser /> Login
                   </Link>
-                  <Link 
-                    href="/signup" 
+                  <Link
+                    href="/signup"
                     className={styles.mobileSignUpLink}
                     onClick={() => setMobileMenuOpen(false)}
                   >
@@ -182,25 +177,26 @@ export default function Navbar() {
           {/* User dropdown for desktop */}
           <div className={styles.userDropdown} ref={userDropdownRef}>
             {user ? (
-              <div 
+              <div
                 className={styles.userProfile}
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
               >
                 <img
-                  src={user.photoURL || '/placeholder-user.png'}
+                  src={user.photoURL && user.photoURL.trim() !== '' ? user.photoURL : '/default_profile.jpg'}
                   alt={user.displayName || 'Profile'}
                   className={styles.profilePic}
+                  onError={e => { (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg'; }}
                 />
                 <span>{user.displayName || 'Account'}</span>
                 <FaCaretDown className={styles.dropdownIcon} />
-                
+
                 {userDropdownOpen && (
                   <div className={styles.dropdownMenu}>
                     <Link href={accountHref} className={styles.dropdownItem}>
                       <FaUser /> My Account
                     </Link>
-                    <button 
-                      onClick={() => signOut(auth)} 
+                    <button
+                      onClick={() => signOut(auth)}
                       className={styles.dropdownItem}
                     >
                       <FaSignOutAlt /> Logout

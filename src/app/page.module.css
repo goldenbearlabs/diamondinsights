@@ -572,14 +572,42 @@
   line-height: 1;
 }
 
-.spinner {
-  font-size: 3rem;
-  color: var(--accent-primary);
-  animation: spin 1s linear infinite;
+/* Spinner centered */
+.spinnerContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
 }
 
+.spinner {
+  animation: spin 1s linear infinite;
+  font-size: 2rem;
+}
+
+/* Error state */
+.errorContainer {
+  padding: 2rem;
+  text-align: center;
+  color: var(--error-color, #b00020);
+}
+.errorMessage {
+  background: #fdd;
+  padding: 1rem;
+  margin: 1rem 0;
+  font-family: monospace;
+  white-space: pre-wrap;
+}
+
+/* No-data state */
+.noDataContainer {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-color, #555);
+}
+
+/* keyframes */
 @keyframes spin {
-  from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 

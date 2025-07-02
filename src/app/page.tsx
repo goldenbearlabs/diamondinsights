@@ -38,6 +38,7 @@ export default function LandingPage() {
   
   const [players, setPlayers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string|null>(null)
 
   useEffect(() => {
     const fetchPlayers = async () => {
@@ -53,8 +54,12 @@ export default function LandingPage() {
         
         setPlayers(playerData.map(([card, pred]) => ({ card, pred })))
         setLoading(false)
-      } catch (error) {
-        console.error(error)
+      } catch (err: any) {
+        console.error(err)
+        if (err.name !== 'AbortError') {
+          setError(err.message || 'Unknown error')
+        }
+      } finally {
         setLoading(false)
       }
     }
@@ -62,18 +67,22 @@ export default function LandingPage() {
     fetchPlayers()
   }, [])
 
-  if (loading || players.length === 0) {
+  if (loading) {
     return (
-      <div style={{ 
-        padding: '2rem', 
-        textAlign: 'center',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '100vh',
-        marginTop: '2rem'
-      }}>
+      <div className={styles.spinnerContainer}>
         <FaSpinner className={styles.spinner} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className={styles.errorContainer}>
+        <p>Oops—something went wrong:</p>
+        <pre className={styles.errorMessage}>{error}</pre>
+        <button className="btn btn-primary" onClick={() => window.location.reload()}>
+          Retry
+        </button>
       </div>
     )
   }

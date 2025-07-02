@@ -310,7 +310,14 @@ export default function PredictionsPage() {
   const pageCount = Math.ceil(sorted.length / pageSize)
   const paged     = sorted.slice(pageIndex * pageSize, (pageIndex+1)*pageSize)
 
-  if (loading) return <p>Loading…</p>
+  if (loading) {
+    return (
+      <div className={styles.loadingContainer}>
+        <div className={styles.loadingSpinner} />
+        <p>Loading profile…</p>
+      </div>
+    )
+  }
 
   return (
     <main className={styles.predictionsContainer}>

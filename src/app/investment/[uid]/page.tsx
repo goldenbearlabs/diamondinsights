@@ -111,12 +111,18 @@ export default function InvestmentPage() {
         return
       }
       const data = snap.data() as any
+      const pub  = data.investmentsPublic ?? false
       setProfile({
         username: data.username,
         profilePic: data.profilePic,
-        investmentsPublic: data.investmentsPublic ?? false
+        investmentsPublic: pub
       })
-      setPublicFlag(data.investmentsPublic ?? false)
+      setPublicFlag(pub)
+      if (!isOwner && !pub) {
+        setLoading(false)
+      }
+
+
     })
   }, [uid, router])
 
@@ -322,9 +328,16 @@ export default function InvestmentPage() {
         <div className={styles.headerContent}>
           <Link href={`/account/${uid}`} className={styles.ownerLink}>
             <img
-              src={profile.profilePic || '/placeholder.png'}
+              src={
+                profile.profilePic && profile.profilePic.trim() !== ''
+                  ? profile.profilePic
+                  : '/default_profile.jpg'
+              }
               alt={profile.username}
               className={styles.ownerPic}
+              onError={e => {
+                ;(e.currentTarget as HTMLImageElement).src = '/default_profile.jpg'
+              }}
             />
             <div className={styles.ownerInfo}>
               <span className={styles.ownerName}>

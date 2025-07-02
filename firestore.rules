@@ -26,9 +26,7 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
         
         // Others can read if user has made investments public
-        allow read: if isAuthenticated() && 
-          exists(/databases/$(database)/documents/users/$(userId)) &&
-          get(/databases/$(database)/documents/users/$(userId)).data.investmentsPublic == true;
+        allow read: if request.auth != null; 
       }
     }
     

@@ -123,7 +123,12 @@ export default function AccountPage() {
   }, [viewingUid])
 
   if (loading || !profile) {
-    return <p style={{ padding:'2rem', textAlign:'center' }}>Loading…</p>
+    return (
+      <div className={styles.loadingContainer}>
+        <div className={styles.loadingSpinner} />
+        <p>Loading profile…</p>
+      </div>
+    )
   }
 
   const createdDate = (() => {
@@ -171,6 +176,9 @@ export default function AccountPage() {
     setSaving(false)
   }
 
+  const pickPic = (url?: string) =>
+    url && url.trim() !== '' ? url : '/default_profile.jpg'
+
   return (
     <div className={styles.accountContainer}>
       <div className={styles.accountHeader}>
@@ -188,9 +196,12 @@ export default function AccountPage() {
         <div className={styles.profileCard}>
           <div className={styles.profileHeader}>
             <img
-              src={profile.profilePic || '/placeholder.png'}
+              src={pickPic(profile.profilePic)}
               alt="Profile Picture"
               className={styles.profilePic}
+              onError={e => {
+                (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg'
+              }}
             />
             <div className={styles.profileInfo}>
               <h3>{profile.username}</h3>

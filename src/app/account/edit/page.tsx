@@ -18,11 +18,19 @@ import {
   ref as storageRef,
   uploadBytes,
   getDownloadURL,
+  deleteObject
 } from 'firebase/storage'
-import { doc, updateDoc, setDoc } from 'firebase/firestore'
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  setDoc
+} from 'firebase/firestore'
 
 export default function EditProfilePage() {
-  const router = useRouter()
+  const router    = useRouter()
   const [user,    setUser]    = useState<FirebaseUser|null>(null)
   const [loading, setLoading] = useState(true)
   const [saving,  setSaving]  = useState(false)
@@ -36,8 +44,9 @@ export default function EditProfilePage() {
   const [confirmPw,   setConfirmPw]   = useState('')
   const [file,        setFile]        = useState<File|null>(null)
   const [previewUrl,  setPreviewUrl]  = useState<string|null>(null)
+  const [initialPhotoURL, setInitialPhotoURL] = useState<string|null>(null)
 
-  // 1) hook up current user
+  // 1) load current user:
   useEffect(() => {
     return onAuthStateChanged(auth, u => {
       if (!u) {
@@ -45,61 +54,83 @@ export default function EditProfilePage() {
         return
       }
       setUser(u)
-      setDisplayName(u.displayName || '')
-      setEmail(u.email || '')
-      setPreviewUrl(u.photoURL || null)
+      setDisplayName(u.displayName||'')
+      setEmail(u.email||'')
+      setPreviewUrl(u.photoURL||null)
+      setInitialPhotoURL(u.photoURL||null)
       setLoading(false)
     })
   }, [router])
 
-  // 2) submit handler
+  // 2) form submit
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user) return
     setError(null)
     setSaving(true)
 
-    // only require current password if they're changing email or password
-    const wantsCredChange = newPw || email !== user.email
-    if (wantsCredChange) {
-      if (!currentPw) {
-        setError('You must enter your current password to change email or password.')
-        setSaving(false)
-        // reload so everything resets
-        return window.location.reload()
-      }
-      try {
-        const cred = EmailAuthProvider.credential(user.email!, currentPw)
-        await reauthenticateWithCredential(user, cred)
-      } catch {
-        setError('Current password is incorrect.')
-        setSaving(false)
-        return window.location.reload()
-      }
+    // require current password if changing email or password
+    const credChange = newPw || email !== user.email
+    if (credChange && !currentPw) {
+      setError('Please enter your current password to change email or password.')
+      setSaving(false)
+      return
     }
 
     try {
-      // 2a) upload new profile pic if provided
+      // 2a) reauthenticate if needed
+      if (credChange) {
+        try {
+          const cred = EmailAuthProvider.credential(user.email!, currentPw)
+          await reauthenticateWithCredential(user, cred)
+        } catch {
+          throw new Error('Current password is incorrect.')
+        }
+      }
+
+      // 2b) check username uniqueness
+      if (displayName !== user.displayName) {
+        const q = query(
+          collection(db, 'users'),
+          where('username', '==', displayName)
+        )
+        const snap = await getDocs(q)
+        if (!snap.empty && snap.docs.some(d => d.id !== user.uid)) {
+          throw new Error('That username is already taken.')
+        }
+      }
+
       let photoURL = user.photoURL
+
+      // 2c) if new avatar, delete old and upload new
       if (file) {
-        const ext  = file.type.split('/')[1] || 'jpg'
-        const path = `profilePics/${user.uid}.${ext}`
+        if (initialPhotoURL && initialPhotoURL.includes('/profilePics/')) {
+          try {
+            const oldRef = storageRef(storage, initialPhotoURL
+              .split('?')[0]
+              .split('/o/')[1]
+              .replace('%2F','/'))
+            await deleteObject(oldRef)
+          } catch {
+            /* fail silently */
+          }
+        }
+        const ext      = file.type.split('/')[1] || 'jpg'
+        const path     = `profilePics/${user.uid}.${ext}`
         const imageRef = storageRef(storage, path)
         await uploadBytes(imageRef, file)
         photoURL = await getDownloadURL(imageRef)
-        // force reload so auth picks up new photoURL
-        await auth.currentUser?.reload()
       }
 
-      // 2b) update Firebase Auth profile
+      // 2d) Auth profile
       await updateProfile(user, { displayName, photoURL })
 
-      // 2c) update email if changed
+      // 2e) email
       if (email !== user.email) {
         await updateEmail(user, email)
       }
 
-      // 2d) update password if requested
+      // 2f) password
       if (newPw) {
         if (newPw !== confirmPw) {
           throw new Error("New passwords don't match.")
@@ -107,42 +138,37 @@ export default function EditProfilePage() {
         await updatePassword(user, newPw)
       }
 
-      // 2e) mirror changes into Firestore user doc (create if doesn't exist)
-      const userRef = doc(db, 'users', user.uid)
-      await setDoc(userRef, {
+      // 2g) mirror in Firestore
+      await setDoc(doc(db, 'users', user.uid), {
         username:   displayName,
-        email:      email,
+        email,
         profilePic: photoURL
-      }, { merge: true })
+      }, { merge:true })
 
-      // done → back to profile
       router.push(`/account/${user.uid}`)
     } catch (e: any) {
-      console.error('EditProfile error:', e)
       setError(e.message || 'Failed to save changes.')
       setSaving(false)
     }
   }
 
   if (loading) {
-    return (
-      <div className={styles.container}>
-        <p>Loading…</p>
-      </div>
-    )
+    return <div className={styles.container}><p>Loading…</p></div>
   }
 
   return (
     <main className={styles.container}>
       <h1 className={styles.title}>Edit Profile</h1>
-      {error && <div className={styles.error}>{error}</div>}
+
+      {error && <div className={styles.errorBanner}>{error}</div>}
+
       <form onSubmit={handleSubmit} className={styles.form}>
-        {/* Profile Picture */}
+        {/* avatar */}
         <div className={styles.field}>
           <label className={styles.label}>Profile Picture</label>
           <div className={styles.preview}>
             {previewUrl
-              ? <img src={previewUrl} alt="Preview" className={styles.avatar}/>
+              ? <img src={previewUrl} className={styles.avatar}/>
               : <div className={styles.avatarPlaceholder}/>}
           </div>
           <input
@@ -157,7 +183,7 @@ export default function EditProfilePage() {
           />
         </div>
 
-        {/* Username */}
+        {/* username */}
         <div className={styles.field}>
           <label className={styles.label} htmlFor="displayName">Username</label>
           <input
@@ -170,12 +196,11 @@ export default function EditProfilePage() {
           />
         </div>
 
-        {/* Email */}
+        {/* email */}
         <div className={styles.field}>
           <label className={styles.label} htmlFor="email">Email</label>
           <input
-            id="email"
-            type="email"
+            id="email" type="email"
             className={styles.input}
             value={email}
             onChange={e => setEmail(e.target.value)}
@@ -184,15 +209,16 @@ export default function EditProfilePage() {
           />
         </div>
 
-        {/* Current Password */}
+        {/* current password */}
         <div className={styles.field}>
           <label className={styles.label} htmlFor="currentPw">
             Current Password
-            <span className={styles.helpText}>(needed to change email or password)</span>
+            <span className={styles.helpText}>
+              (required to change email or password)
+            </span>
           </label>
           <input
-            id="currentPw"
-            type="password"
+            id="currentPw" type="password"
             className={styles.input}
             value={currentPw}
             onChange={e => setCurrentPw(e.target.value)}
@@ -200,12 +226,11 @@ export default function EditProfilePage() {
           />
         </div>
 
-        {/* New Password */}
+        {/* new password */}
         <div className={styles.field}>
           <label className={styles.label} htmlFor="newPw">New Password</label>
           <input
-            id="newPw"
-            type="password"
+            id="newPw" type="password"
             className={styles.input}
             value={newPw}
             onChange={e => setNewPw(e.target.value)}
@@ -214,12 +239,11 @@ export default function EditProfilePage() {
           />
         </div>
 
-        {/* Confirm New Password */}
+        {/* confirm */}
         <div className={styles.field}>
           <label className={styles.label} htmlFor="confirmPw">Confirm New Password</label>
           <input
-            id="confirmPw"
-            type="password"
+            id="confirmPw" type="password"
             className={styles.input}
             value={confirmPw}
             onChange={e => setConfirmPw(e.target.value)}

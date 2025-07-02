@@ -427,9 +427,10 @@ export default function CommunityPage() {
             {user
               ? <>
                   <img
-                    src={user.photoURL||'/placeholder-user.png'}
+                    src={user.photoURL && user.photoURL.trim() !== '' ? user.photoURL : '/default_profile.jpg'}
                     className={styles.userAvatar}
                     alt={user.displayName||'You'}
+                    onError={e => { (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg' }}
                   />
                   <div className={styles.userDetails}>
                     <div className={styles.userName}>
@@ -557,9 +558,10 @@ export default function CommunityPage() {
               <div className={styles.inputContainer}>
                 {user && (
                   <img
-                    src={user.photoURL||'/placeholder-user.png'}
+                  src={user.photoURL && user.photoURL.trim() !== '' ? user.photoURL : '/default_profile.jpg'}
                     className={styles.inputAvatar}
                     alt="You"
+                    onError={e => { (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg' }}
                   />
                 )}
                 <textarea
@@ -617,9 +619,10 @@ function MessageItem({
       >
         <div className={styles.messageHeader}>
           <img
-            src={msg.profilePicUrl||'/placeholder-user.png'}
+            src={msg.profilePicUrl && msg.profilePicUrl.trim() !== '' ? msg.profilePicUrl : '/default_profile.jpg'}
             className={styles.avatar}
             alt={msg.username}
+            onError={e => { (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg' }}
           />
           <a href={`/account/${msg.userId}`} className={styles.user}>{msg.username}</a>
           {showTime && (
