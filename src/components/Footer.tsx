@@ -48,7 +48,7 @@ export default function Footer() {
             <h4>Community</h4>
             <a href="https://www.instagram.com/diamondinsights.app/">Instagram</a>
             <a href="https://x.com/DiamondIns58780">X</a>
-            <a href="#">TikTok</a>
+            <a href="https://www.tiktok.com/@diamondinsights.app">TikTok</a>
           </div>
         </div>
       </div>

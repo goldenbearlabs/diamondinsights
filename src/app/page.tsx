@@ -262,7 +262,7 @@ export default function LandingPage() {
           <div className={styles.communityCta}>
             <a href="https://x.com/DiamondIns58780" className={styles.communityLink}><FaTwitter /> Follow on Twitter</a>
             <a href="https://www.instagram.com/diamondinsights.app/" className={styles.communityLink}><FaInstagram /> Follow on Instagram</a>
-            <a href="#" className={styles.communityLink}><FaTiktok /> Follow on TikTok</a>
+            <a href="https://www.tiktok.com/@diamondinsights.app" className={styles.communityLink}><FaTiktok /> Follow on TikTok</a>
           </div>
         </section>
       </main>
