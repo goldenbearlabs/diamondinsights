@@ -260,8 +260,8 @@ export default function LandingPage() {
             <p>Connect with thousands of MLB The Show investors</p>
           </div>
           <div className={styles.communityCta}>
-            <a href="#" className={styles.communityLink}><FaTwitter /> Follow on Twitter</a>
-            <a href="#" className={styles.communityLink}><FaInstagram /> Follow on Instagram</a>
+            <a href="https://x.com/DiamondIns58780" className={styles.communityLink}><FaTwitter /> Follow on Twitter</a>
+            <a href="https://www.instagram.com/diamondinsights.app/" className={styles.communityLink}><FaInstagram /> Follow on Instagram</a>
             <a href="#" className={styles.communityLink}><FaTiktok /> Follow on TikTok</a>
           </div>
         </section>

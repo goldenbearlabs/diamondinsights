@@ -46,8 +46,8 @@ export default function Footer() {
           </div>
           <div className={styles.linkGroup}>
             <h4>Community</h4>
-            <a href="#">Instagram</a>
-            <a href="#">X</a>
+            <a href="https://www.instagram.com/diamondinsights.app/">Instagram</a>
+            <a href="https://x.com/DiamondIns58780">X</a>
             <a href="#">TikTok</a>
           </div>
         </div>
