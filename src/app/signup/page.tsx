@@ -138,7 +138,7 @@ export default function SignupPage() {
         rating,
         profilePic:        photoURL,
         createdAt:         serverTimestamp(),
-        investmentsPublic: false,
+        investmentsPublic: true,
       });
 
       router.push('/');

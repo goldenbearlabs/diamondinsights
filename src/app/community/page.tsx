@@ -3,6 +3,15 @@
 import React, { useState, useEffect, useRef } from 'react'
 import styles from './page.module.css'
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth'
+import {
+  getFirestore,
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  doc,
+  getDoc
+} from 'firebase/firestore'
 
 import {
   FaBroadcastTower,
@@ -53,7 +62,6 @@ interface TrendingCard {
   totalVotes: number
 }
 
-// Recursive message type with replies
 type MessageTree = Message & { replies: MessageTree[] }
 
 const TABS = [
@@ -67,9 +75,11 @@ const TABS = [
 
 export default function CommunityPage() {
   const auth = getAuth()
+  const db   = getFirestore()
+
   const [user, setUser] = useState<User | null>(null)
   const [activeTab, setActive] = useState<typeof TABS[number]['key']>('live')
-  const [msgs, setLoadingMsgs] = useState<Message[]>([])
+  const [msgs, setMsgs] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
   const [newText, setNewText] = useState('')
   const [replyTo, setReplyTo] = useState<string | null>(null)
@@ -78,7 +88,7 @@ export default function CommunityPage() {
   const [trendingCards, setTrendingCards] = useState<TrendingCard[]>([])
   const [trendingLoading, setTrendingLoading] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-  
+
   // User search state
   const [userSearch, setUserSearch] = useState('')
   const [userMatches, setUserMatches] = useState<UserSearchResult[]>([])
@@ -88,7 +98,9 @@ export default function CommunityPage() {
   const textareaRef    = useRef<HTMLTextAreaElement>(null)
   const userSearchRef  = useRef<HTMLDivElement>(null)
 
-  useEffect(() => onAuthStateChanged(auth, u => setUser(u)), [auth])
+  useEffect(() => {
+    return onAuthStateChanged(auth, u => setUser(u))
+  }, [auth])
 
   // Function to fetch trending cards
   const fetchTrendingCards = async () => {
@@ -122,8 +134,7 @@ export default function CommunityPage() {
         const data = await res.json()
         setUserMatches(data)
         setUserSearchOpen(true)
-      } catch (error) {
-        console.error('User search failed:', error)
+      } catch {
         setUserMatches([])
       }
     }
@@ -153,12 +164,9 @@ export default function CommunityPage() {
         setMobileSidebarOpen(false)
       }
     }
-    
     if (mobileSidebarOpen) {
       document.addEventListener('mousedown', handleClickOutside)
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [mobileSidebarOpen])
 
@@ -169,11 +177,11 @@ export default function CommunityPage() {
         fetchTrendingCards()
       }
     }
-
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
   }, [activeTab])
 
+  // Real‐time listener for chat messages
   useEffect(() => {
     if (activeTab === 'trending') {
       fetchTrendingCards()
@@ -181,47 +189,74 @@ export default function CommunityPage() {
     }
 
     setLoading(true)
-    setLoadingMsgs([])
     setReplyTo(null)
+    setMsgs([])
     setCardThumbs({})
     setCardNames({})
 
-    const endpoint =
-      activeTab === 'live'
-        ? '/api/comments/all'
-        : `/api/chat/${activeTab === 'invest' ? 'investing' : activeTab}`
+    // Determine collection name
+    const room = activeTab === 'live'
+    ? 'comments'
+    : activeTab === 'invest'
+      ? 'chat_investing'
+      : activeTab === 'flip'
+        ? 'chat_flipping'
+        : `chat_${activeTab}`
 
-    fetch(endpoint)
-      .then(r => r.json())
-      .then(async (data: Message[]) => {
-        data.forEach(m => { if (m.likes == null) m.likes = 0 })
-        setLoadingMsgs(data)
+    // Build a Firestore query
+    const q = query(
+      collection(db, room),
+      orderBy('timestamp', 'desc')
+    )
 
-        if (activeTab === 'live') {
-          // filter out undefined and narrow type to string
-          const ids = Array.from(new Set(
-            data
-              .map(m => m.playerId)
-              .filter((x): x is string => Boolean(x))
-          ))
-
-          const thumbs: Record<string, string> = {}
-          const names:  Record<string, string> = {}
-
-          await Promise.all(ids.map(async id => {
-            const res = await fetch(`/api/cards/${id}`)
-            if (!res.ok) return
-            const c = await res.json() as { baked_img?: string, name?: string }
-            if (c.baked_img) thumbs[id] = c.baked_img
-            if (c.name)       names[id]  = c.name
-          }))
-
-          setCardThumbs(thumbs)
-          setCardNames(names)
+    // Subscribe to updates
+    const unsubscribe = onSnapshot(q, async snap => {
+      const raw = snap.docs.map(d => {
+        const data = d.data() as any
+        return {
+          id:          d.id,
+          parentId:    data.parentId || null,
+          userId:      data.userId,
+          text:        data.text,
+          timestamp:   data.timestamp,
+          playerId:    data.playerId,
+          likes:       (data.likedBy || []).length,
+          liked:       user ? (data.likedBy || []).includes(user.uid) : false,
+          // username & profilePicUrl will be merged in below
         }
-      })
-      .finally(() => setLoading(false))
-  }, [activeTab])
+      }) as Array<Omit<Message, 'username' | 'profilePicUrl'>>
+
+      // Bulk‐fetch user profiles
+      const uids = Array.from(new Set(raw.map(m => m.userId)))
+      const userDocs = await Promise.all(
+        uids.map(uid => getDoc(doc(db, 'users', uid)))
+      )
+      const userMap = userDocs.reduce<Record<string,{username:string,profilePicUrl:string}>>((acc, ds) => {
+        if (ds.exists()) {
+          const d = ds.data() as any
+          acc[ds.id] = {
+            username:      d.username    || 'Unknown',
+            profilePicUrl: d.profilePic  || '/placeholder-user.png'
+          }
+        }
+        return acc
+      }, {})
+
+      // Merge names into messages
+      const withNames = raw.map(m => ({
+        ...m,
+        username:      userMap[m.userId]?.username      || 'Unknown',
+        profilePicUrl: userMap[m.userId]?.profilePicUrl || '/placeholder-user.png'
+      }))
+
+      setMsgs(withNames)
+      setLoading(false)
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [activeTab, user])
 
   useEffect(() => {
     if (!textareaRef.current) return
@@ -233,7 +268,7 @@ export default function CommunityPage() {
   // Build a tree of messages with replies
   const buildTree = (list: Message[]): MessageTree[] => {
     const byId: Record<string, MessageTree> = {}
-    list.forEach(m => byId[m.id] = { ...m, replies: [] })
+    list.forEach(m => (byId[m.id] = { ...m, replies: [] }))
     const roots: MessageTree[] = []
     Object.values(byId).forEach(m => {
       if (m.parentId && byId[m.parentId]) {
@@ -270,10 +305,6 @@ export default function CommunityPage() {
     }
     setNewText('')
     setReplyTo(null)
-    const r2 = await fetch(endpoint)
-    const data = await r2.json()
-    data.forEach((m:Message)=>{ if (m.likes==null) m.likes=0 })
-    setLoadingMsgs(data)
   }
 
   async function toggleLike(id: string) {
@@ -292,15 +323,11 @@ export default function CommunityPage() {
     )
     if (!res.ok) return console.error('Like failed', await res.json())
     const { toggled } = await res.json()
-    setLoadingMsgs(ms => ms.map(m =>
-        m.id===id
-            ? {
-                ...m,
-                liked: toggled,
-                likes: m.likes + (toggled ? +1 : -1)
-            }
-            : m
-        ))
+    setMsgs(ms => ms.map(m =>
+      m.id === id
+        ? {...m, liked: toggled, likes: m.likes + (toggled ? 1 : -1) }
+        : m
+    ))
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
