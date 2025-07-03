@@ -5,7 +5,6 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import styles from './page.module.css'
 import { FaSpinner } from 'react-icons/fa'
-import Image from 'next/image'
 
 interface Card {
   id: string
