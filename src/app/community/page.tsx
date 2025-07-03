@@ -251,6 +251,21 @@ export default function CommunityPage() {
 
       setMsgs(withNames)
       setLoading(false)
+
+      if (activeTab === "live") {
+        const playerIds = Array.from(new Set(withNames.map(m => m.playerId!).filter(Boolean)))
+        const thumbs: Record<string,string> = {}
+        const names:  Record<string,string> = {}
+        await Promise.all(playerIds.map(async id => {
+          const snap = await getDoc(doc(db, 'cards', id))
+          if (!snap.exists()) return
+          const card = snap.data() as any
+          if (card.baked_img) thumbs[id] = card.baked_img
+          if (card.name)      names[id]  = card.name
+        }))
+        setCardThumbs(thumbs)
+        setCardNames(names)
+      }
     })
 
     return () => {
@@ -622,6 +637,52 @@ export default function CommunityPage() {
   )
 }
 
+function useRelativeTime(timestampMs: number) {
+  const [label, setLabel] = useState(() => format(timestampMs))
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>
+    const now = Date.now()
+    const age = now - timestampMs
+
+    // decide next update
+    let nextIn: number
+    if (age < 2 * 60_000) {
+      // just now window
+      nextIn = 2 * 60_000 - age
+    } else if (age < 30 * 60_000) {
+      // update every 5m
+      nextIn = 5 * 60_000 - (age % (5 * 60_000))
+    } else if (age < 60 * 60_000) {
+      // update at the hour mark
+      nextIn = 60 * 60_000 - age
+    } else if (age < 24 * 60 * 60_000) {
+      // update every hour
+      nextIn = 60 * 60_000 - (age % (60 * 60_000))
+    } else {
+      // update every day
+      nextIn = 24 * 60 * 60_000 - (age % (24 * 60 * 60_000))
+    }
+
+    // schedule the re‐compute
+    timer = setTimeout(() => {
+      setLabel(format(timestampMs))
+    }, nextIn)
+
+    return () => clearTimeout(timer)
+  }, [timestampMs, label])
+
+  return label
+
+  function format(ts: number) {
+    const diff = Date.now() - ts
+    if (diff < 2 * 60_000)          return 'just now'
+    if (diff < 60 * 60_000)         return `${Math.floor(diff / 60_000)}m ago`
+    if (diff < 24 * 60 * 60_000)    return `${Math.floor(diff / 60_000 / 60)}h ago`
+    return `${Math.floor(diff / 60_000 / 60 / 24)}d ago`
+  }
+}
+
 function MessageItem({
   msg, depth, isLive, thumb, cardName, userLoggedIn, onReply, onLike
 }: {
@@ -634,7 +695,8 @@ function MessageItem({
   onReply: (id: string) => void,
   onLike: (id: string) => void
 }) {
-  const [showTime, setShowTime]   = useState(false)
+  const [showTime, setShowTime]   = useState(true)
+  const relTime = useRelativeTime(msg.timestamp)
   const [collapsed, setCollapsed] = useState(true)
 
   return (
@@ -654,12 +716,7 @@ function MessageItem({
           <a href={`/account/${msg.userId}`} className={styles.user}>{msg.username}</a>
           {showTime && (
             <span className={styles.time}>
-              {new Date(msg.timestamp).toLocaleString([], {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
+              {relTime}
             </span>
           )}
           {isLive && msg.playerId && (

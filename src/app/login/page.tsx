@@ -13,11 +13,13 @@ import {
   FaUsers,
   FaBolt,
 } from 'react-icons/fa';
+import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
 
 import styles from './page.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
+  const db = getFirestore();
 
   const [email, setEmail]         = useState('');
   const [password, setPassword]   = useState('');
@@ -25,18 +27,38 @@ export default function LoginPage() {
   const [error, setError]         = useState('');
   const [loading, setLoading]     = useState(false);
   const [showPw, setShowPw]       = useState(false);
+  const [identifier, setIdentifier] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     // --- CLIENT-SIDE VALIDATION ---
-    if (!email.trim()) {
+    if (!identifier.trim()) {
       return setError('Email is required');
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return setError('Please enter a valid email address');
+    let emailToUse = identifier.trim();
+    if (!emailRegex.test(identifier)) {
+      try {
+        const q = query(
+          collection(db, 'users'),
+          where('username', '==', identifier.trim())
+        );
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          return setError('No account found with that username');
+        }
+        const userDoc = snap.docs[0].data() as any;
+        if (!userDoc.email) {
+          return setError('This user does not have a sign-in email');
+        }
+        emailToUse = userDoc.email;
+      } catch (err) {
+        console.error(err);
+        return setError('Error with the server try again with your email or wait a little bit.')
+      }
+      
     }
     if (!password) {
       return setError('Password is required');
@@ -45,7 +67,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, emailToUse, password);
       router.push('/');
     } catch (err: any) {
       console.error('Login error', err);
@@ -106,13 +128,13 @@ export default function LoginPage() {
           {error && <div className={styles.authError}>{error}</div>}
 
           <div className={styles.formGroup}>
-            <label htmlFor="email">Email</label>
+            <label htmlFor="identifier">Email or Username</label>
             <input
-              id="email"
-              type="email"
+              id="identifier"
+              type="text"
               className={styles.formInput}
-              value={email}
-              onChange={e => { setError(''); setEmail(e.target.value); }}
+              value={identifier}
+              onChange={e => { setError(''); setIdentifier(e.target.value); }}
               disabled={loading}
               required
             />

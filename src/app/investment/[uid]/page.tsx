@@ -172,6 +172,10 @@ export default function InvestmentPage() {
 
   // 5) Autocomplete for the “Add” form
   useEffect(() => {
+    if (sel) {
+      setMatches([])
+      return
+    }
     if (!q) return setMatches([])
     fetch('/api/cards/live')
       .then(r => r.json())
@@ -448,7 +452,8 @@ export default function InvestmentPage() {
                       <div
                         key={c.id}
                         className={styles.autocompleteItem}
-                        onClick={() => {
+                        onMouseDown={(e) => {
+                          e.preventDefault()
                           setSel(c)
                           setQ(c.name)
                           setMatches([])
