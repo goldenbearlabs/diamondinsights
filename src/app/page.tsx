@@ -129,7 +129,7 @@ export default function LandingPage() {
                     />
                     <div className={styles.playerInfo}>
                       <h3 className={styles.playerName}>{String(pred.name)}</h3>
-                      <p className={styles.playerPosition}>{String(pred.position)}</p>
+                      <p className={styles.playerPosition}>{String(pred.display_position)}</p>
                     </div>
                   </div>
                   

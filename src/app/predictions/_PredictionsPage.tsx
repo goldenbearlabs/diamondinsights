@@ -560,7 +560,7 @@ export default function PredictionsPage() {
                       <td key={col} data-key={col}>
                         {col === 'card' ? (
                           <a href={`/player/${c.id}`}>
-                            <Image src={c.baked_img!} alt={c.name} className={styles.cardIcon}/>
+                            <img src={c.baked_img!} alt={c.name} className={styles.cardIcon}/>
                           </a>
                         ) : (
                           cell ?? '-'
