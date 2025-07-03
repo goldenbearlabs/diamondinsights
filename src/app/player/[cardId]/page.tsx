@@ -832,13 +832,24 @@ export default function CardPage() {
                 const pred     = isNaN(predNum) ? curr : predNum
                 const delta    = pred - curr
 
+                // function to get proper display name for attributes by mapping
+                const getAttributeDisplayName = (attributeKey: string) => {
+                  const attributeNameMapping: Record<string, string> = {
+                    'hits_per_bf': 'H/9',
+                    'k_per_bf': 'K/9',
+                    'bb_per_bf': 'BB/9',
+                    'hr_per_bf': 'HR/9'
+                  }
+                  
+                  return attributeNameMapping[attributeKey] || attributeKey
+                    .replace(/_/g, ' ')
+                    .replace(/\b\w/g, l => l.toUpperCase())
+                }
+
                 return (
                   <tr key={attr}>
                     <td>
-                      {attr
-                        .replace(/_/g, ' ')
-                        .replace(/\b\w/g, l => l.toUpperCase())
-                      }
+                      {getAttributeDisplayName(attr)}
                     </td>
                     <td>{curr}</td>
                     <td>{pred.toFixed(1)}</td>

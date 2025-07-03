@@ -926,15 +926,24 @@
   
   /* Table responsiveness */
   .predictionTable,
-  .statsTable {
+  .statsTable,
+  .responsiveTable {
     overflow-x: auto;
     display: block;
     white-space: nowrap;
   }
   
+  .statsTableContainer {
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  
   .predictionTable table,
-  .statsTable {
-    min-width: 500px;
+  .statsTable,
+  .statsTableContainer .statsTable,
+  .responsiveTable .statsTable {
+    min-width: 500px !important;
+    width: 90% !important;
   }
   
   /* Comments adjustments */
@@ -1093,9 +1102,20 @@
   
   /* Table mobile optimization */
   .predictionTable table,
-  .statsTable {
+  .statsTable,
+  .statsTableContainer .statsTable,
+  .responsiveTable .statsTable {
     font-size: 0.85rem;
-    min-width: 400px;
+    min-width: 100% !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+  
+  .statsTableContainer,
+  .responsiveTable {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
   }
   
   .predictionTable th,
@@ -1233,6 +1253,23 @@
     border-radius: 0;
     background: transparent;
     box-shadow: none;
+    width: 100% !important;
+    max-width: none !important;
+  }
+  
+  .statsTable,
+  .responsiveTable .statsTable,
+  .predictionTable table {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: none !important;
+    table-layout: fixed !important;
+    white-space: normal !important;
+  }
+  
+  .statsTableContainer,
+  .responsiveTable {
+    white-space: normal !important;
   }
   
   .statsTable th,
@@ -1241,21 +1278,73 @@
   .predictionTable td {
     padding: 10px 8px;
     font-size: 14px;
+    white-space: normal !important;
+    word-wrap: break-word;
+  }
+  
+  /* Column width distribution for stats table */
+  .statsTable th:first-child,
+  .statsTable td:first-child {
+    width: 30% !important;
+  }
+  
+  .statsTable th:nth-child(2),
+  .statsTable td:nth-child(2) {
+    width: 35% !important;
+  }
+  
+  .statsTable th:nth-child(3),
+  .statsTable td:nth-child(3) {
+    width: 35% !important;
   }
 }
 
 @media (max-width: 480px) {
+  .responsiveTable, 
+  .predictionTableContainer {
+    width: 100% !important;
+    max-width: none !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .statsTable,
+  .responsiveTable .statsTable,
+  .predictionTable table {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: none !important;
+    table-layout: fixed !important;
+    white-space: normal !important;
+  }
+  
+  .statsTableContainer,
+  .responsiveTable {
+    white-space: normal !important;
+  }
+  
   .statsTable th,
   .statsTable td,
   .predictionTable th,
   .predictionTable td {
     padding: 8px 6px;
     font-size: 13px;
+    white-space: normal !important;
+    word-wrap: break-word;
   }
   
-  /* Add horizontal scrolling if needed */
-  .responsiveTable,
-  .predictionTableContainer {
-    -webkit-overflow-scrolling: touch;
+  /* Column width distribution for stats table on small mobile */
+  .statsTable th:first-child,
+  .statsTable td:first-child {
+    width: 28% !important;
+  }
+  
+  .statsTable th:nth-child(2),
+  .statsTable td:nth-child(2) {
+    width: 36% !important;
+  }
+  
+  .statsTable th:nth-child(3),
+  .statsTable td:nth-child(3) {
+    width: 36% !important;
   }
 }
