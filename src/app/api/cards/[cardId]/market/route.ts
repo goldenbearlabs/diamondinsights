@@ -1,34 +1,34 @@
 // src/app/api/cards/[cardId]/market/route.ts
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
 import { firestore } from '@/lib/firebaseAdmin'
 
-export async function GET(
-  request: NextRequest,
-  {
-    params,
-  }: {
-    params: {
-      uid: string
-    }
+export async function GET(request: NextRequest) {
+  // Extract the cardId from the URL path
+  const match = request.nextUrl.pathname.match(
+    /^\/api\/cards\/([^\/]+)\/market\/?/
+  )
+  const cardId = match?.[1]
+  if (!cardId) {
+    return NextResponse.json(
+      { error: 'Missing cardId in URL' },
+      { status: 400 }
+    )
   }
-): Promise<NextResponse> {
-  const uid = params.uid
 
-  // 1) ensure this user’s investments are public
-  const userDoc = await firestore.doc(`users/${uid}`).get()
+  // Check that this user’s investments are public
+  const userDoc = await firestore.doc(`users/${cardId}`).get()
   if (!userDoc.exists || !userDoc.data()?.investmentsPublic) {
     return NextResponse.json({ error: 'Not public' }, { status: 403 })
   }
 
-  // 2) fetch their investments sub-collection
+  // Load their investments
   const snap = await firestore
     .collection('users')
-    .doc(uid)
+    .doc(cardId)
     .collection('investments')
     .orderBy('createdAt', 'desc')
     .get()
 
-  const investments = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-
+  const investments = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
   return NextResponse.json(investments)
 }
