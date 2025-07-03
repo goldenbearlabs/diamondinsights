@@ -72,7 +72,10 @@ export async function GET(
   const qs_pred_high = qsValue(Math.round(predictedRankHigh))
 
   // 4) price/fallback
-  const price = market.sell ?? qs_actual
+  const rawPrice = (market as Record<string,unknown>).sell
+  const price = typeof rawPrice === 'number'
+    ? rawPrice
+    : Number(rawPrice) || qs_actual
 
   // 5) profit & %
   const profit      = qs_pred       - price
