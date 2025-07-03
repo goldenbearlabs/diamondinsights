@@ -1,6 +1,8 @@
 // src/app/api/cards/[cardId]/comments/route.ts
 import { NextResponse } from 'next/server'
-import { firestore }    from '@/lib/firebaseAdmin'
+import admin from 'firebase-admin'
+import { firestore } from '@/lib/firebaseAdmin'
+import { headers } from 'next/headers'
 
 // TypeScript interfaces for Firestore data
 interface CommentData {
@@ -12,10 +14,7 @@ interface CommentData {
   timestamp: number
 }
 
-interface UserData {
-  username: string
-  profilePic: string
-}
+if (!admin.apps.length) admin.initializeApp()
 
 // maximum allowed length for a comment
 const MAX_LENGTH = 500
@@ -26,7 +25,6 @@ const BLACKLIST = [
   'kike','chink','spic','dyke','tranny',
   'slut','whore','bitch','asshole'
 ]
-
 function censor(text: string): string {
   return text
     .split(/\b/)
@@ -34,6 +32,15 @@ function censor(text: string): string {
       BLACKLIST.includes(tok.toLowerCase()) ? '****' : tok
     )
     .join('')
+}
+
+async function requireAuth() {
+  const h = await headers()
+  const authH = h.get('authorization') || ''
+  const match = authH.match(/^Bearer (.+)$/)
+  if (!match) throw new Error('Not authenticated')
+  const decoded = await admin.auth().verifyIdToken(match[1])
+  return decoded.uid
 }
 
 export async function GET(
@@ -47,12 +54,19 @@ export async function GET(
     .orderBy('timestamp', 'desc')
     .get()
 
+  // 1) Cast d.data() to CommentData
   const raw = snap.docs.map(d => {
     const data = d.data() as CommentData
+
+    // 2) Explicitly pick the fields
     return {
-      id:        d.id,
-      ...data,
-      likes:     data.likes || []
+      id:         d.id,
+      playerId:   data.playerId,
+      userId:     data.userId,
+      text:       data.text,
+      parentId:   data.parentId,
+      timestamp:  data.timestamp,
+      likes:      data.likes || []
     }
   })
 
@@ -60,10 +74,13 @@ export async function GET(
   const usersSnap = await Promise.all(
     userIds.map(uid => firestore.collection('users').doc(uid).get())
   )
-  const userMap = usersSnap.reduce<Record<string, UserData>>((m, docSnap) => {
-    const userData = docSnap.data() as UserData
-    if (userData) {
-      m[docSnap.id] = userData
+  const userMap = usersSnap.reduce<Record<string,{username:string,profilePic:string}>>((m, ds) => {
+    if (ds.exists) {
+      const u = ds.data()!
+      m[ds.id] = {
+        username:   u.username || 'Unknown',
+        profilePic: u.profilePic || '/avatar.png'
+      }
     }
     return m
   }, {})
@@ -86,17 +103,20 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ cardId: string }> }
 ) {
-  const { cardId } = await context.params
-  const { text: rawText, parentId, userId } = await request.json()
-
-  if (!userId) {
+  let uid: string
+  try {
+    uid = await requireAuth()
+  } catch {
     return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
   }
 
-  // trim + censor
+  const { cardId } = await context.params
+  const { text: rawText, parentId } = await request.json()
+
+  // 1) trim + censor
   const cleaned = censor(rawText.trim())
 
-  // reject empty or all-censored
+  // 2) reject empty or all-censored
   if (!cleaned.replace(/\*+/g, '').trim()) {
     return NextResponse.json(
       { error: 'Your comment contains disallowed language.' },
@@ -104,7 +124,7 @@ export async function POST(
     )
   }
 
-  // enforce maximum length
+  // 3) enforce maximum length
   if (cleaned.length > MAX_LENGTH) {
     return NextResponse.json(
       { error: `Comment too long (max ${MAX_LENGTH} characters).` },
@@ -112,13 +132,46 @@ export async function POST(
     )
   }
 
-  await firestore.collection('comments').add({
+  // 4) block external URLs
+  const urlPattern = /(https?:\/\/[^\s]+|www\.[^\s]+)/i
+  if (urlPattern.test(cleaned)) {
+    return NextResponse.json(
+      { error: 'External links are not allowed.' },
+      { status: 400 }
+    )
+  }
+
+  // 5) rate-limit per user per card (15s)
+  const now = Date.now()
+  const col = firestore.collection('comments')
+  const lastSnap = await col
+    .where('playerId', '==', cardId)
+    .where('userId', '==', uid)
+    .orderBy('timestamp', 'desc')
+    .limit(1)
+    .get()
+
+  if (!lastSnap.empty) {
+    const lastTs = lastSnap.docs[0].data().timestamp as number
+    if (now - lastTs < 15_000) {
+      return NextResponse.json(
+        { error: "You're commenting too quickly. Please wait a bit." },
+        { status: 429 }
+      )
+    }
+  }
+
+  // 6) collapse blank‐line floods
+  const sanitized = cleaned.replace(/\n{3,}/g, '\n\n')
+
+  // 7) write
+  await col.add({
     playerId:  cardId,
-    userId,
-    text:      cleaned,
+    userId:    uid,
+    text:      sanitized,
     parentId:  parentId || null,
-    likes:     [],           
-    timestamp: Date.now()
+    likes:     [],
+    timestamp: now
   })
 
   return NextResponse.json({ success: true }, { status: 201 })

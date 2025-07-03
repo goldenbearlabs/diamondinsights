@@ -84,7 +84,7 @@ export async function GET(
       const d = u.data() as UserData
       m[u.id] = {
         username:   d.username    || 'Unknown',
-        profilePic: d.profilePic  || '/placeholder-user.png'
+        profilePic: d.profilePic  || '/default_profile.png'
       }
     }
     return m
@@ -138,11 +138,39 @@ export async function POST(
       { status: 400 }
     )
   }
+  const urlPattern = /(https?:\/\/[^\s]+|www\.[^\s]+)/i;
+  if (urlPattern.test(cleaned)) {
+    return NextResponse.json(
+      { error: 'External links are not allowed in chat.' },
+      { status: 400 }
+    );
+  }
+  // ─── 1) RATE-LIMIT: fetch this user’s last message in this room ───────
+  const colName = `chat_${room}`
+  const now     = Date.now()
+  const roomCol = firestore.collection(colName)
+  const lastMsgSnap = await roomCol
+    .where('userId', '==', uid)
+    .orderBy('timestamp', 'desc')
+    .limit(1)
+    .get()
+
+  if (!lastMsgSnap.empty) {
+    const lastTs = lastMsgSnap.docs[0].data().timestamp as number
+    if (now - lastTs < 15_000) {
+      return NextResponse.json(
+        { error: "You're sending messages too quickly—please wait a bit." },
+        { status: 429 }
+      )
+    }
+  }
+
+  const sanitized = cleaned.replace(/\n{3,}/g, '\n\n')
 
   const col = `chat_${room}`
   await firestore.collection(col).add({
     userId:    uid,
-    text:      cleaned,
+    text:      sanitized,
     parentId:  parentId || null,
     timestamp: Date.now(),
     likedBy:   [] as string[]

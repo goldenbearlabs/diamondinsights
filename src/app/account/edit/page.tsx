@@ -29,6 +29,7 @@ import {
   doc,
   setDoc
 } from 'firebase/firestore'
+import { FaSpinner } from 'react-icons/fa'
 
 export default function EditProfilePage() {
   const router    = useRouter()
@@ -69,12 +70,6 @@ export default function EditProfilePage() {
     if (!user) return
     setError(null)
     setSaving(true)
-
-    if (currentPw && !newPw) {
-      setError('Please enter a new password to change your password.')
-      setSaving(false)
-      return
-    }
 
     // require current password if changing email or password
     const credChange = newPw || email !== user.email
@@ -161,8 +156,14 @@ export default function EditProfilePage() {
   }
 
   if (loading) {
-    return <div className={styles.container}><p>Loading…</p></div>
+    return (
+      <div className="spinner-container">
+        <FaSpinner className="spinner" />
+      </div>
+    )
   }
+
+  const displayUrl = previewUrl || initialPhotoURL || '/default_profile.jpg'
 
   return (
     <main className={styles.container}>
@@ -177,7 +178,7 @@ export default function EditProfilePage() {
           <div className={styles.preview}>
             {previewUrl ? (
                 <Image
-                  src={previewUrl}
+                  src={displayUrl}
                   alt="Avatar Preview"
                   width={100}
                   height={100}
@@ -239,6 +240,7 @@ export default function EditProfilePage() {
             value={currentPw}
             onChange={e => setCurrentPw(e.target.value)}
             disabled={saving}
+            autoComplete="off"
           />
         </div>
 
@@ -252,6 +254,7 @@ export default function EditProfilePage() {
             onChange={e => setNewPw(e.target.value)}
             disabled={saving}
             placeholder="leave blank to keep current"
+            autoComplete="new-password"
           />
         </div>
 
@@ -265,6 +268,7 @@ export default function EditProfilePage() {
             onChange={e => setConfirmPw(e.target.value)}
             disabled={saving}
             placeholder="must match new password"
+            autoComplete="new-password"
           />
         </div>
 
