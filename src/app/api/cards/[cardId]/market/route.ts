@@ -1,11 +1,11 @@
 // src/app/api/cards/[cardId]/market/route.ts
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { firestore } from '@/lib/firebaseAdmin'
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { cardId: string } }
-) {
+): Promise<NextResponse> {
   const uid = params.cardId
 
   // Ensure the user’s investments are public
