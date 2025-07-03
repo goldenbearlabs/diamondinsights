@@ -131,22 +131,26 @@ export default function AccountPage() {
     )
   }
 
+  if (!profile) {
+    return <div className="errorContainer">Profile failed to load.</div>
+  }
+
   const createdDate = (() => {
     // Try profile.createdAt first
-    if (profile.createdAt) {
+    if (profile?.createdAt) {
       try {
         // Try Firestore Timestamp first
-        if (typeof profile.createdAt.toDate === 'function') {
-          return profile.createdAt.toDate().toLocaleDateString()
+        if (typeof profile?.createdAt.toDate === 'function') {
+          return profile?.createdAt.toDate().toLocaleDateString()
         }
         
         // Try if it's a Firestore timestamp object with seconds
-        if (profile.createdAt.seconds) {
-          return new Date(profile.createdAt.seconds * 1000).toLocaleDateString()
+        if (profile?.createdAt.seconds) {
+          return new Date(profile?.createdAt.seconds * 1000).toLocaleDateString()
         }
         
         // Try direct Date conversion
-        return new Date(profile.createdAt as any).toLocaleDateString()
+        return new Date(profile?.createdAt as any).toLocaleDateString()
       } catch {
         // Fall through to Firebase Auth fallback
       }
@@ -168,7 +172,7 @@ export default function AccountPage() {
   const toggleVisibility = async () => {
     if (!isOwner) return
     setSaving(true)
-    const newVal = !profile.investmentsPublic
+    const newVal = !profile?.investmentsPublic
     await updateDoc(doc(db, 'users', viewingUid!), {
       investmentsPublic: newVal
     })
@@ -183,7 +187,7 @@ export default function AccountPage() {
     <div className={styles.accountContainer}>
       <div className={styles.accountHeader}>
         <h2>
-          {isOwner ? 'My Account' : `${profile.username}'s Account`}
+          {isOwner ? 'My Account' : `${profile?.username}'s Account`}
         </h2>
         <p>
           {isOwner
@@ -196,7 +200,7 @@ export default function AccountPage() {
         <div className={styles.profileCard}>
           <div className={styles.profileHeader}>
             <img
-              src={pickPic(profile.profilePic)}
+              src={pickPic(profile?.profilePic)}
               alt="Profile Picture"
               className={styles.profilePic}
               onError={e => {
@@ -204,7 +208,7 @@ export default function AccountPage() {
               }}
             />
             <div className={styles.profileInfo}>
-              <h3>{profile.username}</h3>
+              <h3>{profile?.username}</h3>
             </div>
           </div>
 
@@ -212,7 +216,7 @@ export default function AccountPage() {
             {isOwner && (
               <div className={styles.detailCard}>
                 <h4>Email</h4>
-                <p className={styles.value}>{profile.email}</p>
+                <p className={styles.value}>{profile?.email}</p>
               </div>
             )}
 
@@ -241,26 +245,26 @@ export default function AccountPage() {
                 <label className={styles.switch}>
                   <input
                     type="checkbox"
-                    checked={!!profile.investmentsPublic}
+                    checked={!!profile?.investmentsPublic}
                     onChange={toggleVisibility}
                     disabled={saving}
                   />
                   <span className={styles.slider} />
                 </label>
                 <p className={styles.helpText}>
-                  {profile.investmentsPublic
+                  {profile?.investmentsPublic
                     ? 'Your investments are public.'
                     : 'Your investments are private.'}
                 </p>
               </div>
             ) : (
-              profile.investmentsPublic && (
+              profile?.investmentsPublic && (
                 <div className={styles.detailCard}>
                   <Link
                     href={`/investment/${viewingUid}`}
                     className="btn btn-secondary"
                   >
-                    View {profile.username}’s Investments
+                    View {profile?.username}’s Investments
                   </Link>
                 </div>
               )
