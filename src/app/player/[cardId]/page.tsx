@@ -179,13 +179,16 @@ export default function CardPage() {
       }
     }
     
+    const token = await user.getIdToken()
     await fetch(`/api/cards/${card!.id}/comments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       body: JSON.stringify({
         text:     finalText,
-        parentId: finalParentId,
-        userId:   user.uid
+        parentId: finalParentId
       })
     })
     setNewComment('')
