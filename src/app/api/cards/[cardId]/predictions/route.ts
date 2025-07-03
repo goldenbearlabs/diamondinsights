@@ -2,6 +2,12 @@
 import { NextResponse } from 'next/server'
 import { firestore }    from '@/lib/firebaseAdmin'
 
+interface RawPrediction {
+  predicted_rank_low: string
+  predicted_rank_high: string
+  [key: string]: unknown
+}
+
 export async function GET(
   request: Request,
   context: { params: Promise<{ cardId: string }> }
@@ -22,7 +28,7 @@ export async function GET(
     )
   }
 
-  const data = snap.data() as Record<string, any>
+  const data = snap.data() as RawPrediction
 
   // parse the low/high into floats
   const lowVal  = parseFloat(data.predicted_rank_low)

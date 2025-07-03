@@ -31,6 +31,11 @@ interface ProfileData {
   investmentsPublic?: boolean
 }
 
+interface InvestmentRecord {
+  quantity: number
+  avgBuyPrice: number
+}
+
 export default function AccountPage() {
   const router = useRouter()
   const { uid } = useParams() as { uid?: string }
@@ -89,7 +94,7 @@ export default function AccountPage() {
       const invSnap = await getDocs(invCol)
       let total = 0
       invSnap.forEach(d => {
-        const { quantity, avgBuyPrice } = d.data() as any
+        const { quantity, avgBuyPrice } = d.data() as InvestmentRecord
         total += (quantity || 0) * (avgBuyPrice || 0)
       })
 
@@ -145,12 +150,12 @@ export default function AccountPage() {
         }
         
         // Try if it's a Firestore timestamp object with seconds
-        if (profile?.createdAt.seconds) {
+        if ('seconds' in profile?.createdAt) {
           return new Date(profile?.createdAt.seconds * 1000).toLocaleDateString()
         }
         
         // Try direct Date conversion
-        return new Date(profile?.createdAt as any).toLocaleDateString()
+        return new Date(profile?.createdAt).toLocaleDateString()
       } catch {
         // Fall through to Firebase Auth fallback
       }

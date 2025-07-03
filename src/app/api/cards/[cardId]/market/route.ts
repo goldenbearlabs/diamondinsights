@@ -3,7 +3,7 @@ import { firestore } from '@/lib/firebaseAdmin'
 
 export async function GET(
   request: Request,
-  context: any  // ← use any (or omit the type altogether)
+  context: { params: { uid: string } } 
 ): Promise<NextResponse> {
   const { uid } = context.params
 

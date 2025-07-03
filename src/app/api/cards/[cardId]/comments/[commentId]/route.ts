@@ -23,7 +23,7 @@ export async function DELETE(
     try {
       const decodedToken = await admin.auth().verifyIdToken(token)
       userId = decodedToken.uid
-    } catch (error) {
+    } catch {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
     }
     

@@ -35,15 +35,22 @@ export async function GET(
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const raw     = doc.data() as any
-  const market  = raw.latestMarket   || {}
-  const predRaw = raw.latestPrediction || {}
+  interface FirestoreCard {
+    ovr?: number | string
+    latestMarket?: Record<string, unknown>
+    latestPrediction?: Record<string, unknown>
+    [key: string]: unknown
+  }
+
+  const raw     = doc.data() as FirestoreCard
+  const market  = raw.latestMarket   ?? {}
+  const predRaw = raw.latestPrediction ?? {}
 
   // 1) cast every predRaw[key] → number if possible
-  const pred: Record<string, any> = {}
+  const pred: Record<string, number | string> = {}
   Object.entries(predRaw).forEach(([k, v]) => {
-    const n = Number(v)
-    pred[k] = isNaN(n) ? v : n
+    const n = Number(v as string)
+    pred[k] = Number.isNaN(n) ? String(v) : n
   })
 
   // 2) confidence %

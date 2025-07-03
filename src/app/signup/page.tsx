@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { FirebaseError } from 'firebase/app'
 
 import { auth, db, storage } from '@/lib/firebaseClient';
 import {
@@ -41,7 +42,6 @@ export default function SignupPage() {
 
   const [username, setUsername] = useState('');
   const [email, setEmail]       = useState('');
-  const [rating, setRating]     = useState<number>(0);
   const [file, setFile]         = useState<File|null>(null);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm]   = useState('');
@@ -83,9 +83,6 @@ export default function SignupPage() {
     if (password.length < 6) {
       return setError('Password must be at least 6 characters');
     }
-    if (rating && (rating < 100 || rating > 2000)) {
-      return setError('Rating must be between 100 and 2000');
-    }
 
     // ----- USERNAME UNIQUENESS CHECK -----
     try {
@@ -95,7 +92,7 @@ export default function SignupPage() {
       if (!snap.empty) {
         return setError('That username is already taken');
       }
-    } catch (queryErr: any) {
+    } catch (queryErr: unknown) {
       console.error('Username check error', queryErr);
       return setError('Unable to verify username uniqueness');
     }
@@ -116,7 +113,7 @@ export default function SignupPage() {
           const ref  = storageRef(storage, path);
           await uploadBytes(ref, file);
           photoURL = await getDownloadURL(ref);
-        } catch (uploadErr: any) {
+        } catch (uploadErr: unknown) {
           console.error('Storage upload error', uploadErr);
           throw new Error('Failed to upload profile picture');
         }
@@ -125,7 +122,7 @@ export default function SignupPage() {
       // 3) Update displayName + photoURL
       try {
         await updateProfile(user, { displayName: username.trim(), photoURL });
-      } catch (profileErr: any) {
+      } catch (profileErr: unknown) {
         console.error('Profile update error', profileErr);
         // Not fatal: continue on to firestore write
       }
@@ -135,24 +132,33 @@ export default function SignupPage() {
         uid:               user.uid,
         username:          username.trim(),
         email:             user.email,
-        rating,
         profilePic:        photoURL,
         createdAt:         serverTimestamp(),
         investmentsPublic: true,
       });
 
       router.push('/');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Signup flow error', err);
       // Map known Firebase errors
-      if (err.code === 'auth/email-already-in-use') {
-        setError('This email is already registered');
-      } else if (err.code === 'auth/invalid-email') {
-        setError('Invalid email address');
-      } else if (err.code === 'auth/weak-password') {
-        setError('Password is too weak');
+      if (err instanceof FirebaseError) {
+        switch (err.code) {
+          case 'auth/email-already-in-use':
+            setError('This email is already registered')
+            break
+          case 'auth/invalid-email':
+            setError('Invalid email address')
+            break
+          case 'auth/weak-password':
+            setError('Password is too weak')
+            break
+          default:
+            setError(err.message || 'Something went wrong')
+        }
       } else {
-        setError(err.message || 'Something went wrong');
+        // fallback for any other error
+        const msg = (err as { message?: string }).message
+        setError(msg ?? 'Something went wrong')
       }
       setLoading(false);
     }

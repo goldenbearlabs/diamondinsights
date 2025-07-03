@@ -36,6 +36,8 @@ interface Card {
   predicted_profit_high: number
   predicted_ev_profit: number
   predicted_profit_pct: number
+
+  [key: string]: string | number | boolean | undefined
 }
 
 const DEFAULT_KEYS = [

@@ -25,7 +25,7 @@ export default function Navbar() {
   useEffect(() => {
     fetch('/api/cards/live')
       .then(r => r.json())
-      .then((data: any[]) => {
+      .then((data: Array<{ name: string; id: string }>) => {
         setAll(data.map(item => ({ name: item.name, uuid: item.id })))
       })
   }, [])

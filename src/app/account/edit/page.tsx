@@ -2,6 +2,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import styles from './page.module.css'
 import { auth, db, storage } from '@/lib/firebaseClient'
@@ -152,8 +153,9 @@ export default function EditProfilePage() {
       }, { merge:true })
 
       router.push(`/account/${user.uid}`)
-    } catch (e: any) {
-      setError(e.message || 'Failed to save changes.')
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to save changes.'
+      setError(message)
       setSaving(false)
     }
   }
@@ -173,9 +175,17 @@ export default function EditProfilePage() {
         <div className={styles.field}>
           <label className={styles.label}>Profile Picture</label>
           <div className={styles.preview}>
-            {previewUrl
-              ? <img src={previewUrl} className={styles.avatar}/>
-              : <div className={styles.avatarPlaceholder}/>}
+            {previewUrl ? (
+                <Image
+                  src={previewUrl}
+                  alt="Avatar Preview"
+                  width={100}
+                  height={100}
+                  className={styles.avatar}
+                />
+              ) : (
+                <div className={styles.avatarPlaceholder} role="img" aria-label="No avatar"/>
+              )}
           </div>
           <input
             type="file"
