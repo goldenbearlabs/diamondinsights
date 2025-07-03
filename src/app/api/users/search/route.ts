@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         users.push({
           uid: doc.id,
           username: data.username || doc.id,
-          profilePic: data.profilePic || ''
+          profilePic: data.profilePic || '/default_profile.jpg'
         })
       }
     })
