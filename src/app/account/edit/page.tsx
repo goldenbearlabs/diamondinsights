@@ -129,7 +129,20 @@ export default function EditProfilePage() {
 
       // 2e) email
       if (email !== user.email) {
+        // reauthenticate immediately prior to updateEmail
+        const cred = EmailAuthProvider.credential(user.email!, currentPw)
+        await reauthenticateWithCredential(user, cred)
+    
+        // now safe to call updateEmail
         await updateEmail(user, email)
+      }
+
+      if (newPw) {
+        if (newPw !== confirmPw) {
+          throw new Error("New passwords don't match.")
+        }
+        // no need to reauth again here
+        await updatePassword(user, newPw)
       }
 
       // 2f) password
@@ -141,18 +154,49 @@ export default function EditProfilePage() {
       }
 
       // 2g) mirror in Firestore
-      await setDoc(doc(db, 'users', user.uid), {
-        username:   displayName,
-        email,
-        profilePic: photoURL
-      }, { merge:true })
+      await setDoc(
+        doc(db, 'users', user.uid),
+        { username: displayName, email, profilePic: photoURL },
+        { merge: true }
+      )
 
       router.push(`/account/${user.uid}`)
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Failed to save changes.'
-      setError(message)
+    } catch (err: unknown) {
+      let msg = 'Failed to save changes.'
+      console.log(err)
+  
+      if (typeof err === 'object' && err !== null) {
+        // treat it as an object that might have code/message
+        const e = err as { code?: unknown; message?: unknown }
+  
+        if (typeof e.code === 'string') {
+          switch (e.code) {
+            case 'auth/invalid-email':
+              msg = 'That email address isn’t valid.'
+              break
+            case 'auth/email-already-in-use':
+              msg = 'That email is already in use by another account.'
+              break
+            case 'auth/requires-recent-login':
+              msg = 'Please re-enter your password and try again.'
+              break
+            case 'auth/operation-not-allowed':
+              msg = 'Changing your email is currently disabled. Contact support.'
+              break
+            default:
+              // leave msg as the generic one
+              break
+          }
+        } else if (typeof e.message === 'string') {
+          // it wasn’t a firebase auth code, but it does have a message
+          msg = e.message
+        }
+      }
+  
+      setError(msg)
       setSaving(false)
     }
+    
   }
 
   if (loading) {
