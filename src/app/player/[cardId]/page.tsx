@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { auth } from '@/lib/firebaseClient'                           // ← import your firebase client
 import { onAuthStateChanged, type User } from 'firebase/auth'
 import { FaArrowLeft } from 'react-icons/fa'
+import { FaSpinner } from 'react-icons/fa'
 
 type SortBy = 'recent'|'liked'|'replies'
 
@@ -148,7 +149,13 @@ export default function CardPage() {
       .catch(err => console.error('Failed to fetch votes:', err))
   }, [card])
 
-  if (loading) return <p className={styles.loading}>Loading…</p>
+  if (loading) {
+    return (
+      <div className="spinner-container">
+        <FaSpinner className="spinner" />
+      </div>
+    )
+  }
   if (!card)  return <p className={styles.error}>Not found.</p>
 
   const postComment = async () => {

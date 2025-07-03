@@ -7,6 +7,7 @@ import styles                        from './page.module.css'
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth'
 import { doc, getDoc }               from 'firebase/firestore'
 import { auth, db }                  from '@/lib/firebaseClient'
+import { FaSpinner } from 'react-icons/fa'
 
 interface Investment {
   id: string
@@ -277,14 +278,14 @@ export default function InvestmentPage() {
     setEditingId(null)
   }
 
-  if (loading || profile === null) {
+  if (loading) {
     return (
-      <div className={styles.loadingContainer}>
-        <div className={styles.loadingSpinner}></div>
-        <p>Loading portfolio...</p>
+      <div className="spinner-container">
+        <FaSpinner className="spinner" />
       </div>
     )
   }
+  
 
   if (!isOwner && !publicFlag) {
     return (

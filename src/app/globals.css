@@ -415,3 +415,21 @@ body {
   background: rgba(18, 99, 221, 0.1);
   transform: translateY(-2px);
 }
+
+.spinner-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* full‐viewport height or whatever makes sense for your layout */
+  min-height: 80vh;
+}
+
+.spinner {
+  font-size: 2rem;           /* adjust the size */
+  animation: spin 1s linear infinite;
+}
+
+/* keep your keyframes somewhere global too */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

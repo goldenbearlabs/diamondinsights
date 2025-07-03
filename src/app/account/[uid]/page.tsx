@@ -20,6 +20,7 @@ import {
   where,
   getDocs
 } from 'firebase/firestore'
+import { FaSpinner } from 'react-icons/fa'
 
 interface ProfileData {
   username:         string
@@ -122,11 +123,10 @@ export default function AccountPage() {
     loadStats()
   }, [viewingUid])
 
-  if (loading || !profile) {
+  if (loading) {
     return (
-      <div className={styles.loadingContainer}>
-        <div className={styles.loadingSpinner} />
-        <p>Loading profile…</p>
+      <div className="spinner-container">
+        <FaSpinner className="spinner" />
       </div>
     )
   }

@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import styles from './page.module.css'
+import { FaSpinner } from 'react-icons/fa'
 
 interface Card {
   id: string
@@ -337,9 +338,8 @@ export default function PredictionsPage() {
 
   if (loading) {
     return (
-      <div className={styles.loadingContainer}>
-        <div className={styles.loadingSpinner} />
-        <p>Loading profile…</p>
+      <div className="spinner-container">
+        <FaSpinner className="spinner" />
       </div>
     )
   }

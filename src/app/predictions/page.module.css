@@ -395,29 +395,6 @@
   border-color: transparent transparent var(--bg-dark) transparent;
 }
 
-.loadingContainer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-}
-
-.loadingSpinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid blue;
-  border-top-color: rgba(0,0,0,0.6);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
-  margin-top: 4rem;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 .columnDropdown {
   position: relative;
   z-index: 100; /* Base z-index */

@@ -12,6 +12,7 @@ import {
   doc,
   getDoc
 } from 'firebase/firestore'
+import { FaSpinner } from 'react-icons/fa'
 
 import {
   FaBroadcastTower,
@@ -519,9 +520,8 @@ export default function CommunityPage() {
           <div className={styles.messagesContainer}>
             {activeTab === 'trending' ? (
               trendingLoading ? (
-                <div className={styles.loadingContainer}>
-                  <div className={styles.loadingSpinner}></div>
-                  <p>Loading trending cards…</p>
+                <div className="spinner-container">
+                  <FaSpinner className="spinner" />
                 </div>
               ) : trendingCards.length === 0 ? (
                 <div className={styles.emptyState}>
@@ -557,9 +557,8 @@ export default function CommunityPage() {
               )
             ) : (
               loading
-                ? <div className={styles.loadingContainer}>
-                    <div className={styles.loadingSpinner}></div>
-                    <p>Loading messages…</p>
+                ? <div className="spinner-container">
+                    <FaSpinner className="spinner" />
                   </div>
                 : msgs.length===0
                   ? <div className={styles.emptyState}>
@@ -683,6 +682,30 @@ function useRelativeTime(timestampMs: number) {
   }
 }
 
+function MessageTime({ timestamp }: { timestamp: number }) {
+  const [label, setLabel] = useState<string | null>(null)
+
+  useEffect(() => {
+    function fmt() {
+      const diff = Date.now() - timestamp
+      if (diff < 2*60_000)       return 'just now'
+      if (diff < 60*60_000)      return `${Math.floor(diff/60_000)}m ago`
+      if (diff < 24*60*60_000)   return `${Math.floor(diff/3_600_000)}h ago`
+      return `${Math.floor(diff/86_400_000)}d ago`
+    }
+
+    setLabel(fmt())
+    // schedule the next update exactly as you did before
+    let nextIn = 60_000 - (Date.now() - timestamp) % 60_000
+    const timer = setTimeout(() => setLabel(fmt()), nextIn)
+    return () => clearTimeout(timer)
+  }, [timestamp])
+
+  // while label===null (SSR or pre-mount) we show nothing (or a spinner)
+  if (label === null) return <></>
+  return <span className={styles.time}>{label}</span>
+}
+
 function MessageItem({
   msg, depth, isLive, thumb, cardName, userLoggedIn, onReply, onLike
 }: {
@@ -714,11 +737,7 @@ function MessageItem({
             onError={e => { (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg' }}
           />
           <a href={`/account/${msg.userId}`} className={styles.user}>{msg.username}</a>
-          {showTime && (
-            <span className={styles.time}>
-              {relTime}
-            </span>
-          )}
+          {showTime && <MessageTime timestamp={msg.timestamp} />}
           {isLive && msg.playerId && (
             <a
               href={`/player/${msg.playerId}`}
