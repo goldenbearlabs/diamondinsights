@@ -3,9 +3,9 @@ import { firestore } from '@/lib/firebaseAdmin'
 
 export async function GET(
   request: Request,
-  context: { params: { uid: string } } 
-): Promise<NextResponse> {
-  const { uid } = context.params
+  { params }: { params: { cardId: string } }
+) {
+  const uid  = params.cardId
 
   const userDoc = await firestore.doc(`users/${uid}`).get()
   if (!userDoc.exists || !userDoc.data()?.investmentsPublic) {
