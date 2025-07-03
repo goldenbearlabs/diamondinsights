@@ -4,6 +4,22 @@ import admin from 'firebase-admin'
 import { firestore } from '@/lib/firebaseAdmin'
 import { headers }   from 'next/headers'
 
+// TypeScript interfaces for Firestore chat data
+interface ChatMessageData {
+  userId: string
+  text: string
+  parentId: string | null
+  timestamp: number
+  likedBy: string[]
+  playerId?: string
+  playerName?: string
+}
+
+interface UserData {
+  username: string
+  profilePic: string
+}
+
 if (!admin.apps.length) admin.initializeApp()
 
 // maximum allowed length for a chat message
@@ -50,11 +66,14 @@ export async function GET(
     .limit(200)
     .get()
 
-  const raw = snap.docs.map(d => ({
-    id:      d.id,
-    ...(d.data() as any),
-    likedBy: (d.data() as any).likedBy || [] as string[]
-  }))
+  const raw = snap.docs.map(d => {
+    const data = d.data() as ChatMessageData
+    return {
+      id:      d.id,
+      ...data,
+      likedBy: data.likedBy || [] as string[]
+    }
+  })
 
   const uids = Array.from(new Set(raw.map(m => m.userId)))
   const userDocs = await Promise.all(
@@ -62,7 +81,7 @@ export async function GET(
   )
   const userMap = userDocs.reduce<Record<string,{username:string,profilePic:string}>>((m,u)=>{
     if (u.exists) {
-      const d = u.data() as any
+      const d = u.data() as UserData
       m[u.id] = {
         username:   d.username    || 'Unknown',
         profilePic: d.profilePic  || '/placeholder-user.png'

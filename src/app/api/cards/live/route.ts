@@ -2,6 +2,24 @@
 import { NextResponse } from 'next/server'
 import { firestore }     from '@/lib/firebaseAdmin'
 
+// TypeScript interfaces for Firestore card data
+interface LatestMarket {
+  sell?: number
+}
+
+interface LatestPrediction {
+  predicted_rank: number
+  predicted_rank_low: number
+  predicted_rank_high: number
+}
+
+interface CardData {
+  ovr: number
+  latestMarket?: LatestMarket
+  latestPrediction?: LatestPrediction
+  [key: string]: unknown // Allow other dynamic properties
+}
+
 function qsValue(ovr: number): number {
   if (ovr < 65)        return 5
   if (ovr < 75)        return 25
@@ -32,7 +50,7 @@ export async function GET() {
     .get()
 
   const merged = snap.docs.map(d => {
-    const data   = d.data() as any
+    const data   = d.data() as CardData
     const market = data.latestMarket   || {}
     const pred   = data.latestPrediction || {}
 

@@ -40,8 +40,8 @@ export async function PATCH(
     })
 
     return NextResponse.json({ ok: true })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 401 })
+  } catch {
+    return NextResponse.json({ error: 'Authentication failed' }, { status: 401 })
   }
 }
 
@@ -60,7 +60,7 @@ export async function DELETE(
       .delete()
 
     return NextResponse.json({ ok: true })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 401 })
+  } catch {
+    return NextResponse.json({ error: 'Authentication failed' }, { status: 401 })
   }
 }

@@ -48,6 +48,31 @@ interface UserSearchResult {
   profilePic: string
 }
 
+interface ChatMessageData {
+  parentId: string | null
+  userId: string
+  text: string
+  timestamp: number
+  playerId?: string
+  likedBy: string[]
+}
+
+interface UserData {
+  username: string
+  profilePic: string
+}
+
+interface CardData {
+  baked_img: string
+  name: string
+}
+
+interface MessagePayload {
+  text: string
+  userId: string
+  parentId?: string
+}
+
 interface TrendingCard {
   id: string
   name: string
@@ -213,7 +238,7 @@ export default function CommunityPage() {
     // Subscribe to updates
     const unsubscribe = onSnapshot(q, async snap => {
       const raw = snap.docs.map(d => {
-        const data = d.data() as any
+        const data = d.data() as ChatMessageData
         return {
           id:          d.id,
           parentId:    data.parentId || null,
@@ -234,7 +259,7 @@ export default function CommunityPage() {
       )
       const userMap = userDocs.reduce<Record<string,{username:string,profilePicUrl:string}>>((acc, ds) => {
         if (ds.exists()) {
-          const d = ds.data() as any
+          const d = ds.data() as UserData
           acc[ds.id] = {
             username:      d.username    || 'Unknown',
             profilePicUrl: d.profilePic  || '/placeholder-user.png'
@@ -260,7 +285,7 @@ export default function CommunityPage() {
         await Promise.all(playerIds.map(async id => {
           const snap = await getDoc(doc(db, 'cards', id))
           if (!snap.exists()) return
-          const card = snap.data() as any
+          const card = snap.data() as CardData
           if (card.baked_img) thumbs[id] = card.baked_img
           if (card.name)      names[id]  = card.name
         }))
@@ -304,7 +329,7 @@ export default function CommunityPage() {
         ? `/api/cards/${replyTo ? msgs.find(m=>m.id===replyTo)?.playerId : ''}/comments`
         : `/api/chat/${activeTab === 'invest' ? 'investing' : activeTab}`
 
-    const payload: any = { text, userId: user.uid }
+    const payload: MessagePayload = { text, userId: user.uid }
     if (parentId && activeTab !== 'live') payload.parentId = parentId
 
     const res = await fetch(endpoint, {
@@ -636,51 +661,6 @@ export default function CommunityPage() {
   )
 }
 
-function useRelativeTime(timestampMs: number) {
-  const [label, setLabel] = useState(() => format(timestampMs))
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>
-    const now = Date.now()
-    const age = now - timestampMs
-
-    // decide next update
-    let nextIn: number
-    if (age < 2 * 60_000) {
-      // just now window
-      nextIn = 2 * 60_000 - age
-    } else if (age < 30 * 60_000) {
-      // update every 5m
-      nextIn = 5 * 60_000 - (age % (5 * 60_000))
-    } else if (age < 60 * 60_000) {
-      // update at the hour mark
-      nextIn = 60 * 60_000 - age
-    } else if (age < 24 * 60 * 60_000) {
-      // update every hour
-      nextIn = 60 * 60_000 - (age % (60 * 60_000))
-    } else {
-      // update every day
-      nextIn = 24 * 60 * 60_000 - (age % (24 * 60 * 60_000))
-    }
-
-    // schedule the re‐compute
-    timer = setTimeout(() => {
-      setLabel(format(timestampMs))
-    }, nextIn)
-
-    return () => clearTimeout(timer)
-  }, [timestampMs, label])
-
-  return label
-
-  function format(ts: number) {
-    const diff = Date.now() - ts
-    if (diff < 2 * 60_000)          return 'just now'
-    if (diff < 60 * 60_000)         return `${Math.floor(diff / 60_000)}m ago`
-    if (diff < 24 * 60 * 60_000)    return `${Math.floor(diff / 60_000 / 60)}h ago`
-    return `${Math.floor(diff / 60_000 / 60 / 24)}d ago`
-  }
-}
 
 function MessageTime({ timestamp }: { timestamp: number }) {
   const [label, setLabel] = useState<string | null>(null)
@@ -696,7 +676,7 @@ function MessageTime({ timestamp }: { timestamp: number }) {
 
     setLabel(fmt())
     // schedule the next update exactly as you did before
-    let nextIn = 60_000 - (Date.now() - timestamp) % 60_000
+    const nextIn = 60_000 - (Date.now() - timestamp) % 60_000
     const timer = setTimeout(() => setLabel(fmt()), nextIn)
     return () => clearTimeout(timer)
   }, [timestamp])
@@ -719,7 +699,6 @@ function MessageItem({
   onLike: (id: string) => void
 }) {
   const [showTime, setShowTime]   = useState(true)
-  const relTime = useRelativeTime(msg.timestamp)
   const [collapsed, setCollapsed] = useState(true)
 
   return (

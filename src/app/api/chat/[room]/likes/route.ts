@@ -4,6 +4,15 @@ import admin from 'firebase-admin'
 import { firestore } from '@/lib/firebaseAdmin'
 import { headers } from 'next/headers'
 
+// TypeScript interfaces for Firestore chat data
+interface ChatMessageData {
+  likedBy: string[]
+  userId: string
+  text: string
+  parentId: string | null
+  timestamp: number
+}
+
 if (!admin.apps.length) admin.initializeApp()
 
 async function getUserId() {
@@ -27,7 +36,8 @@ export async function POST(
       const msgSnap  = await msgRef.get()
       if (!msgSnap.exists) throw new Error('Not found')
   
-      const likedBy = (msgSnap.data() as any).likedBy || []
+      const msgData = msgSnap.data() as ChatMessageData
+      const likedBy = msgData.likedBy || []
       const already = (likedBy as string[]).includes(uid)
   
       await msgRef.update({
@@ -35,7 +45,7 @@ export async function POST(
       })
   
       return NextResponse.json({ toggled: !already })
-    } catch (err: any) {
+    } catch {
       return NextResponse.json({ error: err.message }, { status: 401 })
     }
   }

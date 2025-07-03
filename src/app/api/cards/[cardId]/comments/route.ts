@@ -2,6 +2,21 @@
 import { NextResponse } from 'next/server'
 import { firestore }    from '@/lib/firebaseAdmin'
 
+// TypeScript interfaces for Firestore data
+interface CommentData {
+  playerId: string
+  userId: string
+  text: string
+  parentId: string | null
+  likes: string[]
+  timestamp: number
+}
+
+interface UserData {
+  username: string
+  profilePic: string
+}
+
 // maximum allowed length for a comment
 const MAX_LENGTH = 500
 
@@ -32,18 +47,24 @@ export async function GET(
     .orderBy('timestamp', 'desc')
     .get()
 
-  const raw = snap.docs.map(d => ({
-    id:        d.id,
-    ...(d.data() as any),
-    likes:     (d.data() as any).likes || []
-  }))
+  const raw = snap.docs.map(d => {
+    const data = d.data() as CommentData
+    return {
+      id:        d.id,
+      ...data,
+      likes:     data.likes || []
+    }
+  })
 
   const userIds = Array.from(new Set(raw.map(c => c.userId)))
   const usersSnap = await Promise.all(
     userIds.map(uid => firestore.collection('users').doc(uid).get())
   )
-  const userMap = usersSnap.reduce<Record<string, any>>((m, docSnap) => {
-    m[docSnap.id] = docSnap.data()
+  const userMap = usersSnap.reduce<Record<string, UserData>>((m, docSnap) => {
+    const userData = docSnap.data() as UserData
+    if (userData) {
+      m[docSnap.id] = userData
+    }
     return m
   }, {})
 

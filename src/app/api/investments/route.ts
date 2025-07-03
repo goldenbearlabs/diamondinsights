@@ -43,8 +43,8 @@ export async function GET() {
       ...d.data()
     }))
     return NextResponse.json(investments)
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 401 })
+  } catch {
+    return NextResponse.json({ error: 'Authentication failed' }, { status: 401 })
   }
 }
 
@@ -67,8 +67,8 @@ export async function POST(req: Request) {
       })
 
     return NextResponse.json({ id: ref.id }, { status: 201 })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 401 })
+  } catch {
+    return NextResponse.json({ error: 'Authentication failed' }, { status: 401 })
   }
 }
 
@@ -88,7 +88,7 @@ export async function DELETE(req: Request) {
       .delete()
 
     return NextResponse.json({ success: true })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 401 })
+  } catch {
+    return NextResponse.json({ error: 'Authentication failed' }, { status: 401 })
   }
 }

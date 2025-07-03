@@ -6,7 +6,7 @@ import Link                          from 'next/link'
 import styles                        from './page.module.css'
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth'
 import { doc, getDoc }               from 'firebase/firestore'
-import { auth, db }                  from '@/lib/firebaseClient'
+import { db }                        from '@/lib/firebaseClient'
 import { FaSpinner } from 'react-icons/fa'
 
 interface Investment {
@@ -28,6 +28,12 @@ interface Card {
   confidence_percentage: number | string
   qs_pred: number | string
   baked_img?: string
+}
+
+interface UserProfileData {
+  username: string
+  profilePic: string
+  investmentsPublic: boolean
 }
 
 interface Profile {
@@ -111,7 +117,7 @@ export default function InvestmentPage() {
         router.replace('/404')
         return
       }
-      const data = snap.data() as any
+      const data = snap.data() as UserProfileData
       const pub  = data.investmentsPublic ?? false
       setProfile({
         username: data.username,
@@ -247,7 +253,7 @@ export default function InvestmentPage() {
     const dQ = parseInt(deltaQty)||0
     const uP = parseFloat(unitPrice)||0
     const oV = parseInt(newOvr)||i.userProjectedOvr
-    let newQty = i.quantity + dQ
+    const newQty = i.quantity + dQ
     let newAvg = i.avgBuyPrice
     if (newQty < 0) { alert("Cannot remove more than you own"); return }
     if (dQ > 0) {

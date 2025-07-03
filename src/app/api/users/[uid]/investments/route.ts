@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { firestore }  from '@/lib/firebaseAdmin'
 
-// no explicit type on context – let Next infer it
+// properly typed context for Next.js App Router
 export async function GET(
   _req: Request,
-  context: any
+  context: { params: Promise<{ uid: string }> }
 ) {
-  const uid = context.params.uid
+  const { uid } = await context.params
 
   const userDoc = await firestore.doc(`users/${uid}`).get()
   if (!userDoc.exists || !userDoc.data()?.investmentsPublic) {
