@@ -128,13 +128,16 @@ export default function SignupPage() {
       }
 
       // 4) Write user doc
+      const trimmedUsername = username.trim()
       await setDoc(doc(db, 'users', user.uid), {
         uid:               user.uid,
-        username:          username.trim(),
+        username:          trimmedUsername,
+        username_lower:    trimmedUsername.toLowerCase(),
         email:             user.email,
         profilePic:        photoURL,
         createdAt:         serverTimestamp(),
         investmentsPublic: true,
+        searchable:        true,
       });
 
       router.push('/');

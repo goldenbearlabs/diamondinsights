@@ -156,7 +156,13 @@ export default function EditProfilePage() {
       // 2g) mirror in Firestore
       await setDoc(
         doc(db, 'users', user.uid),
-        { username: displayName, email, profilePic: photoURL },
+        { 
+          username: displayName, 
+          username_lower: displayName.toLowerCase(),
+          email, 
+          profilePic: photoURL,
+          searchable: true
+        },
         { merge: true }
       )
 
