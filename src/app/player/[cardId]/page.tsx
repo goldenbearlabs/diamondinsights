@@ -902,71 +902,73 @@ export default function CardPage() {
             <h3 className={styles.statsTitle}>
               {key === 'season' ? 'Season' : key === '3wk' ? '3-Week' : '1-Week'} Stats
             </h3>
-            <table className={styles.statsTable}>
-              <thead>
-                <tr>
-                  {card.is_hitter ? (
-                    <> <th>Stat</th><th>vs LHP</th><th>vs RHP</th><th>RISP</th> </>
-                  ) : (
-                    <> <th>Stat</th><th>Overall</th><th>RISP</th> </>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {card.is_hitter
-                  ? ['pa','avg','obp','slug','ops','hr','h','so','bb','rbi'].map(stat => {
-                      const sl = key==='season'? `season_vl_${stat}` : `${key}_vl_${stat}`
-                      const sr = key==='season'? `season_vr_${stat}` : `${key}_vr_${stat}`
-                      const ri = key==='season'? `season_risp_${stat}`: `${key}_risp_${stat}`
-                      const isPct = ['avg','obp','slug','ops'].includes(stat)
-                      return (
-                        <tr key={stat}>
-                          <td>{stat.toUpperCase()}</td>
-                          <td>{Number(card[sl]).toFixed(isPct?3:0)}</td>
-                          <td>{Number(card[sr]).toFixed(isPct?3:0)}</td>
-                          <td>{Number(card[ri]).toFixed(isPct?3:0)}</td>
-                        </tr>
-                      )
-                    })
-                  : [
-                      ['IP','IP'], ['ERA','ER'], ['WHIP','WHIP'],
-                      ['K/9','K/9'], ['BB/9','BB/9'], ['H/9','H/9'], ['HR/9','HR/9']
-                    ].map(([lbl, fld]) => {
-                      const prefix = period === 'season' ? 'season' : period;
-                      // build your field names
-                      const overallKey = `${prefix}_ovr_${fld}`;
-                      const rispKey    = `${prefix}_risp_${fld}`;
-                      const ipKey      = `${prefix}_ovr_IP`;
-                      // now return a full <tr>
-                      return (
-                        <tr key={lbl}>
-                          <td>{lbl}</td>
-                
-                          {/* Overall column */}
-                          <td>
-                            {lbl === 'ERA'
-                              ? rate(`${prefix}_ovr_ER`, ipKey, 2)
-                              : lbl.includes('/')
-                                ? rate(overallKey, ipKey)
-                                : Number(card[overallKey]).toFixed(1)
-                            }
-                          </td>
-                
-                          {/* RISP column */}
-                          <td>
-                            {lbl === 'ERA'
-                              ? rate(`${prefix}_risp_ER`, `${prefix}_risp_IP`, 2)
-                              : lbl.includes('/')
-                                ? rate(rispKey, `${prefix}_risp_IP`)
-                                : Number(card[rispKey]).toFixed(1)
-                            }
-                          </td>
-                        </tr>
-                      )
-                    })
-                  }
-                </tbody>
-            </table>
+            <div className={styles.responsiveTable}>
+              <table className={styles.statsTable}>
+                <thead>
+                  <tr>
+                    {card.is_hitter ? (
+                      <> <th>Stat</th><th>vs LHP</th><th>vs RHP</th><th>RISP</th> </>
+                    ) : (
+                      <> <th>Stat</th><th>Overall</th><th>RISP</th> </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {card.is_hitter
+                    ? ['pa','avg','obp','slug','ops','hr','h','so','bb','rbi'].map(stat => {
+                        const sl = key==='season'? `season_vl_${stat}` : `${key}_vl_${stat}`
+                        const sr = key==='season'? `season_vr_${stat}` : `${key}_vr_${stat}`
+                        const ri = key==='season'? `season_risp_${stat}`: `${key}_risp_${stat}`
+                        const isPct = ['avg','obp','slug','ops'].includes(stat)
+                        return (
+                          <tr key={stat}>
+                            <td>{stat.toUpperCase()}</td>
+                            <td>{Number(card[sl]).toFixed(isPct?3:0)}</td>
+                            <td>{Number(card[sr]).toFixed(isPct?3:0)}</td>
+                            <td>{Number(card[ri]).toFixed(isPct?3:0)}</td>
+                          </tr>
+                        )
+                      })
+                    : [
+                        ['IP','IP'], ['ERA','ER'], ['WHIP','WHIP'],
+                        ['K/9','K/9'], ['BB/9','BB/9'], ['H/9','H/9'], ['HR/9','HR/9']
+                      ].map(([lbl, fld]) => {
+                        const prefix = period === 'season' ? 'season' : period;
+                        // build your field names
+                        const overallKey = `${prefix}_ovr_${fld}`;
+                        const rispKey    = `${prefix}_risp_${fld}`;
+                        const ipKey      = `${prefix}_ovr_IP`;
+                        // now return a full <tr>
+                        return (
+                          <tr key={lbl}>
+                            <td>{lbl}</td>
+                  
+                            {/* Overall column */}
+                            <td>
+                              {lbl === 'ERA'
+                                ? rate(`${prefix}_ovr_ER`, ipKey, 2)
+                                : lbl.includes('/')
+                                  ? rate(overallKey, ipKey)
+                                  : Number(card[overallKey]).toFixed(1)
+                              }
+                            </td>
+                  
+                            {/* RISP column */}
+                            <td>
+                              {lbl === 'ERA'
+                                ? rate(`${prefix}_risp_ER`, `${prefix}_risp_IP`, 2)
+                                : lbl.includes('/')
+                                  ? rate(rispKey, `${prefix}_risp_IP`)
+                                  : Number(card[rispKey]).toFixed(1)
+                              }
+                            </td>
+                          </tr>
+                        )
+                      })
+                    }
+                  </tbody>
+              </table>
+            </div>
           </div>
         ))}
       </section>

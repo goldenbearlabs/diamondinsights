@@ -310,6 +310,31 @@ export default function PredictionsPage() {
   const pageCount = Math.ceil(sorted.length / pageSize)
   const paged     = sorted.slice(pageIndex * pageSize, (pageIndex+1)*pageSize)
 
+
+  useEffect(() => {
+    if (openDropdown && window.innerWidth <= 768) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [openDropdown]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768 && openDropdown) {
+        setOpenDropdown(null);
+      }
+    };
+  
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [openDropdown]);
+  
+
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
@@ -385,6 +410,12 @@ export default function PredictionsPage() {
                     </button>
                     {isOpen && (
                       <div className={styles.dropdownContent}>
+                        <button 
+                          className={styles.mobileCloseButton}
+                          onClick={() => setOpenDropdown(null)}
+                        >
+                          ×
+                        </button>
                       <button
                         type="button"
                         className={styles.clearFilters}

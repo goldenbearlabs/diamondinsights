@@ -60,6 +60,9 @@ export default function LoginPage() {
         case 'auth/invalid-email':
           setError('Invalid email address');
           break;
+        case 'auth/invalid-credential':
+          setError('Invalid email address or password');
+          break;
         case 'auth/too-many-requests':
           setError('Too many failed attempts. Try again later.');
           break;

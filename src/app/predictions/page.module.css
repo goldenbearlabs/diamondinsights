@@ -417,3 +417,79 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+.columnDropdown {
+  position: relative;
+  z-index: 100; /* Base z-index */
+}
+
+.columnDropdown.open {
+  z-index: 10000; /* Higher when open */
+}
+
+.dropdownContent {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10001; /* Always higher than its container */
+  /* ... existing styles ... */
+}
+
+/* For last dropdown - adjust positioning */
+.columnDropdown:last-child .dropdownContent {
+  left: auto;
+  right: 0;
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 768px) {
+  .columnDropdown.open {
+    position: static;
+    z-index: 10000;
+  }
+  
+  .columnDropdown.open .dropdownContent {
+    position: fixed;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%);
+    width: 90vw;
+    max-height: 80vh;
+    z-index: 10001; /* Ensure it's above mobile backdrop */
+  }
+  
+  /* Mobile backdrop */
+  .columnDropdown.open::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000; /* Just below dropdown */
+  }
+}
+
+.mobileCloseButton {
+  display: none;
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  cursor: pointer;
+  z-index: 10002; /* Above dropdown content */
+}
+
+@media (max-width: 768px) {
+  .mobileCloseButton {
+    display: block;
+  }
+  
+  .dropdownContent {
+    padding-top: 2.5rem;
+  }
+}

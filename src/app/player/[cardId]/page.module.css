@@ -1194,3 +1194,68 @@
     line-height: 1.5;
   }
 }
+
+/* Add to your base styles */
+.responsiveTable {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--border-radius);
+  background: var(--bg-light);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.statsTable {
+  width: 100%;
+  min-width: 100%; /* Force full width */
+  border-collapse: collapse;
+}
+
+/* Make sure the attribute predictions table uses the same styling */
+.predictionTable {
+  width: 100%;
+  min-width: 100%;
+  border-collapse: collapse;
+}
+
+/* Update the attribute predictions section to use the same wrapper */
+.predictionTableContainer {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--border-radius);
+  background: var(--bg-light);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .responsiveTable, 
+  .predictionTableContainer {
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  
+  .statsTable th,
+  .statsTable td,
+  .predictionTable th,
+  .predictionTable td {
+    padding: 10px 8px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .statsTable th,
+  .statsTable td,
+  .predictionTable th,
+  .predictionTable td {
+    padding: 8px 6px;
+    font-size: 13px;
+  }
+  
+  /* Add horizontal scrolling if needed */
+  .responsiveTable,
+  .predictionTableContainer {
+    -webkit-overflow-scrolling: touch;
+  }
+}

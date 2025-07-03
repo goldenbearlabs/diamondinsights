@@ -1,9 +1,5 @@
 /* Hero Section */
 
-.landingContainer {
-  margin-top: 1rem;
-}
-
 .heroSection {
   display: flex;
   flex-direction: column;

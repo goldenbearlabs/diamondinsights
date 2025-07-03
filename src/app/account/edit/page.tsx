@@ -69,6 +69,12 @@ export default function EditProfilePage() {
     setError(null)
     setSaving(true)
 
+    if (currentPw && !newPw) {
+      setError('Please enter a new password to change your password.')
+      setSaving(false)
+      return
+    }
+
     // require current password if changing email or password
     const credChange = newPw || email !== user.email
     if (credChange && !currentPw) {
