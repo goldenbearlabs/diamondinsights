@@ -79,7 +79,7 @@ export async function GET(
       const u = ds.data()!
       m[ds.id] = {
         username:   u.username || 'Unknown',
-        profilePic: u.profilePic || '/avatar.png'
+        profilePic: u.profilePic || '/default_profile.jpg'
       }
     }
     return m
@@ -93,7 +93,7 @@ export async function GET(
     timestamp:     c.timestamp,
     likes:         c.likes,
     username:      userMap[c.userId]?.username      || 'Unknown',
-    profilePicUrl: userMap[c.userId]?.profilePic    || '/avatar.png',
+    profilePicUrl: userMap[c.userId]?.profilePic    || '/default_profile.jpg',
   }))
 
   return NextResponse.json(comments)
