@@ -5,7 +5,6 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import styles from './page.module.css'
 import { FaSpinner } from 'react-icons/fa'
-import { NextRouter } from 'next/navigation'
 import Image from 'next/image'
 
 interface Card {
@@ -143,7 +142,7 @@ const DESCRIPTIONS: Record<string,string> = {
 const encodeColumns = (cols: string[]) => cols.join(',')
 const decodeColumns = (str: string) => str ? str.split(',') : DEFAULT_KEYS
 
-const updateURL = (router: NextRouter, params: Record<string,string>) => {
+const updateURL = (router: ReturnType<typeof useRouter>, params: Record<string,string>) => {
   const url = new URL(window.location.href)
   Object.entries(params).forEach(([key, value]) => {
     if (value && value !== 'all' && value !== '0' && value !== '25') {

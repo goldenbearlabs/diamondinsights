@@ -115,21 +115,21 @@ export default function LandingPage() {
 
           <div className={styles.heroCards}>
             {players.map(({ card, pred }, index) => {
-              const oldRank = parseFloat(pred.old_rank)
-              const pr = parseFloat(pred.predicted_rank)
+              const oldRank = parseFloat(String(pred.old_rank))
+              const pr = parseFloat(String(pred.predicted_rank))
               const isMiddleCard = index === 1;
               
               return (
                 <div key={index} className={`${styles.playerCard} ${isMiddleCard ? styles.focusedCard : styles.blurredCard}`}>
                   <div className={styles.cardHeader}>
                     <img 
-                      src={pred.baked_img || card.baked_img} 
-                      alt={pred.name} 
+                      src={String(pred.baked_img || card.baked_img)}
+                      alt={pred.name as string}
                       className={styles.playerImage}
                     />
                     <div className={styles.playerInfo}>
-                      <h3 className={styles.playerName}>{pred.name}</h3>
-                      <p className={styles.playerPosition}>{pred.position}</p>
+                      <h3 className={styles.playerName}>{String(pred.name)}</h3>
+                      <p className={styles.playerPosition}>{String(pred.position)}</p>
                     </div>
                   </div>
                   
@@ -152,7 +152,7 @@ export default function LandingPage() {
                   </div>
                   
                   <div className={styles.confidenceBadge}>
-                    <FaChartLine /> {pred.confidence_percentage}% Confidence
+                    <FaChartLine /> {String(pred.confidence_percentage)}% Confidence
                   </div>
                 </div>
               )

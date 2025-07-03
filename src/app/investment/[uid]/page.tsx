@@ -291,6 +291,11 @@ export default function InvestmentPage() {
       </div>
     )
   }
+
+  if (!profile) {
+    // you could return null or another spinner/fallback
+    return null
+  }
   
 
   if (!isOwner && !publicFlag) {
@@ -340,7 +345,7 @@ export default function InvestmentPage() {
           <Link href={`/account/${uid}`} className={styles.ownerLink}>
             <img
               src={
-                profile.profilePic && profile.profilePic.trim() !== ''
+                profile?.profilePic?.trim()
                   ? profile.profilePic
                   : '/default_profile.jpg'
               }

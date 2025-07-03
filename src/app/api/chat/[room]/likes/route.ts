@@ -47,11 +47,14 @@ export async function POST(
     })
 
     return NextResponse.json({ toggled: !already })
-  } catch (err: any) {
+  } catch (err: unknown) {
     // now `err` is defined!
-    return NextResponse.json(
-      { error: err.message || 'Could not toggle like' },
-      { status: 401 }
-    )
+    const message = 
+      err instanceof Error ? err.message : 'Could not toggle like'
+
+      return NextResponse.json(
+        {error:message},
+        {status: 401}
+      )
   }
 }
