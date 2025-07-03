@@ -131,6 +131,10 @@ export default function AccountPage() {
     )
   }
 
+  if (!profile) {
+    return <div className="errorContainer">Profile failed to load.</div>
+  }
+
   const createdDate = (() => {
     // Try profile.createdAt first
     if (profile.createdAt) {
