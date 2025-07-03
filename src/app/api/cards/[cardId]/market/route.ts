@@ -1,11 +1,12 @@
+// src/app/api/cards/[cardId]/market/route.ts
 import { NextResponse } from 'next/server'
 import { firestore } from '@/lib/firebaseAdmin'
 
 export async function GET(
   request: Request,
-  { params }: { params: { cardId: string } }
+  context: { params: { cardId: string } }
 ) {
-  const uid  = params.cardId
+  const uid = context.params.cardId
 
   const userDoc = await firestore.doc(`users/${uid}`).get()
   if (!userDoc.exists || !userDoc.data()?.investmentsPublic) {
