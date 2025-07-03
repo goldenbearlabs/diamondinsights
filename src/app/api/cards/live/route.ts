@@ -2,23 +2,26 @@
 import { NextResponse } from 'next/server'
 import { firestore }     from '@/lib/firebaseAdmin'
 
-// TypeScript interfaces for Firestore card data
+// ——— Types ——————————————————————————————————————————————————————————————————
+
 interface LatestMarket {
   sell?: number
 }
 
 interface LatestPrediction {
-  predicted_rank: number
-  predicted_rank_low: number
+  predicted_rank:      number
+  predicted_rank_low:  number
   predicted_rank_high: number
 }
 
 interface CardData {
-  ovr: number
-  latestMarket?: LatestMarket
+  ovr:               number
+  latestMarket?:     LatestMarket
   latestPrediction?: LatestPrediction
-  [key: string]: unknown // Allow other dynamic properties
+  [key: string]:     unknown
 }
+
+// ——— Quick-sell lookup ———————————————————————————————————————————————————————
 
 function qsValue(ovr: number): number {
   if (ovr < 65)        return 5
@@ -43,6 +46,8 @@ function qsValue(ovr: number): number {
   return ovr >= 92 ? 10000 : 0
 }
 
+// ——— Route handler ————————————————————————————————————————————————————————
+
 export async function GET() {
   const snap = await firestore
     .collection('cards')
@@ -52,37 +57,38 @@ export async function GET() {
   const merged = snap.docs.map(d => {
     const data   = d.data() as CardData
     const market = data.latestMarket   || {}
-    const pred   = data.latestPrediction || {}
+    // **Here we assert** that latestPrediction really is our typed object:
+    const pred   = data.latestPrediction as LatestPrediction
 
     // 1) confidence %
-    const lowRank  = Number(pred.predicted_rank_low)
-    const highRank = Number(pred.predicted_rank_high)
+    const lowRank  = pred.predicted_rank_low
+    const highRank = pred.predicted_rank_high
     let confPct    = 100 - (highRank - lowRank) * 5
     confPct        = Math.max(0, Math.min(100, confPct))
 
-    // 2) quick‐sell & predicted‐QS for mid/low/high
-    const ovr        = Number(data.ovr)
-    const qs_actual  = qsValue(ovr)
+    // 2) quick-sell & predicted-QS
+    const ovr          = data.ovr
+    const qs_actual    = qsValue(ovr)
 
-    // mid
-    const midRank    = Math.round(Number(pred.predicted_rank))
-    const qs_pred    = qsValue(midRank)
+    const midRank      = Math.round(pred.predicted_rank)
+    const qs_pred      = qsValue(midRank)
 
-    // low
-    const lowRnd     = Math.round(lowRank)
+    const lowRnd       = Math.round(lowRank)
     const qs_pred_low  = qsValue(lowRnd)
 
-    // high
-    const highRnd    = Math.round(highRank)
+    const highRnd      = Math.round(highRank)
     const qs_pred_high = qsValue(highRnd)
 
-    // 3) price/fallback (you said sell==buy)
-    const price = market.sell ?? qs_actual
+    // 3) price/fallback — *force it to a number* so TS knows it’s safe to subtract
+    const rawPrice = market.sell
+    const price    = typeof rawPrice === 'number' 
+      ? rawPrice 
+      : qs_actual
 
-    // 4) profit & % profit for mid/low/high
-    const profit         = qs_pred      - price
-    const profit_low     = qs_pred_low  - price
-    const profit_high    = qs_pred_high - price
+    // 4) profit & % profit
+    const profit         = qs_pred       - price
+    const profit_low     = qs_pred_low   - price
+    const profit_high    = qs_pred_high  - price
 
     const profitPct      = price > 0
       ? Math.round((profit      / price) * 10000) / 100
@@ -94,7 +100,7 @@ export async function GET() {
       ? Math.round((profit_high / price) * 10000) / 100
       : 0
 
-    // 5) expected‐value profit (0.025/0.95/0.025)
+    // 5) expected-value profit
     const ev_profit = Math.round((
         0.025 * profit_low +
         0.95  * profit +
@@ -102,12 +108,12 @@ export async function GET() {
       ) * 100) / 100
 
     return {
-      id:                 d.id,
+      id:                     d.id,
       ...data,
       ...pred,
       ...market,
 
-      market_price:       price,
+      market_price:           price,
       qs_actual,
       qs_pred,
       qs_pred_low,
