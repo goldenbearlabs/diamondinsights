@@ -54,8 +54,8 @@ export async function GET(
   })
 
   // 2) confidence %
-  const lowRank  = pred.predicted_rank_low  || 0
-  const highRank = pred.predicted_rank_high || 0
+  const lowRank  = Number(pred.predicted_rank_low)  || 0
+  const highRank = Number(pred.predicted_rank_high) || 0
   let confPct = 100 - (highRank - lowRank) * 5
   confPct = Math.max(0, Math.min(100, confPct))
 
