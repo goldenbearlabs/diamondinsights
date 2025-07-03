@@ -64,7 +64,7 @@ interface Card {
   is_hitter: boolean | string
 
   // any other dynamic stats...
-  [key: string]: any
+  [key: string]: string | number | boolean | null | undefined
 }
 
 export default function CardPage() {
@@ -734,7 +734,6 @@ export default function CardPage() {
                   const predictedPct = (predictedVal / 125) * 100
                   const delta        = predictedVal - currentVal
                   const isUpgrade    = delta > 0
-                  const isDowngrade  = delta < 0
 
                   return (
                     <div key={label} className={styles.attributeRow}>
@@ -901,7 +900,7 @@ export default function CardPage() {
             <button
               key={p}
               className={`${styles.periodTab} ${period === p ? styles.active : ''}`}
-              onClick={() => setPeriod(p as any)}
+              onClick={() => setPeriod(p as 'season'|'3wk'|'1wk')}
             >
               {p === '3wk' ? '3-Week' : p === '1wk' ? '1-Week' : 'Season'}
             </button>

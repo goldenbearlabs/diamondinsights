@@ -11,15 +11,12 @@ import {
   FaPlayCircle,
   FaChartLine,
   FaLongArrowAltRight,
-  FaChevronLeft,
-  FaChevronRight,
   FaDatabase,
   FaBrain,
   FaSyncAlt,
   FaBolt,
   FaCrown,
   FaUsers,
-  FaDiscord,
   FaTwitter,
   FaInstagram,
   FaTiktok
@@ -36,7 +33,8 @@ export default function LandingPage() {
     '514cce4a132d7b9e56401205f68d9c04'  // Player 3
   ]
   
-  const [players, setPlayers] = useState<any[]>([])
+  interface LandingPlayer { card: Record<string, unknown>; pred: Record<string, unknown> }
+  const [players, setPlayers] = useState<LandingPlayer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string|null>(null)
 
@@ -54,10 +52,10 @@ export default function LandingPage() {
         
         setPlayers(playerData.map(([card, pred]) => ({ card, pred })))
         setLoading(false)
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err)
-        if (err.name !== 'AbortError') {
-          setError(err.message || 'Unknown error')
+        if (!(err instanceof DOMException && err.name === 'AbortError')) {
+          setError((err as Error).message || 'Unknown error')
         }
       } finally {
         setLoading(false)
@@ -119,7 +117,6 @@ export default function LandingPage() {
             {players.map(({ card, pred }, index) => {
               const oldRank = parseFloat(pred.old_rank)
               const pr = parseFloat(pred.predicted_rank)
-              const delta = pr - oldRank
               const isMiddleCard = index === 1;
               
               return (

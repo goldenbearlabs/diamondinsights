@@ -14,6 +14,7 @@ import {
   FaBolt,
 } from 'react-icons/fa';
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
+import { FirebaseError } from 'firebase/app'
 
 import styles from './page.module.css';
 
@@ -21,7 +22,6 @@ export default function LoginPage() {
   const router = useRouter();
   const db = getFirestore();
 
-  const [email, setEmail]         = useState('');
   const [password, setPassword]   = useState('');
   const [remember, setRemember]   = useState(false);
   const [error, setError]         = useState('');
@@ -49,12 +49,12 @@ export default function LoginPage() {
         if (snap.empty) {
           return setError('No account found with that username');
         }
-        const userDoc = snap.docs[0].data() as any;
+        const userDoc = snap.docs[0].data() as { email?: string };
         if (!userDoc.email) {
           return setError('This user does not have a sign-in email');
         }
         emailToUse = userDoc.email;
-      } catch (err) {
+      } catch (err: unknown) {
         console.error(err);
         return setError('Error with the server try again with your email or wait a little bit.')
       }
@@ -67,33 +67,42 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, emailToUse, password);
-      router.push('/');
-    } catch (err: any) {
-      console.error('Login error', err);
-      // Map Firebase error codes to friendly messages
-      switch (err.code) {
-        case 'auth/user-not-found':
-          setError('No account found with this email');
-          break;
-        case 'auth/wrong-password':
-          setError('Incorrect password');
-          break;
-        case 'auth/invalid-email':
-          setError('Invalid email address');
-          break;
-        case 'auth/invalid-credential':
-          setError('Invalid email address or password');
-          break;
-        case 'auth/too-many-requests':
-          setError('Too many failed attempts. Try again later.');
-          break;
-        default:
-          setError(err.message || 'Something went wrong');
+      await signInWithEmailAndPassword(auth, emailToUse, password)
+      router.push('/')
+    } catch (err: unknown) {
+      console.error('Login error', err)
+    
+      if (err instanceof FirebaseError) {
+        // Map Firebase error codes to friendly messages
+        switch (err.code) {
+          case 'auth/user-not-found':
+            setError('No account found with this email')
+            break
+          case 'auth/wrong-password':
+            setError('Incorrect password')
+            break
+          case 'auth/invalid-email':
+            setError('Invalid email address')
+            break
+          case 'auth/invalid-credential':
+            setError('Invalid email address or password')
+            break
+          case 'auth/too-many-requests':
+            setError('Too many failed attempts. Try again later.')
+            break
+          default:
+            setError(err.message || 'Something went wrong')
+        }
+      } else if (err instanceof Error) {
+        // any other JS error
+        setError(err.message)
+      } else {
+        setError('Something went wrong')
       }
-      setLoading(false);
+    
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <main className={styles.authContainer}>
@@ -188,7 +197,7 @@ export default function LoginPage() {
         </form>
 
         <p className={styles.loginLink}>
-          Don't have an account? <Link href="/signup">Sign Up</Link>
+          Don&apos;t have an account? <Link href="/signup">Sign Up</Link>
         </p>
       </section>
     </main>

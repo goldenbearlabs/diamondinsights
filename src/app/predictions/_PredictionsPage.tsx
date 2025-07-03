@@ -5,6 +5,8 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import styles from './page.module.css'
 import { FaSpinner } from 'react-icons/fa'
+import { NextRouter } from 'next/navigation'
+import Image from 'next/image'
 
 interface Card {
   id: string
@@ -141,7 +143,7 @@ const DESCRIPTIONS: Record<string,string> = {
 const encodeColumns = (cols: string[]) => cols.join(',')
 const decodeColumns = (str: string) => str ? str.split(',') : DEFAULT_KEYS
 
-const updateURL = (router: any, params: Record<string, string>) => {
+const updateURL = (router: NextRouter, params: Record<string,string>) => {
   const url = new URL(window.location.href)
   Object.entries(params).forEach(([key, value]) => {
     if (value && value !== 'all' && value !== '0' && value !== '25') {
@@ -173,12 +175,15 @@ export default function PredictionsPage() {
 
   const savedState = getInitialState()
 
-  const [rarity, setRarity] = useState<'all'|'common'|'bronze'|'silver'|'gold'|'diamond'>(
-    savedState?.rarity || (searchParams.get('rarity') as any) || 'all'
-  )
-  const [typeFilter, setTypeFilter] = useState<'all'|'hitters'|'pitchers'>(
-    savedState?.typeFilter || (searchParams.get('type') as any) || 'all'
-  )
+  const paramRarity = searchParams.get('rarity')
+  const initialRarity = savedState?.rarity || (paramRarity === "all" || paramRarity === "common" || paramRarity === 'bronze' || paramRarity === 'silver' || paramRarity === 'gold' || paramRarity === 'diamond' ?
+    paramRarity : 'all')
+  const [rarity, setRarity] = useState<typeof initialRarity>(initialRarity)
+
+  const paramType = searchParams.get('type')
+  const initialTypeFilter = savedState?.typeFilter || (paramType === 'all' || paramType === 'hitters' || paramType === 'pitchers' ?
+    paramType : 'all')
+  const [typeFilter, setTypeFilter] = useState<typeof initialTypeFilter>(initialTypeFilter)
   const [search, setSearch] = useState(savedState?.search || searchParams.get('search') || '')
   const [columns, setColumns] = useState<string[]>(
     savedState?.columns || decodeColumns(searchParams.get('columns') || '')
@@ -293,18 +298,19 @@ export default function PredictionsPage() {
   const sorted = useMemo(() => {
     if (!sortKey) return filtered
     return [...filtered].sort((a,b) => {
-      const aVal = (a as any)[sortKey], bVal = (b as any)[sortKey]
-      if (aVal === bVal) return 0
-      
-      // Try numeric comparison first
-      const aNum = Number(aVal), bNum = Number(bVal)
+      const aValRaw = (a as Record<string, unknown>)[sortKey]
+      const bValRaw = (b as Record<string, unknown>)[sortKey]
+
+      // then:
+      const aNum = typeof aValRaw === 'number' ? aValRaw : Number(aValRaw)
+      const bNum = typeof bValRaw === 'number' ? bValRaw : Number(bValRaw)
       if (!isNaN(aNum) && !isNaN(bNum)) {
         const cmp = aNum > bNum ? 1 : -1
         return sortDesc ? -cmp : cmp
       }
       
       // Fall back to string comparison
-      const cmp = aVal > bVal ? 1 : -1
+      const cmp = aNum > bNum ? 1 : -1
       return sortDesc ? -cmp : cmp
     })
   }, [filtered, sortKey, sortDesc])
@@ -360,7 +366,11 @@ export default function PredictionsPage() {
               <label>Rarity:</label>
               <select
                 value={rarity}
-                onChange={e => { setRarity(e.target.value as any); setPageIndex(0) }}
+                onChange={e => {
+                  const v = e.target.value as 'all'|'common'|'bronze'|'silver'|'gold'|'diamond'
+                  setRarity(v)
+                  setPageIndex(0)
+                }}
               >
                 <option value="all">All</option>
                 <option value="common">Common</option>
@@ -373,7 +383,11 @@ export default function PredictionsPage() {
               <label>Type:</label>
               <select
                 value={typeFilter}
-                onChange={e => { setTypeFilter(e.target.value as any); setPageIndex(0) }}
+                onChange={e => {
+                  const v = e.target.value as 'all'|'hitters'|'pitchers'
+                  setTypeFilter(v)
+                  setPageIndex(0)
+                }}
               >
                 <option value="all">All</option>
                 <option value="hitters">Hitters</option>
@@ -393,7 +407,6 @@ export default function PredictionsPage() {
             <div className={styles.columnDropdowns}>
               {COLUMN_GROUPS.map(group => {
                 const keys = group.cols.map(c => c.key)
-                const inCount = keys.filter(k => columns.includes(k)).length
                 const defaultKeysForGroup = keys.filter(k => DEFAULT_KEYS.includes(k))
                 const currentKeysForGroup = keys.filter(k => columns.includes(k))
                 const active = JSON.stringify(defaultKeysForGroup.sort()) !== JSON.stringify(currentKeysForGroup.sort())
@@ -529,16 +542,26 @@ export default function PredictionsPage() {
               {paged.map(c => (
                 <tr key={c.id} data-rarity={c.rarity.toLowerCase()}>
                   {columns.map(col => {
-                    let cell = (c as any)[col]
+                    const raw = (c as Record<string, unknown>)[col]
+                    let cell: string | number | undefined                    
+                    
                     if (col.endsWith('_pct') || col === 'confidence_percentage') {
-                      const num = typeof cell === 'number' ? cell : 0
+                      const num = typeof raw === 'number' ? raw : Number(raw)
                       cell = `${num.toFixed(1)}%`
+                    } else {
+                      if (raw == null) {
+                        cell = undefined
+                      } else if (typeof raw === 'number' || typeof raw === 'string') {
+                        cell = raw
+                      } else {
+                        cell = String(raw)
+                      }
                     }
                     return (
                       <td key={col} data-key={col}>
                         {col === 'card' ? (
                           <a href={`/player/${c.id}`}>
-                            <img src={c.baked_img!} alt={c.name} className={styles.cardIcon}/>
+                            <Image src={c.baked_img!} alt={c.name} className={styles.cardIcon}/>
                           </a>
                         ) : (
                           cell ?? '-'
