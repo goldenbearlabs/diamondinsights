@@ -1,23 +1,19 @@
-// src/app/api/cards/[cardId]/market/route.ts
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { firestore } from '@/lib/firebaseAdmin'
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { cardId: string } }
+  request: Request,
+  context: any  // ← use any (or omit the type altogether)
 ): Promise<NextResponse> {
-  const uid = params.cardId
+  const { uid } = context.params
 
-  // Ensure the user’s investments are public
   const userDoc = await firestore.doc(`users/${uid}`).get()
   if (!userDoc.exists || !userDoc.data()?.investmentsPublic) {
     return NextResponse.json({ error: 'Not public' }, { status: 403 })
   }
 
-  // Fetch the investments sub‐collection
   const snap = await firestore
-    .collection('users')
-    .doc(uid)
+    .collection('users').doc(uid)
     .collection('investments')
     .orderBy('createdAt', 'desc')
     .get()
