@@ -67,8 +67,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, emailToUse, password)
-      router.push('/')
+      const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password)
+      router.push(`/account/${userCredential.user.uid}`)
     } catch (err: unknown) {
       console.error('Login error', err)
     

@@ -140,7 +140,7 @@ export default function SignupPage() {
         searchable:        true,
       });
 
-      router.push('/');
+      router.push(`/account/${user.uid}`);
     } catch (err: unknown) {
       console.error('Signup flow error', err);
       // Map known Firebase errors
