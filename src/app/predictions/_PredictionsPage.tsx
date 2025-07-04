@@ -1,4 +1,4 @@
-// src/app/predictions/page.tsx
+// src/app/predictions/_PredictionsPage.tsx
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import styles from './page.module.css'
 import { FaSpinner } from 'react-icons/fa'
 
-interface Card {
+export interface Card {
   id: string
   name: string
   ovr: number
@@ -40,6 +40,10 @@ interface Card {
   [key: string]: string | number | boolean | undefined
 }
 
+interface Props {
+  initialCards: Card[]
+}
+
 const DEFAULT_KEYS = [
   'card',
   'name',
@@ -52,7 +56,6 @@ const DEFAULT_KEYS = [
   'predicted_profit_pct',
 ]
 
-// define your column groups
 const COLUMN_GROUPS = [
   {
     group: 'details',
@@ -98,18 +101,15 @@ const COLUMN_GROUPS = [
   }
 ]
 
-// list of detail‐group keys
 const DETAILS_KEYS = COLUMN_GROUPS
   .find(g => g.group === 'details')!
   .cols.map(c => c.key)
 
-// human‐friendly labels
 const LABELS: Record<string,string> = {}
 COLUMN_GROUPS.forEach(g =>
   g.cols.forEach(c => { LABELS[c.key] = c.label })
 )
 
-// detailed descriptions for tooltip
 const DESCRIPTIONS: Record<string,string> = {
   card:                   'Card image linking to the player detail page.',
   name:                   'Player’s full name.',
@@ -137,7 +137,6 @@ const DESCRIPTIONS: Record<string,string> = {
   predicted_profit_pct:   'Profit percentage relative to current market price.',
 }
 
-// Helper functions for URL state management
 const encodeColumns = (cols: string[]) => cols.join(',')
 const decodeColumns = (str: string) => str ? str.split(',') : DEFAULT_KEYS
 
@@ -153,14 +152,21 @@ const updateURL = (router: ReturnType<typeof useRouter>, params: Record<string,s
   router.replace(url.pathname + url.search, { scroll: false })
 }
 
-export default function PredictionsPage() {
+export default function PredictionsPage({ initialCards }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   
-  const [cards, setCards] = useState<Card[]>([])
-  const [loading, setLoading] = useState(true)
+  const [cards, setCards] = useState<Card[]>(initialCards)
+  const [loading, setLoading] = useState(false)
 
-  // Initialize state from sessionStorage first, then URL parameters
+  const initialized = React.useRef(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search === '') {
+      sessionStorage.removeItem('predictions-state')
+    }
+  }, [])
+
   const getInitialState = () => {
     if (typeof window === 'undefined') return null
     try {
@@ -171,16 +177,19 @@ export default function PredictionsPage() {
     }
   }
 
+  const resetColumns = () => {
+    setColumns(DEFAULT_KEYS)
+    setPageIndex(0)
+  }
+
   const savedState = getInitialState()
 
   const paramRarity = searchParams.get('rarity')
-  const initialRarity = savedState?.rarity || (paramRarity === "all" || paramRarity === "common" || paramRarity === 'bronze' || paramRarity === 'silver' || paramRarity === 'gold' || paramRarity === 'diamond' ?
-    paramRarity : 'all')
+  const initialRarity = savedState?.rarity || (['all','common','bronze','silver','gold','diamond'].includes(paramRarity||'') ? paramRarity : 'all')
   const [rarity, setRarity] = useState<typeof initialRarity>(initialRarity)
 
   const paramType = searchParams.get('type')
-  const initialTypeFilter = savedState?.typeFilter || (paramType === 'all' || paramType === 'hitters' || paramType === 'pitchers' ?
-    paramType : 'all')
+  const initialTypeFilter = savedState?.typeFilter || (['all','hitters','pitchers'].includes(paramType||'') ? paramType : 'all')
   const [typeFilter, setTypeFilter] = useState<typeof initialTypeFilter>(initialTypeFilter)
   const [search, setSearch] = useState(savedState?.search || searchParams.get('search') || '')
   const [columns, setColumns] = useState<string[]>(
@@ -202,7 +211,6 @@ export default function PredictionsPage() {
   const [tooltipOpen, setTooltipOpen] = useState<string|null>(null)
   const [openDropdown, setOpenDropdown] = useState<string|null>(null)
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element
@@ -210,21 +218,19 @@ export default function PredictionsPage() {
         setOpenDropdown(null)
       }
     }
-
     if (openDropdown) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [openDropdown])
 
-  // reorder helper
   const moveColumn = (colKey: string, delta: number) => {
-    setColumns(cols => {
-      const idx = cols.indexOf(colKey)
-      if (idx < 0) return cols
+    setColumns(cs => {
+      const idx = cs.indexOf(colKey)
+      if (idx < 0) return cs
       const newIdx = idx + delta
-      if (newIdx < 0 || newIdx >= cols.length) return cols
-      const copy = [...cols]
+      if (newIdx < 0 || newIdx >= cs.length) return cs
+      const copy = [...cs]
       copy.splice(idx, 1)
       copy.splice(newIdx, 0, colKey)
       return copy
@@ -232,46 +238,16 @@ export default function PredictionsPage() {
   }
 
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch('/api/cards/live')
-        const data: Card[] = await res.json()
-        setCards(data.map(c => ({
-          ...c,
-          is_hitter:
-            c.is_hitter === true ||
-            c.is_hitter === 'true' ||
-            c.is_hitter === 'True'
-        })))
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
+    if (!initialized.current) {
+      initialized.current = true
+      return
     }
-    load()
-  }, [])
-
-  // Save state to sessionStorage and sync to URL
-  useEffect(() => {
-    // Save to sessionStorage for instant state restoration
-    const state = {
-      rarity,
-      typeFilter,
-      search,
-      columns,
-      sortKey,
-      sortDesc,
-      pageSize,
-      pageIndex
-    }
+    const state = { rarity, typeFilter, search, columns, sortKey, sortDesc, pageSize, pageIndex }
     sessionStorage.setItem('predictions-state', JSON.stringify(state))
-
-    // Also update URL for shareability
     updateURL(router, {
       rarity: rarity !== 'all' ? rarity : '',
       type: typeFilter !== 'all' ? typeFilter : '',
-      search: search,
+      search,
       columns: columns.join(',') !== DEFAULT_KEYS.join(',') ? encodeColumns(columns) : '',
       sort: sortKey || '',
       desc: sortDesc ? 'true' : '',
@@ -280,67 +256,53 @@ export default function PredictionsPage() {
     })
   }, [router, rarity, typeFilter, search, columns, sortKey, sortDesc, pageSize, pageIndex])
 
-  // 1) filter
   const filtered = useMemo(() => {
     return cards
       .filter(c => rarity === 'all' || c.rarity.toLowerCase() === rarity)
       .filter(c =>
         typeFilter === 'all' ||
-        (typeFilter === 'hitters'  && c.is_hitter) ||
+        (typeFilter === 'hitters' && c.is_hitter) ||
         (typeFilter === 'pitchers' && !c.is_hitter)
       )
       .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
   }, [cards, rarity, typeFilter, search])
 
-  // 2) sort
   const sorted = useMemo(() => {
     if (!sortKey) return filtered
-    return [...filtered].sort((a,b) => {
-      const aValRaw = (a as Record<string, unknown>)[sortKey]
-      const bValRaw = (b as Record<string, unknown>)[sortKey]
-
-      // then:
-      const aNum = typeof aValRaw === 'number' ? aValRaw : Number(aValRaw)
-      const bNum = typeof bValRaw === 'number' ? bValRaw : Number(bValRaw)
+    return [...filtered].sort((a, b) => {
+      const aVal = (a as any)[sortKey]
+      const bVal = (b as any)[sortKey]
+      const aNum = typeof aVal === 'number' ? aVal : Number(aVal)
+      const bNum = typeof bVal === 'number' ? bVal : Number(bVal)
       if (!isNaN(aNum) && !isNaN(bNum)) {
         const cmp = aNum > bNum ? 1 : -1
         return sortDesc ? -cmp : cmp
       }
-      
-      // Fall back to string comparison
-      const cmp = aNum > bNum ? 1 : -1
-      return sortDesc ? -cmp : cmp
+      return sortDesc ? -1 : 1
     })
   }, [filtered, sortKey, sortDesc])
 
-  // 3) paginate
   const pageCount = Math.ceil(sorted.length / pageSize)
-  const paged     = sorted.slice(pageIndex * pageSize, (pageIndex+1)*pageSize)
-
+  const paged     = sorted.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)
 
   useEffect(() => {
     if (openDropdown && window.innerWidth <= 768) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden'
     } else {
-      document.body.style.overflow = '';
+      document.body.style.overflow = ''
     }
-    
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [openDropdown]);
+    return () => { document.body.style.overflow = '' }
+  }, [openDropdown])
 
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth > 768 && openDropdown) {
-        setOpenDropdown(null);
+        setOpenDropdown(null)
       }
-    };
-  
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [openDropdown]);
-  
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [openDropdown])
 
   if (loading) {
     return (
@@ -400,6 +362,14 @@ export default function PredictionsPage() {
                 placeholder="Player name…"
               />
             </div>
+
+            <button 
+              type="button"
+              className={styles.resetButton} // Updated class
+              onClick={resetColumns}
+            >
+              Reset Columns
+            </button>
 
             {/* column toggles */}
             <div className={styles.columnDropdowns}>

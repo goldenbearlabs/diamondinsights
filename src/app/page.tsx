@@ -1,97 +1,55 @@
-'use client'
+// app/page.tsx
 
-import Head from 'next/head'
-import { useState, useEffect } from 'react'
+export const revalidate = 86400  // 24-hour ISR
+export const metadata = {
+  title: 'DiamondInsights',
+}
+
 import styles from './page.module.css'
-import { FaSpinner } from 'react-icons/fa'
-
-// FA5 icons
 import {
-  FaRocket,
-  FaPlayCircle,
-  FaChartLine,
-  FaLongArrowAltRight,
-  FaDatabase,
-  FaBrain,
-  FaSyncAlt,
-  FaBolt,
-  FaCrown,
-  FaUsers,
-  FaTwitter,
-  FaInstagram,
-  FaTiktok
+  FaRocket, FaPlayCircle, FaChartLine,
+  FaLongArrowAltRight, FaDatabase, FaBrain,
+  FaSyncAlt, FaBolt, FaCrown, FaUsers,
+  FaTwitter, FaInstagram, FaTiktok
 } from 'react-icons/fa'
-
-// FA6-only icons
 import { FaArrowTrendUp, FaRobot } from 'react-icons/fa6'
 
-export default function LandingPage() {
-  
-  const PLAYER_IDS = [
-    '3e67d1f24ebdbbbe125e7040442f6e84', // Aaron Judge
-    'b2585f509345e30749a913d76f462bc3', // Fernando Tatis (now middle)
-    '514cce4a132d7b9e56401205f68d9c04'  // Player 3
-  ]
-  
-  interface LandingPlayer { card: Record<string, unknown>; pred: Record<string, unknown> }
-  const [players, setPlayers] = useState<LandingPlayer[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string|null>(null)
+const PLAYER_IDS = [
+  '3e67d1f24ebdbbbe125e7040442f6e84',
+  'b2585f509345e30749a913d76f462bc3',
+  '514cce4a132d7b9e56401205f68d9c04'
+]
 
-  useEffect(() => {
-    const fetchPlayers = async () => {
-      try {
-        const playerData = await Promise.all(
-          PLAYER_IDS.map(id => 
-            Promise.all([
-              fetch(`/api/cards/${id}`).then(r => r.json()),
-              fetch(`/api/cards/${id}/predictions`).then(r => r.json())
-            ])
-          )
-        )
-        
-        setPlayers(playerData.map(([card, pred]) => ({ card, pred })))
-        setLoading(false)
-      } catch (err: unknown) {
-        console.error(err)
-        if (!(err instanceof DOMException && err.name === 'AbortError')) {
-          setError((err as Error).message || 'Unknown error')
-        }
-      } finally {
-        setLoading(false)
+type Player = {
+  card: Record<string, any>
+  pred: Record<string, any>
+}
+
+export default async function LandingPage() {
+  // determine absolute base URL for server-side fetch
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : 'http://localhost:3000'
+
+  // fetch card + prediction data once per ISR window
+  const players: Player[] = await Promise.all(
+    PLAYER_IDS.map(async (id) => {
+      const [cardRes, predRes] = await Promise.all([
+        fetch(`${baseUrl}/api/cards/${id}`,             { next: { revalidate: 86400 } }),
+        fetch(`${baseUrl}/api/cards/${id}/predictions`, { next: { revalidate: 86400 } }),
+      ])
+      return {
+        card: await cardRes.json(),
+        pred: await predRes.json(),
       }
-    }
+    })
+  )
 
-    fetchPlayers()
-  }, [])
-
-  if (loading) {
-    return (
-      <div className={styles.spinnerContainer}>
-        <FaSpinner className={styles.spinner} />
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className={styles.errorContainer}>
-        <p>Oops—something went wrong:</p>
-        <pre className={styles.errorMessage}>{error}</pre>
-        <button className="btn btn-primary" onClick={() => window.location.reload()}>
-          Retry
-        </button>
-      </div>
-    )
-  }
-
+  // helper to format numbers
   const fmt = (n: number, d = 2) => n.toFixed(d)
 
   return (
     <>
-      <Head>
-        <title>DiamondInsights</title>
-      </Head>
       <main className={styles.landingContainer}>
 
         {/* Hero */}
