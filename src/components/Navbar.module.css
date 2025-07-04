@@ -411,3 +411,19 @@
     display: none;
   }
 }
+
+.userActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* style the inbox icon */
+.inboxIcon {
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+  transition: color 0.2s ease;
+}
+.inboxIcon:hover {
+  color: var(--accent-secondary);
+}

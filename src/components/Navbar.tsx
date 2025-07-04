@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react'
 import { auth } from '@/lib/firebaseClient'
 import { onAuthStateChanged, signOut, User } from 'firebase/auth'
 import styles from './Navbar.module.css'
-import { FaBars, FaTimes, FaCaretDown, FaUser, FaSignOutAlt } from 'react-icons/fa'
+import { FaBars, FaTimes, FaCaretDown, FaUser, FaSignOutAlt, FaInbox } from 'react-icons/fa'
 
 interface Player { name: string; uuid: string }
 
@@ -63,6 +63,7 @@ export default function Navbar() {
 
   const accountHref = user ? `/account/${user.uid}` : '/login'
   const investmentHref = user ? `/investment/${user.uid}` : '/login'
+  const inboxHref = user ? `/account/${user.uid}/inbox` : '/login'
 
   return (
     <nav className={styles.navbar}>
@@ -177,18 +178,23 @@ export default function Navbar() {
           {/* User dropdown for desktop */}
           <div className={styles.userDropdown} ref={userDropdownRef}>
             {user ? (
-              <div
-                className={styles.userProfile}
-                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-              >
-                <img
-                  src={user.photoURL && user.photoURL.trim() !== '' ? user.photoURL : '/default_profile.jpg'}
-                  alt={user.displayName || 'Profile'}
-                  className={styles.profilePic}
-                  onError={e => { (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg'; }}
-                />
-                <span>{user.displayName || 'Account'}</span>
-                <FaCaretDown className={styles.dropdownIcon} />
+              <div className={styles.userActions}>
+                <Link href={inboxHref} className={styles.inboxIcon}>
+                  <FaInbox />
+                </Link>
+                <div
+                  className={styles.userProfile}
+                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                >
+                  <img
+                    src={user.photoURL?.trim() ? user.photoURL : '/default_profile.jpg'}
+                    alt={user.displayName || 'Profile'}
+                    className={styles.profilePic}
+                    onError={e => { (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg'; }}
+                  />
+                  <span>{user.displayName || 'Account'}</span>
+                  <FaCaretDown className={styles.dropdownIcon} />
+                </div>
 
                 {userDropdownOpen && (
                   <div className={styles.dropdownMenu}>
