@@ -14,7 +14,13 @@ import PredictionsPage, { Card } from './_PredictionsPage';
 
 export default async function Page() {
   // Use a relative URL → this will resolve to your own API route at runtime
-  const res = await fetch('/api/cards/live', {
+  const baseUrl = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`          // preview & prod
+  : process.env.NODE_ENV === 'production'
+    ? 'https://diamondinsights.app'             // custom domain
+    : 'http://localhost:3000';
+    
+  const res = await fetch(`${baseUrl}/api/cards/live`, {
     next: { revalidate },
   });
 

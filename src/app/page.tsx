@@ -29,11 +29,17 @@ type Player = {
 
 export default async function LandingPage() {
   // determine absolute base URL for server-side fetch
+  const baseUrl = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`          // preview & prod
+  : process.env.NODE_ENV === 'production'
+    ? 'https://diamondinsights.app'             // custom domain
+    : 'http://localhost:3000';                  // local dev
+
   const players: Player[] = await Promise.all(
     PLAYER_IDS.map(async (id) => {
       const [cardRes, predRes] = await Promise.all([
-        fetch(`/api/cards/${id}`,        { next: { revalidate } }),
-        fetch(`/api/cards/${id}/predictions`, { next: { revalidate } }),
+        fetch(`${baseUrl}/api/cards/${id}`,        { next: { revalidate } }),
+        fetch(`${baseUrl}/api/cards/${id}/predictions`, { next: { revalidate } }),
       ]);
 
       if (!cardRes.ok || !predRes.ok) {
