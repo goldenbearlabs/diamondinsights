@@ -416,7 +416,7 @@ export default function CardPage() {
               ['Overall', card.ovr, '', ''],
               [
                 'Change In Overall',
-                card.delta_rank_pred,
+                card.delta_rank_pred.toFixed(2),
                 card.delta_rank_pred >= 0 ? 'positive' : 'negative',
                 card.delta_rank_pred >= 0 ? '+' : '',
               ],
@@ -464,7 +464,7 @@ export default function CardPage() {
               chance that <strong>{card.name}</strong> upgrades{' '}
               <strong className={card.delta_rank_pred >= 0 ? styles.positive : styles.negative}>
                 {card.delta_rank_pred >= 0 ? '+' : ''}
-                {card.delta_rank_pred}
+                {card.delta_rank_pred.toFixed(2)}
               </strong>{' '}
               to <strong>{card.predicted_rank}</strong> overall.
               {card.market_price && (
@@ -484,7 +484,7 @@ export default function CardPage() {
               )}{' '}Low‐case is{' '}
               <strong className={card.delta_rank_low >= 0 ? styles.positive : styles.negative}>
                 {card.delta_rank_low >= 0 ? '+' : ''}
-                {card.delta_rank_low}
+                {card.delta_rank_low.toFixed(2)}
               </strong>{' '}
               to <strong>{card.predicted_rank_low}</strong>, profit{' '}
               <strong className={card.predicted_profit_low >= 0 ? styles.positive : styles.negative}>
@@ -789,7 +789,7 @@ export default function CardPage() {
             ['Predicted Overall', card.predicted_rank],
             [
               'Change in Overall',
-              card.delta_rank_pred,
+              card.delta_rank_pred.toFixed(2),
               card.delta_rank_pred >= 0 ? 'positive' : 'negative',
               card.delta_rank_pred >= 0 ? '+' : '',
             ],
@@ -829,10 +829,19 @@ export default function CardPage() {
               ).map(attr => {
                 const curr     = Number(card[attr] ?? 0)
                 // coerce rawPred into a number (fall back to curr if NaN)
-                const rawPred  = card[`${attr}_new_pred`]
-                const predNum  = Number(rawPred)
-                const pred     = isNaN(predNum) ? curr : predNum
-                const delta    = pred - curr
+                
+                let attr_new = attr;
+                const rawPred  = card[`${attr_new}_new_pred`]
+                let predNum  = Number(rawPred)
+                let pred     = isNaN(predNum) ? curr : predNum
+                let delta    = pred - curr
+                if (attr_new === 'hits_per_bf') {
+                  attr_new = 'h_per_bf'
+                  const rawDelta  = card[`${attr_new}_new_pred`]
+                  delta  = Number(rawDelta)
+                  predNum    = curr + delta
+                  pred     = isNaN(predNum) ? curr : predNum
+                } 
 
                 // function to get proper display name for attributes by mapping
                 const getAttributeDisplayName = (attributeKey: string) => {
