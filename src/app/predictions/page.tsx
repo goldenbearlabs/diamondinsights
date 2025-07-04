@@ -1,33 +1,27 @@
-// src/app/predictions/page.tsx
-// This is a **Server** component—no 'use client' here.
+// 1. Force runtime rendering → no build‐time prerender
+export const dynamic = 'force-dynamic';
+// 2. Keep your ISR window if you still want caching at the edge
+export const revalidate = 1800;  // 30 minutes
 
-export const revalidate = 1800  // 30-minute ISR
 export const metadata = {
-  title: 'Player Predictions'
-}
+  title: 'Player Predictions',
+};
 
-import React, { Suspense } from 'react'
-import { FaSpinner } from 'react-icons/fa'
-import PredictionsPage, { Card } from './_PredictionsPage'
+import React, { Suspense } from 'react';
+import { FaSpinner } from 'react-icons/fa';
+import PredictionsPage, { Card } from './_PredictionsPage';
 
 export default async function Page() {
-  // During Vercel builds and in production this env var is auto-set by Vercel
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : process.env.NODE_ENV === 'production'
-      ? 'https://diamondinsights.app'
-      : 'http://localhost:3000'
-
-  const res = await fetch(`${baseUrl}/api/cards/live`, {
-    next: { revalidate }
-  })
+  // Use a relative URL → this will resolve to your own API route at runtime
+  const res = await fetch('/api/cards/live', {
+    next: { revalidate },
+  });
 
   if (!res.ok) {
-    throw new Error(`Failed to fetch predictions: ${res.status}`)
+    throw new Error(`Failed to fetch predictions: ${res.status}`);
   }
 
-  const cards: Card[] = await res.json()
-
+  const cards: Card[] = await res.json();
   return (
     <Suspense
       fallback={
@@ -38,5 +32,5 @@ export default async function Page() {
     >
       <PredictionsPage initialCards={cards} />
     </Suspense>
-  )
+  );
 }

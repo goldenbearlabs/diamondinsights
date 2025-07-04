@@ -4,6 +4,7 @@ export const revalidate = 86400  // 24-hour ISR
 export const metadata = {
   title: 'DiamondInsights',
 }
+export const dynamic = 'force-dynamic';
 
 import styles from './page.module.css'
 import {
@@ -27,25 +28,23 @@ type Player = {
 
 export default async function LandingPage() {
   // determine absolute base URL for server-side fetch
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : process.env.NODE_ENV === 'production'
-      ? 'https://diamondinsights.app'
-      : 'http://localhost:3000'
-
-  // fetch card + prediction data once per ISR window
   const players: Player[] = await Promise.all(
     PLAYER_IDS.map(async (id) => {
       const [cardRes, predRes] = await Promise.all([
-        fetch(`${baseUrl}/api/cards/${id}`,             { next: { revalidate: 86400 } }),
-        fetch(`${baseUrl}/api/cards/${id}/predictions`, { next: { revalidate: 86400 } }),
-      ])
+        fetch(`/api/cards/${id}`,        { next: { revalidate } }),
+        fetch(`/api/cards/${id}/predictions`, { next: { revalidate } }),
+      ]);
+
+      if (!cardRes.ok || !predRes.ok) {
+        throw new Error(`Failed to fetch data for player ${id}`);
+      }
+
       return {
         card: await cardRes.json(),
         pred: await predRes.json(),
-      }
+      };
     })
-  )
+  );
 
   // helper to format numbers
   const fmt = (n: number, d = 2) => n.toFixed(d)
