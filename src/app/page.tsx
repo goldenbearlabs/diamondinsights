@@ -5,6 +5,7 @@ export const metadata = {
   title: 'DiamondInsights',
 }
 export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
 
 import styles from './page.module.css'
 import {

@@ -1,5 +1,6 @@
 // 1. Force runtime rendering → no build‐time prerender
 export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
 // 2. Keep your ISR window if you still want caching at the edge
 export const revalidate = 1800;  // 30 minutes
 
