@@ -156,8 +156,8 @@ export default function PredictionsPage({ initialCards }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   
-  const [cards, setCards] = useState<Card[]>(initialCards)
-  const [loading, setLoading] = useState(false)
+  const [cards] = useState<Card[]>(initialCards)
+  const [loading] = useState(false)
 
   const initialized = React.useRef(false)
 
@@ -269,9 +269,10 @@ export default function PredictionsPage({ initialCards }: Props) {
 
   const sorted = useMemo(() => {
     if (!sortKey) return filtered
+    const key = sortKey as keyof Card
     return [...filtered].sort((a, b) => {
-      const aVal = (a as any)[sortKey]
-      const bVal = (b as any)[sortKey]
+      const aVal = a[key]
+      const bVal = b[key]
       const aNum = typeof aVal === 'number' ? aVal : Number(aVal)
       const bNum = typeof bVal === 'number' ? bVal : Number(bVal)
       if (!isNaN(aNum) && !isNaN(bNum)) {

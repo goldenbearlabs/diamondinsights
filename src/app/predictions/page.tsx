@@ -7,6 +7,8 @@ export const metadata = {
 }
 
 import PredictionsPage, { Card } from './_PredictionsPage'
+import React, { Suspense } from 'react'
+import { FaSpinner } from 'react-icons/fa'
 
 export default async function Page() {
   const baseUrl = process.env.VERCEL_URL
@@ -18,5 +20,13 @@ export default async function Page() {
   })
   const cards: Card[] = await res.json()
 
-  return <PredictionsPage initialCards={cards} />
+  return (
+    <Suspense fallback={
+      <div className="spinner-container">
+        <FaSpinner className="spinner" />
+      </div>
+    }>
+      <PredictionsPage initialCards={cards} />
+    </Suspense>
+  )
 }

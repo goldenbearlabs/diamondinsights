@@ -63,6 +63,23 @@ export interface CardPayload {
   predicted_profit_pct: number
 }
 
+interface RawCardDoc {
+  name: string
+  ovr: number
+  rarity: string
+  is_hitter: boolean
+  baked_img?: string
+  team: string
+  team_short_name: string
+  display_position: string
+  age: number
+  latestMarket?: {sell?: number}
+  latestPrediction: {
+    predicted_rank: number
+    predicted_rank_low: number
+    predicted_rank_high: number
+  }
+}
 export async function GET() {
   const snap = await firestore
     .collection('cards')
@@ -98,7 +115,7 @@ export async function GET() {
       age,
       latestMarket,
       latestPrediction
-    } = d.data() as any
+    } = d.data() as RawCardDoc
 
     // compute confidence, qs, price, profit exactly as before…
     const lowRank = latestPrediction.predicted_rank_low

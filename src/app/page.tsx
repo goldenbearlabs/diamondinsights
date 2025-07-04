@@ -21,8 +21,8 @@ const PLAYER_IDS = [
 ]
 
 type Player = {
-  card: Record<string, any>
-  pred: Record<string, any>
+  card: Record<string, unknown>
+  pred: Record<string, unknown>
 }
 
 export default async function LandingPage() {
