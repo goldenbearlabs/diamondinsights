@@ -543,10 +543,16 @@ export default function PredictionsPage() {
                     const raw = (c as Record<string, unknown>)[col]
                     let cell: string | number | undefined                    
                     
-                    if (col.endsWith('_pct') || col === 'confidence_percentage') {
+                    if (col === 'delta_rank_pred') {
+                      const num = typeof raw === 'number' ? raw : Number(raw)
+                      cell = num.toFixed(2)
+                    }
+                    // ── existing formatting for percentages ──
+                    else if (col.endsWith('_pct') || col === 'confidence_percentage') {
                       const num = typeof raw === 'number' ? raw : Number(raw)
                       cell = `${num.toFixed(1)}%`
-                    } else {
+                    }
+                    else {
                       if (raw == null) {
                         cell = undefined
                       } else if (typeof raw === 'number' || typeof raw === 'string') {
