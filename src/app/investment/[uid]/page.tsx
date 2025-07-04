@@ -71,10 +71,10 @@ export default function InvestmentPage() {
   const [proj,     setProj]     = useState('')
 
   // — inline edit state —
-  const [editingId,  setEditingId]  = useState<string|null>(null)
-  const [deltaQty,   setDeltaQty]   = useState('0')
-  const [unitPrice,  setUnitPrice]  = useState('')
-  const [newOvr,     setNewOvr]     = useState('')
+  const [editingId,     setEditingId]     = useState<string|null>(null)
+  const [newQuantity,   setNewQuantity]   = useState('')
+  const [unitPrice,     setUnitPrice]     = useState('')
+  const [newOvr,        setNewOvr]        = useState('')
 
   // Quick‐sell mapping
   function qsValue(ovr: number): number {
@@ -242,7 +242,7 @@ export default function InvestmentPage() {
   // — Start inline edit —
   function startEdit(i:Investment) {
     setEditingId(i.id)
-    setDeltaQty('0')
+    setNewQuantity(String(i.quantity))  // Start with current quantity
     setUnitPrice('')
     setNewOvr(String(i.userProjectedOvr))
   }
@@ -250,14 +250,23 @@ export default function InvestmentPage() {
   // — Submit inline EDIT/PATCH —
   async function submitEdit(i:Investment) {
     if (!currentUser) return
-    const dQ = parseInt(deltaQty)||0
+    const newQty = parseInt(newQuantity) || i.quantity
     const uP = parseFloat(unitPrice)||0
     const oV = parseInt(newOvr)||i.userProjectedOvr
-    const newQty = i.quantity + dQ
+    const dQ = newQty - i.quantity  // Calculate delta internally
     let newAvg = i.avgBuyPrice
-    if (newQty < 0) { alert("Cannot remove more than you own"); return }
-    if (dQ > 0) {
+    if (newQty < 0) { alert("Cannot have negative quantity"); return }
+    
+    // Handle price updates
+    if (dQ > 0 && uP > 0) {
+      // Adding quantity with new unit price
       newAvg = ((i.quantity*i.avgBuyPrice)+(dQ*uP)) / newQty
+    } else if (dQ === 0 && uP > 0) {
+      // Just updating the unit price without changing quantity
+      newAvg = uP
+    } else if (dQ < 0) {
+      // Reducing quantity - keep current average price
+      newAvg = i.avgBuyPrice
     }
     const token = await currentUser.getIdToken()
     const res = await fetch(`/api/investments/${i.id}`, {
@@ -606,10 +615,10 @@ export default function InvestmentPage() {
                               {editingId === i.id && (
                                 <input
                                   type="number"
-                                  value={deltaQty}
-                                  onChange={e => setDeltaQty(e.target.value)}
+                                  value={newQuantity}
+                                  onChange={e => setNewQuantity(e.target.value)}
                                   className={styles.quantityInput}
-                                  placeholder="Δ Qty"
+                                  placeholder="New Qty"
                                 />
                               )}
                             </div>
@@ -631,7 +640,7 @@ export default function InvestmentPage() {
                                       type="number"
                                       value={unitPrice}
                                       onChange={e => setUnitPrice(e.target.value)}
-                                      placeholder="Unit price"
+                                      placeholder="Unit"
                                     />
                                   </div>
                                 </div>
