@@ -29,7 +29,9 @@ export default async function LandingPage() {
   // determine absolute base URL for server-side fetch
   const baseUrl = process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:3000'
+    : process.env.NODE_ENV === 'production'
+      ? 'https://diamondinsights.app'
+      : 'http://localhost:3000'
 
   // fetch card + prediction data once per ISR window
   const players: Player[] = await Promise.all(
