@@ -901,11 +901,24 @@
     right: 8px;
     margin: 0;               /* remove the normal margins */
     background: rgba(77, 184, 184, 0.15);
-    padding: 4px 6px;        /* maybe a little less padding here */
+    padding: 2px 4px;        /* reduced padding for smaller size */
   }
+  
+  .cardThumb {
+    width: 20px;             /* reduced from 28px to 20px */
+  }
+ 
   /* push the text down a bit so it doesn’t overlap the card thumb */
   .messageContainer {
     padding-top: 16px; 
+  }
+  
+  /* ensure text wraps properly and doesn't extend into card space */
+  .text {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    max-width: calc(100% - 40px); /* Account for smaller card width + margin */
   }
 }
 
