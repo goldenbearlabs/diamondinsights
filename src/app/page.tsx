@@ -250,7 +250,7 @@ export default function LandingPage() {
             <p>Join thousands of MLB The Show investors making smarter decisions</p>
             <div className={styles.ctaButtons}>
               <a href="/signup" className="btn btn-primary">
-                <FaCrown /> Start Free Trial
+                <FaCrown /> Sign up now
               </a>
               <a href="/predictions" className="btn btn-secondary">
                 <FaChartLine /> View Predictions

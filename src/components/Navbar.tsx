@@ -65,154 +65,161 @@ export default function Navbar() {
   const investmentHref = user ? `/investment/${user.uid}` : '/login'
 
   return (
-    <nav className={styles.navbar}>
-      <div className={styles.navContainer}>
-        <Link href="/" className={styles.navLogo}>
-          <span className={styles.logoPart1}>Diamond</span>
-          <span className={styles.logoPart2}>Insights</span>
-        </Link>
+    <div className={styles.navbarContainer}>
+      {/* Notification Banner */}
+      <div className={styles.notificationBanner}>
+        Pitcher projections are fixed now. Sorry for the inconvenience - please read more in main chat.
+      </div>
+      <nav className={styles.navbar}>
+        <div className={styles.navContainer}>
+          <Link href="/" className={styles.navLogo}>
+            <span className={styles.logoPart1}>Diamond</span>
+            <span className={styles.logoPart2}>Insights</span>
+          </Link>
 
-        {/* Mobile menu button */}
-        <button
-          className={styles.mobileMenuButton}
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
-          {mobileMenuOpen ? <FaTimes /> : <FaBars />}
-        </button>
+          {/* Mobile menu button */}
+          <button
+            className={styles.mobileMenuButton}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? <FaTimes /> : <FaBars />}
+          </button>
 
-        <div className={`${styles.navMain} ${mobileMenuOpen ? styles.mobileMenuOpen : ''}`}>
-          <div className={styles.navLinks}>
-            <Link
-              href="/"
-              className={`${styles.navLink} ${pathname === '/' ? styles.active : ''}`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Home
-            </Link>
-            <Link
-              href="/predictions"
-              className={`${styles.navLink} ${pathname.startsWith('/predictions') ? styles.active : ''}`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Predictions
-            </Link>
-            <Link
-              href={investmentHref}
-              className={`${styles.navLink} ${pathname.startsWith('/investment') ? styles.active : ''}`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Investment Tracker
-            </Link>
-            <Link
-              href="/community"
-              className={`${styles.navLink} ${pathname.startsWith('/community') ? styles.active : ''}`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Community
-            </Link>
-
-            {/* Mobile-only account links */}
-            <div className={styles.mobileAccountLinks}>
-              {user ? (
-                <>
-                  <Link
-                    href={accountHref}
-                    className={styles.mobileAccountLink}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <FaUser /> My Account
-                  </Link>
-                  <button
-                    onClick={() => signOut(auth)}
-                    className={styles.mobileAccountLink}
-                  >
-                    <FaSignOutAlt /> Logout
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className={styles.mobileAccountLink}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <FaUser /> Login
-                  </Link>
-                  <Link
-                    href="/signup"
-                    className={styles.mobileSignUpLink}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Sign Up
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className={styles.autocompleteContainer}>
-            <input
-              type="text"
-              className={styles.autocompleteInput}
-              placeholder="Search player…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-            <div ref={listRef} className={styles.autocompleteItems}>
-              {matches.map(p => (
-                <div
-                  key={p.uuid}
-                  className={styles.autocompleteItem}
-                  onClick={() => {
-                    window.location.href = `/player/${p.uuid}`;
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  {p.name}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* User dropdown for desktop */}
-          <div className={styles.userDropdown} ref={userDropdownRef}>
-            {user ? (
-              <div
-                className={styles.userProfile}
-                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+          <div className={`${styles.navMain} ${mobileMenuOpen ? styles.mobileMenuOpen : ''}`}>
+            <div className={styles.navLinks}>
+              <Link
+                href="/"
+                className={`${styles.navLink} ${pathname === '/' ? styles.active : ''}`}
+                onClick={() => setMobileMenuOpen(false)}
               >
-                <img
-                  src={user.photoURL && user.photoURL.trim() !== '' ? user.photoURL : '/default_profile.jpg'}
-                  alt={user.displayName || 'Profile'}
-                  className={styles.profilePic}
-                  onError={e => { (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg'; }}
-                />
-                <span>{user.displayName || 'Account'}</span>
-                <FaCaretDown className={styles.dropdownIcon} />
+                Home
+              </Link>
+              <Link
+                href="/predictions"
+                className={`${styles.navLink} ${pathname.startsWith('/predictions') ? styles.active : ''}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Predictions
+              </Link>
+              <Link
+                href={investmentHref}
+                className={`${styles.navLink} ${pathname.startsWith('/investment') ? styles.active : ''}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Investment Tracker
+              </Link>
+              <Link
+                href="/community"
+                className={`${styles.navLink} ${pathname.startsWith('/community') ? styles.active : ''}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Community
+              </Link>
 
-                {userDropdownOpen && (
-                  <div className={styles.dropdownMenu}>
-                    <Link href={accountHref} className={styles.dropdownItem}>
+              {/* Mobile-only account links */}
+              <div className={styles.mobileAccountLinks}>
+                {user ? (
+                  <>
+                    <Link
+                      href={accountHref}
+                      className={styles.mobileAccountLink}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
                       <FaUser /> My Account
                     </Link>
                     <button
                       onClick={() => signOut(auth)}
-                      className={styles.dropdownItem}
+                      className={styles.mobileAccountLink}
                     >
                       <FaSignOutAlt /> Logout
                     </button>
-                  </div>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      className={styles.mobileAccountLink}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <FaUser /> Login
+                    </Link>
+                    <Link
+                      href="/signup"
+                      className={styles.mobileSignUpLink}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Sign Up
+                    </Link>
+                  </>
                 )}
               </div>
-            ) : (
-              <div className={styles.authLinks}>
-                <Link href="/login" className={styles.navLink}>Login</Link>
-                <Link href="/signup" className="btn btn-primary">Sign Up</Link>
+            </div>
+
+            <div className={styles.autocompleteContainer}>
+              <input
+                type="text"
+                className={styles.autocompleteInput}
+                placeholder="Search player…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              <div ref={listRef} className={styles.autocompleteItems}>
+                {matches.map(p => (
+                  <div
+                    key={p.uuid}
+                    className={styles.autocompleteItem}
+                    onClick={() => {
+                      window.location.href = `/player/${p.uuid}`;
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    {p.name}
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
+
+            {/* User dropdown for desktop */}
+            <div className={styles.userDropdown} ref={userDropdownRef}>
+              {user ? (
+                <div
+                  className={styles.userProfile}
+                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                >
+                  <img
+                    src={user.photoURL && user.photoURL.trim() !== '' ? user.photoURL : '/default_profile.jpg'}
+                    alt={user.displayName || 'Profile'}
+                    className={styles.profilePic}
+                    onError={e => { (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg'; }}
+                  />
+                  <span>{user.displayName || 'Account'}</span>
+                  <FaCaretDown className={styles.dropdownIcon} />
+
+                  {userDropdownOpen && (
+                    <div className={styles.dropdownMenu}>
+                      <Link href={accountHref} className={styles.dropdownItem}>
+                        <FaUser /> My Account
+                      </Link>
+                      <button
+                        onClick={() => signOut(auth)}
+                        className={styles.dropdownItem}
+                      >
+                        <FaSignOutAlt /> Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className={styles.authLinks}>
+                  <Link href="/login" className={styles.navLink}>Login</Link>
+                  <Link href="/signup" className="btn btn-primary">Sign Up</Link>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+    
+    </div>
   )
 }

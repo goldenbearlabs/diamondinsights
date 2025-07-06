@@ -411,3 +411,38 @@
     display: none;
   }
 }
+
+.navbarContainer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+}
+
+.notificationBanner {
+  background-color: rgba(76, 175, 80, 0.9); /* Semi-transparent green */
+  color: white;
+  text-align: center;
+  padding: 8px 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  width: 100%;
+  position: relative;
+  z-index: 1001; /* Higher than navbar */
+}
+
+.navbar {
+  margin-top: 30px; /* Push navbar down below the banner */
+}
+
+@media (max-width: 768px) {
+  .notificationBanner {
+    padding: 12px 10px; /* More padding for wrapped text */
+    font-size: 0.8rem; /* Slightly smaller font for mobile */
+  }
+  
+  .navbar {
+    margin-top: 52px; /* Increased height for banner on mobile */
+  }
+}
