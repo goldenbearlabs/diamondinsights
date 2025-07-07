@@ -84,6 +84,7 @@ export default function CardPage() {
     downvotes: 0,
     userVote: null
   })
+  const [votesLoading, setVotesLoading] = useState(true)
   useEffect(() => onAuthStateChanged(auth, u => setUser(u)), [])
 
   // fixed destructuring
@@ -137,17 +138,35 @@ export default function CardPage() {
   // Fetch vote data when card loads
   useEffect(() => {
     if (!card) return
-    fetch(`/api/cards/${card.id}/votes`)
-      .then(r => r.json())
-      .then((voteData) => {
-        setVotes(prev => ({
-          ...prev,
+    
+    const fetchVotes = async () => {
+      setVotesLoading(true)
+      try {
+        const headers: HeadersInit = {}
+        
+        // Include auth token if user is logged in
+        if (user) {
+          const token = await user.getIdToken()
+          headers['Authorization'] = `Bearer ${token}`
+        }
+        
+        const response = await fetch(`/api/cards/${card.id}/votes`, { headers })
+        const voteData = await response.json()
+        
+        setVotes({
           upvotes: voteData.upvotes || 0,
-          downvotes: voteData.downvotes || 0
-        }))
-      })
-      .catch(err => console.error('Failed to fetch votes:', err))
-  }, [card])
+          downvotes: voteData.downvotes || 0,
+          userVote: voteData.userVote || null
+        })
+      } catch (err) {
+        console.error('Failed to fetch votes:', err)
+      } finally {
+        setVotesLoading(false)
+      }
+    }
+    
+    fetchVotes()
+  }, [card, user])
 
   if (loading) {
     return (
@@ -390,18 +409,18 @@ export default function CardPage() {
               <button 
                 className={`${styles.voteBtn} ${styles.upvoteBtn} ${votes.userVote === 'up' ? styles.active : ''}`}
                 onClick={() => handleVote('up')}
-                disabled={!user}
+                disabled={!user || votesLoading}
                 title={user ? 'Upvote this prediction' : 'Login to vote'}
               >
-                ↑ {votes.upvotes}
+                {votesLoading ? '...' : `↑ ${votes.upvotes}`}
               </button>
               <button 
                 className={`${styles.voteBtn} ${styles.downvoteBtn} ${votes.userVote === 'down' ? styles.active : ''}`}
                 onClick={() => handleVote('down')}
-                disabled={!user}
+                disabled={!user || votesLoading}
                 title={user ? 'Downvote this prediction' : 'Login to vote'}
               >
-                ↓ {votes.downvotes}
+                {votesLoading ? '...' : `↓ ${votes.downvotes}`}
               </button>
             </div>
             <div className={styles.playerMeta}>
