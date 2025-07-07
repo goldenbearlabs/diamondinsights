@@ -567,6 +567,10 @@ export default function PredictionsPage() {
                           <a href={`/player/${c.id}`}>
                             <img src={c.baked_img!} alt={c.name} className={styles.cardIcon}/>
                           </a>
+                        ) : col === 'name' ? (
+                          <a href={`/player/${c.id}`} className={styles.playerNameLink}>
+                            {cell ?? '-'}
+                          </a>
                         ) : (
                           cell ?? '-'
                         )}
