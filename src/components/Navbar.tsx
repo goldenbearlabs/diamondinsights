@@ -66,10 +66,6 @@ export default function Navbar() {
 
   return (
     <div className={styles.navbarContainer}>
-      {/* Notification Banner */}
-      <div className={styles.notificationBanner}>
-        Pitcher projections are fixed now. Sorry for the inconvenience - please read more in main chat.
-      </div>
       <nav className={styles.navbar}>
         <div className={styles.navContainer}>
           <Link href="/" className={styles.navLogo}>
