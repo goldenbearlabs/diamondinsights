@@ -512,7 +512,7 @@ export default function InvestmentPage() {
               </div>
               
               <div className={styles.formGroup}>
-                <label>Projected OVR</label>
+                <label>Your Projected OVR</label>
                 <input
                   type="number"
                   value={proj}
