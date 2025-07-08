@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore'
 import { FaSpinner } from 'react-icons/fa'
 
+
 import {
   FaBroadcastTower,
   FaComments,
@@ -502,7 +503,7 @@ export default function CommunityPage() {
                   />
                   <div className={styles.userDetails}>
                     <div className={styles.userName}>
-                      {user.displayName||'You'}
+                    {user.displayName||'You'}
                     </div>
                     <div className={styles.userStatus}>Online</div>
                   </div>

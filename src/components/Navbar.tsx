@@ -8,6 +8,7 @@ import { onAuthStateChanged, signOut, User } from 'firebase/auth'
 import styles from './Navbar.module.css'
 import { FaBars, FaTimes, FaCaretDown, FaUser, FaSignOutAlt } from 'react-icons/fa'
 
+
 interface Player { name: string; uuid: string }
 
 export default function Navbar() {

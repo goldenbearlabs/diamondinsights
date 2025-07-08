@@ -22,6 +22,7 @@ import {
 } from 'firebase/firestore'
 import { FaSpinner } from 'react-icons/fa'
 
+
 interface ProfileData {
   username:         string
   email:            string
@@ -192,7 +193,7 @@ export default function AccountPage() {
     <div className={styles.accountContainer}>
       <div className={styles.accountHeader}>
         <h2>
-          {isOwner ? 'My Account' : `${profile?.username}'s Account`}
+        {isOwner ? 'My Account' : `${profile?.username}'s Account`}
         </h2>
         <p>
           {isOwner
@@ -213,7 +214,7 @@ export default function AccountPage() {
               }}
             />
             <div className={styles.profileInfo}>
-              <h3>{profile?.username}</h3>
+            <h3>{profile?.username}</h3>
             </div>
           </div>
 
