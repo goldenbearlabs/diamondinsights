@@ -1,3 +1,6 @@
+// src/app/signup/page.tsx
+// User registration page with comprehensive account creation workflow
+// Features: Firebase authentication, profile picture upload, username uniqueness validation, Firestore integration
 'use client';
 
 import { useState } from 'react';
@@ -37,24 +40,37 @@ import {
 
 import styles from './page.module.css';
 
+/**
+ * Signup page component - handles complete user registration workflow
+ * Multi-step process: validation → username check → Firebase Auth → file upload → profile update → Firestore
+ * Features comprehensive error handling and user feedback throughout the registration process
+ */
 export default function SignupPage() {
   const router = useRouter();
 
-  const [username, setUsername] = useState('');
-  const [email, setEmail]       = useState('');
-  const [file, setFile]         = useState<File|null>(null);
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm]   = useState('');
-  const [showPw, setShowPw]     = useState(false);
-  const [showCf, setShowCf]     = useState(false);
+  // Form input states for user registration data
+  const [username, setUsername] = useState('');     // Unique username for platform identity
+  const [email, setEmail]       = useState('');     // Email address for Firebase authentication
+  const [password, setPassword] = useState('');     // User password (minimum 6 characters)
+  const [confirm, setConfirm]   = useState('');     // Password confirmation for validation
 
-  const [error, setError]     = useState('');
-  const [loading, setLoading] = useState(false);
+  // File upload state for profile picture
+  const [file, setFile]         = useState<File|null>(null);  // Selected profile image file
 
+  // UI control states for password visibility
+  const [showPw, setShowPw]     = useState(false);  // Toggle password field visibility
+  const [showCf, setShowCf]     = useState(false);  // Toggle confirm password field visibility
+
+  // Application states for user feedback
+  const [error, setError]       = useState('');     // Error message display
+  const [loading, setLoading]   = useState(false);  // Form submission loading state
+
+  // Handle profile picture file selection with validation
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
     const chosen = e.target.files?.[0] ?? null;
     if (chosen && chosen.size > 5_000_000) {
+      // Enforce 5MB file size limit for storage efficiency
       setError('Profile picture must be under 5 MB');
       setFile(null);
     } else {
@@ -62,11 +78,12 @@ export default function SignupPage() {
     }
   };
 
+  // Handle form submission with multi-step registration workflow
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
-    // ----- CLIENT-SIDE VALIDATION -----
+    // Step 1: Client-side form validation
     if (!username.trim()) {
       return setError('Username is required');
     }
@@ -84,7 +101,7 @@ export default function SignupPage() {
       return setError('Password must be at least 6 characters');
     }
 
-    // ----- USERNAME UNIQUENESS CHECK -----
+    // Step 2: Username uniqueness verification in Firestore
     try {
       const usersCol = collection(db, 'users');
       const q = query(usersCol, where('username', '==', username.trim()));
@@ -100,51 +117,54 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      // 1) Create Auth user
+      // Step 3: Create Firebase Authentication user account
       const credential = await createUserWithEmailAndPassword(auth, email, password);
       const user = credential.user;
 
-      // 2) Optional upload profile pic
+      // Step 4: Upload profile picture to Firebase Storage (optional)
       let photoURL = '';
       if (file) {
         try {
-          const ext  = file.name.split('.').pop();
-          const path = `profilePics/${user.uid}.${ext}`;
+          const ext  = file.name.split('.').pop();  // Extract file extension
+          const path = `profilePics/${user.uid}.${ext}`;  // Create unique filename
           const ref  = storageRef(storage, path);
           await uploadBytes(ref, file);
-          photoURL = await getDownloadURL(ref);
+          photoURL = await getDownloadURL(ref);  // Get public download URL
         } catch (uploadErr: unknown) {
           console.error('Storage upload error', uploadErr);
           throw new Error('Failed to upload profile picture');
         }
       }
 
-      // 3) Update displayName + photoURL
+      // Step 5: Update Firebase Auth user profile with display name and photo
       try {
         await updateProfile(user, { displayName: username.trim(), photoURL });
       } catch (profileErr: unknown) {
         console.error('Profile update error', profileErr);
-        // Not fatal: continue on to firestore write
+        // Not fatal: continue to Firestore document creation
       }
 
-      // 4) Write user doc
+      // Step 6: Create comprehensive user document in Firestore
       const trimmedUsername = username.trim()
       await setDoc(doc(db, 'users', user.uid), {
         uid:               user.uid,
         username:          trimmedUsername,
-        username_lower:    trimmedUsername.toLowerCase(),
+        username_lower:    trimmedUsername.toLowerCase(),  // For case-insensitive searches
         email:             user.email,
         profilePic:        photoURL,
         createdAt:         serverTimestamp(),
-        investmentsPublic: true,
-        searchable:        true,
+        investmentsPublic: true,   // Default to public investment portfolio
+        searchable:        true,   // Allow user to be found in search
       });
 
+      // Redirect to user's account page on successful registration
       router.push(`/account/${user.uid}`);
     } catch (err: unknown) {
       console.error('Signup flow error', err);
-      // Map known Firebase errors
+      
+      // Comprehensive error handling with user-friendly messages
       if (err instanceof FirebaseError) {
+        // Map Firebase authentication error codes to readable messages
         switch (err.code) {
           case 'auth/email-already-in-use':
             setError('This email is already registered')
@@ -159,19 +179,21 @@ export default function SignupPage() {
             setError(err.message || 'Something went wrong')
         }
       } else {
-        // fallback for any other error
+        // Handle custom errors (e.g., from profile picture upload) and other exceptions
         const msg = (err as { message?: string }).message
         setError(msg ?? 'Something went wrong')
       }
-      setLoading(false);
+      setLoading(false);  // Re-enable form after error
     }
   }
 
   return (
     <main className={styles.authContainer}>
+      {/* Brand marketing panel showcasing platform value and encouraging registration */}
       <aside className={styles.brandPanel}>
         <div className={styles.brandOverlay}/>
         <div className={styles.brandContent}>
+          {/* DiamondInsights logo and branding */}
           <div className={styles.logo}>
             <div className={styles.logoIcon}><FaBaseballBall/></div>
             <div className={styles.logoText}>
@@ -179,9 +201,11 @@ export default function SignupPage() {
               <span className={styles.logoPart2}>Insights</span>
             </div>
           </div>
+          {/* Registration call-to-action with platform positioning */}
           <h1 className={styles.brandHeading}>
             Join the <span>#1</span> MLB The Show Prediction Platform
           </h1>
+          {/* Key platform features and statistics to encourage signup */}
           <ul className={styles.brandFeatures}>
             <li><FaChartLine className={styles.featureIcon}/> 96% AI-powered accuracy</li>
             <li><FaUsers      className={styles.featureIcon}/> 2,000+ investors</li>
@@ -190,6 +214,7 @@ export default function SignupPage() {
         </div>
       </aside>
 
+      {/* Registration form panel with comprehensive user input fields */}
       <section className={styles.formPanel}>
         <header className={styles.authHeader}>
           <h2>Create Your Account</h2>
@@ -197,8 +222,10 @@ export default function SignupPage() {
         </header>
 
         <form onSubmit={handleSubmit} className={styles.authForm}>
+          {/* Error message display for registration failures */}
           {error && <div className={styles.authError}>{error}</div>}
 
+          {/* Username input field with uniqueness validation */}
           <div className={styles.formGroup}>
             <label htmlFor="username">Username</label>
             <input
@@ -212,6 +239,7 @@ export default function SignupPage() {
             />
           </div>
 
+          {/* Email input field for Firebase authentication */}
           <div className={styles.formGroup}>
             <label htmlFor="email">Email</label>
             <input
@@ -225,6 +253,7 @@ export default function SignupPage() {
             />
           </div>
 
+          {/* Optional profile picture upload with file size validation */}
           <div className={styles.fileUpload}>
             <label htmlFor="file" className={styles.fileLabel}>
               <FaCloudUploadAlt/> Upload Profile Pic (optional)
@@ -240,6 +269,7 @@ export default function SignupPage() {
             <div className={styles.fileName}>{file?.name || 'No file chosen'}</div>
           </div>
 
+          {/* Password input field with visibility toggle and strength requirements */}
           <div className={styles.formGroup}>
             <label htmlFor="password">Password</label>
             <div className={styles.passwordContainer}>
@@ -252,6 +282,7 @@ export default function SignupPage() {
                 disabled={loading}
                 required
               />
+              {/* Show/hide password toggle for better user experience */}
               <button
                 type="button"
                 className={styles.togglePassword}
@@ -263,6 +294,7 @@ export default function SignupPage() {
             </div>
           </div>
 
+          {/* Password confirmation field with matching validation */}
           <div className={styles.formGroup}>
             <label htmlFor="confirm">Confirm Password</label>
             <div className={styles.passwordContainer}>
@@ -275,6 +307,7 @@ export default function SignupPage() {
                 disabled={loading}
                 required
               />
+              {/* Show/hide password confirmation toggle */}
               <button
                 type="button"
                 className={styles.togglePassword}
@@ -286,6 +319,7 @@ export default function SignupPage() {
             </div>
           </div>
 
+          {/* Submit button with loading state feedback during registration process */}
           <button
             type="submit"
             className={styles.submitBtn}
@@ -294,6 +328,7 @@ export default function SignupPage() {
             {loading ? 'Creating…' : 'Sign Up'}
           </button>
 
+          {/* Navigation link to login page for existing users */}
           <p className={styles.loginLink}>
             Already have an account? <Link href="/login">Log In</Link>
           </p>

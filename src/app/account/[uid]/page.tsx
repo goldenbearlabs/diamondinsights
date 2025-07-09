@@ -278,22 +278,26 @@ export default function AccountPage() {
           </div>
         </div>
 
+        {/* User statistics section */}
         <div className={styles.accountStats}>
           <div className={styles.statsHeader}>
             <h3>Trader Statistics</h3>
             <p>Your performance metrics and trading insights</p>
           </div>
           <div className={styles.statsGrid}>
+            {/* Investment count statistic */}
             <div className={styles.statItem}>
               <h5>Total Investments</h5>
               <p className={styles.value}>{stats.invCount}</p>
             </div>
+            {/* Total invested amount statistic */}
             <div className={styles.statItem}>
               <h5>Total Invested</h5>
               <p className={styles.value}>
                 ${stats.totalInvested.toLocaleString()}
               </p>
             </div>
+            {/* Message count statistic */}
             <div className={styles.statItem}>
               <h5>Total Messages</h5>
               <p className={styles.value}>{stats.totalMessages}</p>
@@ -302,6 +306,7 @@ export default function AccountPage() {
         </div>
       </div>
 
+      {/* Profile editing actions (owner only) */}
       {isOwner && (
         <div className={styles.accountActions}>
           <div className={styles.actionCard}>
