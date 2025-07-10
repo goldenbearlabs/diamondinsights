@@ -12,11 +12,15 @@
   max-width: 1600px;
   margin: 0 auto;
   margin-top: 1rem;
+  min-width: 800px;
 }
 
 /* Sidebar Styles */
 .sidebar {
   width: 240px;
+  min-width: 240px;
+  max-width: 240px;
+  flex-shrink: 0;
   background-color: var(--bg-medium);
   display: flex;
   flex-direction: column;
@@ -131,10 +135,12 @@
 
 /* Chat Area Styles */
 .chatArea {
-  flex-grow: 1;
+  flex: 1;
   display: flex;
   flex-direction: column;
   background: var(--bg-dark);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .chatHeader {
@@ -166,9 +172,11 @@
 .messagesContainer {
   flex-grow: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .messagesWrapper {
@@ -196,6 +204,8 @@
   border-radius: 8px;
   padding: 4px 12px;
   transition: background 0.2s;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .message:hover .messageContainer {
@@ -264,6 +274,8 @@
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
 .messageActions {
@@ -551,9 +563,10 @@
 /* Trending Cards Grid */
 .trendingGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 20px;
   padding: 20px;
+  overflow-x: auto;
 }
 
 .trendingCard {
@@ -720,6 +733,7 @@
     height: auto;
     min-height: 90vh;
     margin-top: 0.25rem;
+    min-width: 0;
   }
   
   .sidebar {
@@ -728,6 +742,8 @@
     left: -100%;
     height: 100vh;
     width: 280px;
+    min-width: 280px;
+    max-width: 280px;
     z-index: 1000;
     transition: left 0.3s ease;
     box-shadow: 5px 0 15px rgba(0, 0, 0, 0.2);
