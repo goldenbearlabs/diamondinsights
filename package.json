@@ -4,7 +4,6 @@
   "private": true,
   "workspaces": [
     "web",
-    "mobile",
     "shared"
   ],
   "scripts": {
@@ -12,9 +11,10 @@
     "build:web": "npm run build --workspace=web",
     "start:web": "npm run start --workspace=web",
     "lint:web": "npm run lint --workspace=web",
-    "dev:mobile": "npm run dev --workspace=mobile",
-    "build:mobile": "npm run build --workspace=mobile",
-    "start:mobile": "npm run start --workspace=mobile"
+    "dev:mobile": "npm run start --workspace=mobile",
+    "mobile:android": "npm run android --workspace=mobile",
+    "mobile:ios": "npm run ios --workspace=mobile",
+    "mobile:web": "npm run web --workspace=mobile"
   },
   "devDependencies": {
     "typescript": "^5",
