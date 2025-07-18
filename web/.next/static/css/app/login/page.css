@@ -1,0 +1,132 @@
+/*!***************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ../node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[5].use[2]!../node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[5].use[3]!./src/app/login/page.module.css ***!
+  \***************************************************************************************************************************************************************************************************************************************************************************/
+.page_authContainer__B2F2g {
+    display: flex;
+    min-height: calc(100vh - 80px);
+  }
+  .page_brandPanel__Odjs_ {
+    flex: 1 1;
+    position: relative;
+    background:
+      linear-gradient(135deg, rgba(18,99,221,0.25), rgba(26,26,26,0.95)),
+      url('/images/login-bg.webp') center/cover;
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .page_brandOverlay__e4UJZ {
+    position: absolute; inset:0;
+    background: rgba(0,0,0,0.6);
+  }
+  .page_brandContent__5qDuB {
+    position: relative; z-index: 1;
+  }
+  .page_logo__3qVzi {
+    display: flex; align-items: center; gap:10px; margin-bottom:2rem;
+  }
+  .page_logoIcon__M4Zu5 { font-size:2.5rem; color: var(--accent-primary);}
+  .page_logoText__b0x4v { font-size:1.8rem; font-weight:700;}
+  .page_logoPart1__OEu3X { color: var(--accent-secondary);}
+  .page_logoPart2__Ti7gB { color: var(--accent-primary);}
+  .page_brandHeading__jox5s {
+    font-size:2.5rem; line-height:1.2; margin-bottom:1.5rem;
+  }
+  .page_brandHeading__jox5s span { color: var(--accent-primary); }
+  .page_brandFeatures__B__ks {
+    list-style:none; margin:2rem 0;
+  }
+  .page_brandFeatures__B__ks li {
+    display:flex; align-items:center; gap:8px; font-size:1.1rem; margin-bottom:1rem;
+  }
+  .page_featureIcon__WLBa0 { color: var(--accent-primary); }
+  .page_testimonial__IAV9c {
+    background: rgba(255,255,255,0.08);
+    -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+    border-left:4px solid var(--accent-primary);
+    padding:1rem; font-style:italic;
+  }
+  .page_testimonialAuthor__HAtKW {
+    display:flex; align-items:center; gap:8px; margin-top:0.5rem;
+  }
+  .page_authorAvatar__zuumu {
+    width:40px; height:40px;
+    background: linear-gradient(135deg,var(--accent-primary),var(--meter-new-up));
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-weight:700;
+  }
+  .page_authorRank__yrUSb { font-size:0.9rem; color:var(--text-secondary); }
+  
+  .page_formPanel__G0EPP {
+    flex:1 1; padding:3rem;
+    background: var(--bg-light);
+    border-left:1px solid rgba(77,184,184,0.1);
+  }
+  .page_authHeader__FvdfK {
+    text-align:center; margin-bottom:2rem;
+  }
+  .page_authHeader__FvdfK h2 { font-size:2.2rem; color:var(--accent-secondary); }
+  .page_authHeader__FvdfK p  { color:var(--text-secondary); }
+  
+  .page_authForm__0nZOI {
+    display:flex; flex-direction:column; gap:1.5rem;
+  }
+  .page_formGroup__xM2kT {
+    display:flex; flex-direction:column; gap:0.5rem;
+  }
+  .page_formInput__xMJwe {
+    padding:1rem; border-radius:var(--border-radius);
+    border:1px solid rgba(255,255,255,0.1);
+    background: var(--bg-light);
+    color: var(--text-primary);
+    font-size:1rem;
+  }
+  .page_formInput__xMJwe:focus {
+    outline:none; border-color:var(--accent-primary);
+    box-shadow:0 0 0 3px rgba(18,99,221,0.2);
+  }
+  .page_passwordContainer__8Nszz { position:relative; }
+  .page_togglePassword__1F9Tj {
+    position:absolute; right:1rem; top:50%; transform:translateY(-50%);
+    background:none; border:none; cursor:pointer; color:var(--text-secondary);
+  }
+  .page_formOptions___NSO_ {
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .page_rememberMe__9Ssbb {
+    display:flex; align-items:center; gap:5px; font-size:0.9rem; cursor:pointer;
+  }
+  .page_forgotPassword__0RrqK {
+    color: var(--accent-primary); text-decoration:none; font-size:0.9rem;
+  }
+  .page_submitBtn__GVtxf {
+    padding:1rem; border:none; border-radius:var(--border-radius);
+    background: linear-gradient(135deg,var(--accent-primary),#0a4cb5);
+    color:white; font-weight:600; cursor:pointer;
+  }
+  .page_submitBtn__GVtxf:disabled {
+    opacity:0.6; cursor:default;
+  }
+  .page_errorMsg__ryDWq {
+    color: var(--negative); font-size:0.9rem; min-height:1.2rem; text-align:center;
+  }
+  .page_loginLink__nmY_z {
+    text-align:center; margin-top:1rem; color:var(--text-secondary);
+  }
+  .page_loginLink__nmY_z a { color:var(--accent-primary); text-decoration:none; }
+  @media(max-width:900px){
+    .page_authContainer__B2F2g{flex-direction:column;}
+    .page_brandPanel__Odjs_, .page_formPanel__G0EPP{padding:2rem;}
+  }
+  
+  .page_authError__E3XXZ {
+    background: #fdecea;
+    color: #b71c1c;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
