@@ -51,25 +51,51 @@ export interface PlayerPrediction {
   trend: 'up' | 'down' | 'stable';
 }
 
+// Investment data structure matching website implementation
 export interface Investment {
   id: string;
-  userId: string;
-  playerId: string;
-  playerName: string;
-  purchasePrice: number;
-  currentPrice: number;
-  quantity: number;
-  purchaseDate: string;
-  gainLoss: number;
-  gainLossPercent: number;
+  playerUUID: string;         // Reference to player card
+  playerName: string;         // Cached player name
+  quantity: number;           // Number of cards owned
+  avgBuyPrice: number;        // Average purchase price per card
+  userProjectedOvr: number;   // User's OVR prediction for profit calculation
+  createdAt: string;
 }
 
+// Portfolio summary matching website calculations
 export interface PortfolioSummary {
-  totalValue: number;
-  totalGainLoss: number;
-  totalGainLossPercent: number;
-  todayChange: number;
-  todayChangePercent: number;
+  cost: number;           // Total investment cost
+  aiValue: number;        // AI projected portfolio value
+  aiProfit: number;       // AI projected profit/loss
+  myValue: number;        // User projected portfolio value
+  myProfit: number;       // User projected profit/loss
+}
+
+/**
+ * MLB The Show quick-sell value calculation
+ * Maps overall rating to quick-sell stub value
+ */
+export function qsValue(ovr: number): number {
+  if (ovr < 65)        return 5;        // Bronze cards
+  if (ovr < 75)        return 25;       // Silver cards
+  if (ovr === 75)      return 50;       // Gold tier entry
+  if (ovr === 76)      return 75;
+  if (ovr === 77)      return 100;
+  if (ovr === 78)      return 125;
+  if (ovr === 79)      return 150;
+  if (ovr === 80)      return 400;      // Diamond tier entry - significant jump
+  if (ovr === 81)      return 600;
+  if (ovr === 82)      return 900;
+  if (ovr === 83)      return 1200;
+  if (ovr === 84)      return 1500;
+  if (ovr === 85)      return 3000;     // High diamond tier - major value increase
+  if (ovr === 86)      return 3750;
+  if (ovr === 87)      return 4500;
+  if (ovr === 88)      return 5500;
+  if (ovr === 89)      return 7000;
+  if (ovr === 90)      return 8000;     // Elite tier
+  if (ovr === 91)      return 9000;
+  return ovr >= 92 ? 10000 : 0;        // Max tier cards
 }
 
 /**
@@ -91,6 +117,31 @@ class ApiClient {
     this.defaultHeaders = {
       'Content-Type': 'application/json',
     };
+  }
+
+  /**
+   * Ensure user is authenticated and set auth token
+   */
+  private async ensureAuthenticated(): Promise<void> {
+    try {
+      const { auth } = await import('./firebase');
+      
+      if (!auth) {
+        throw new Error('Firebase auth service not available');
+      }
+
+      const user = auth.currentUser;
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const token = await user.getIdToken();
+      this.setAuthToken(token);
+    } catch (error) {
+      console.error('Failed to get auth token:', error);
+      throw new Error('Authentication failed');
+    }
   }
 
   /**
@@ -205,27 +256,62 @@ class ApiClient {
   // === Investment APIs ===
 
   /**
-   * Get user's investment portfolio (matches /api/investments)
+   * Get user's investment portfolio (requires authentication)
+   * Matches website's /api/investments endpoint
    */
-  async getUserInvestments(userId: string): Promise<Investment[]> {
-    return this.request<Investment[]>(`/api/investments?userId=${userId}`);
+  async getUserInvestments(): Promise<Investment[]> {
+    // Ensure we have an auth token before making the request
+    await this.ensureAuthenticated();
+    return this.request<Investment[]>('/api/investments');
   }
 
   /**
-   * Get portfolio summary data
+   * Create new investment (requires authentication)
    */
-  async getPortfolioSummary(userId: string): Promise<PortfolioSummary> {
-    return this.request<PortfolioSummary>(`/api/investments/summary?userId=${userId}`);
-  }
-
-  /**
-   * Create new investment
-   */
-  async createInvestment(investment: Omit<Investment, 'id'>): Promise<Investment> {
+  async createInvestment(investment: {
+    playerUUID: string;
+    playerName: string;
+    quantity: number;
+    avgBuyPrice: number;
+    userProjectedOvr: number;
+  }): Promise<Investment> {
+    await this.ensureAuthenticated();
     return this.request<Investment>('/api/investments', {
       method: 'POST',
       body: JSON.stringify(investment),
     });
+  }
+
+  /**
+   * Update existing investment (requires authentication)
+   */
+  async updateInvestment(id: string, updates: {
+    quantity?: number;
+    avgBuyPrice?: number;
+    userProjectedOvr?: number;
+  }): Promise<Investment> {
+    await this.ensureAuthenticated();
+    return this.request<Investment>(`/api/investments/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  /**
+   * Delete investment (requires authentication)
+   */
+  async deleteInvestment(id: string): Promise<void> {
+    await this.ensureAuthenticated();
+    return this.request<void>(`/api/investments/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Get public portfolio for a specific user (no auth required)
+   */
+  async getPublicPortfolio(userId: string): Promise<Investment[]> {
+    return this.request<Investment[]>(`/api/users/${userId}/investments`);
   }
 
   // === Community APIs ===

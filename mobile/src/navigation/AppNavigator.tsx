@@ -19,6 +19,8 @@ import { createStackNavigator } from '@react-navigation/stack';
 // Import our custom navigators and screens
 import { TabNavigator } from './TabNavigator';
 import { PlayerDetailScreen } from '../screens/PlayerDetailScreen';
+import { LoginScreen } from '../screens/LoginScreen';
+import { SignupScreen } from '../screens/SignupScreen';
 
 /**
  * LEARNING NOTE: Navigation Type Safety
@@ -82,11 +84,22 @@ export const AppNavigator: React.FC = () => {
           }}
         />
         
-        {/* Future authentication screens */}
-        {/* 
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Signup" component={SignupScreen} />
-        */}
+        {/* Authentication screens */}
+        <Stack.Screen 
+          name="Login" 
+          component={LoginScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        
+        <Stack.Screen 
+          name="Signup" 
+          component={SignupScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

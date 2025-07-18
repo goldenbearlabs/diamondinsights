@@ -325,20 +325,17 @@ export const usePlayerPredictions = (cardId: string, options?: UseApiOptions) =>
 };
 
 /**
- * Hook for fetching user investments
+ * Hook for fetching user investments (requires authentication)
  */
-export const useUserInvestments = (userId: string, options?: UseApiOptions) => {
-  return useApi(() => apiClient.getUserInvestments(userId), {
-    immediate: !!userId,
-    ...options,
-  });
+export const useUserInvestments = (options?: UseApiOptions) => {
+  return useApi(() => apiClient.getUserInvestments(), options);
 };
 
 /**
- * Hook for fetching portfolio summary
+ * Hook for fetching public portfolio for a specific user
  */
-export const usePortfolioSummary = (userId: string, options?: UseApiOptions) => {
-  return useApi(() => apiClient.getPortfolioSummary(userId), {
+export const usePublicPortfolio = (userId: string, options?: UseApiOptions) => {
+  return useApi(() => apiClient.getPublicPortfolio(userId), {
     immediate: !!userId,
     ...options,
   });
@@ -359,6 +356,45 @@ export const useUserProfile = (userId: string, options?: UseApiOptions) => {
     immediate: !!userId,
     ...options,
   });
+};
+
+/**
+ * INVESTMENT ACTION HOOKS
+ * These hooks provide functions for creating, updating, and deleting investments
+ */
+
+/**
+ * Hook for investment actions (create, update, delete)
+ * Returns functions that can be called to perform these actions
+ */
+export const useInvestmentActions = () => {
+  const createInvestment = async (investment: {
+    playerUUID: string;
+    playerName: string;
+    quantity: number;
+    avgBuyPrice: number;
+    userProjectedOvr: number;
+  }) => {
+    return await apiClient.createInvestment(investment);
+  };
+
+  const updateInvestment = async (id: string, updates: {
+    quantity?: number;
+    avgBuyPrice?: number;
+    userProjectedOvr?: number;
+  }) => {
+    return await apiClient.updateInvestment(id, updates);
+  };
+
+  const deleteInvestment = async (id: string) => {
+    return await apiClient.deleteInvestment(id);
+  };
+
+  return {
+    createInvestment,
+    updateInvestment,
+    deleteInvestment,
+  };
 };
 
 /**

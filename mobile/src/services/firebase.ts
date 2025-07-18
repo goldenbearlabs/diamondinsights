@@ -54,8 +54,11 @@ const firebaseConfig = {
 // Initialize Firebase app with singleton pattern
 let app;
 if (getApps().length === 0) {
+  console.log('Initializing Firebase app...');
   app = initializeApp(firebaseConfig);
+  console.log('Firebase app initialized successfully');
 } else {
+  console.log('Using existing Firebase app');
   app = getApp();
 }
 
@@ -69,13 +72,25 @@ if (getApps().length === 0) {
  */
 let auth;
 try {
+  console.log('Initializing Firebase Auth...');
   // Try to initialize auth with persistence
   auth = initializeAuth(app, {
     persistence: getReactNativePersistence(AsyncStorage),
   });
+  console.log('Firebase Auth initialized successfully with persistence');
 } catch (error) {
   // If already initialized, get the existing instance
+  console.log('Auth already initialized, getting existing instance:', error);
   auth = getAuth(app);
+  console.log('Got existing Firebase Auth instance');
+}
+
+// Ensure auth is properly initialized
+if (!auth) {
+  console.error('Failed to initialize Firebase Auth');
+  throw new Error('Firebase Auth initialization failed');
+} else {
+  console.log('Firebase Auth is ready');
 }
 
 /**

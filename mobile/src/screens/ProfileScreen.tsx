@@ -23,6 +23,13 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { Ionicons } from '@expo/vector-icons';
+
+import { theme } from '../styles/theme';
+import { RootStackParamList } from '../navigation/AppNavigator';
+import { useAuth, useAuthStatus } from '../contexts/AuthContext';
 
 /**
  * LEARNING NOTE: User Profile Data Types
@@ -46,13 +53,17 @@ interface UserSettings {
   pushPredictions: boolean;
 }
 
+type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
+
 export const ProfileScreen: React.FC = () => {
-  // Sample user data - will be replaced with auth and API data
-  const [userProfile] = useState<UserProfile>({
-    id: 'user123',
-    displayName: 'Baseball Enthusiast',
-    email: 'user@example.com',
-    joinDate: 'January 2024',
+  const navigation = useNavigation<ProfileScreenNavigationProp>();
+  
+  // Authentication state from context
+  const { user, userProfile, logout, refreshUserProfile } = useAuth();
+  const { loading: authLoading, isAuthenticated, isGuest } = useAuthStatus();
+  
+  // Sample user data - will be replaced with actual user stats
+  const [userStats] = useState({
     totalInvestments: 15,
     portfolioValue: 12450.75,
     accuracyRate: 78.5,
@@ -75,10 +86,15 @@ export const ProfileScreen: React.FC = () => {
    */
   const onRefresh = async () => {
     setRefreshing(true);
-    // TODO: Fetch latest user data from API
-    setTimeout(() => {
+    try {
+      if (isAuthenticated) {
+        await refreshUserProfile();
+      }
+    } catch (error) {
+      console.error('Refresh error:', error);
+    } finally {
       setRefreshing(false);
-    }, 1000);
+    }
   };
 
   /**
@@ -113,9 +129,14 @@ export const ProfileScreen: React.FC = () => {
         { 
           text: 'Logout', 
           style: 'destructive',
-          onPress: () => {
-            console.log('Logout user');
-            // TODO: Implement logout logic
+          onPress: async () => {
+            try {
+              await logout();
+              console.log('User logged out successfully');
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
           }
         },
       ]
@@ -152,6 +173,69 @@ export const ProfileScreen: React.FC = () => {
     }).format(amount);
   };
 
+  // Show loading spinner while checking auth
+  if (authLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (isGuest) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.authPromptContainer}>
+          <View style={styles.logoContainer}>
+            <Ionicons name="diamond" size={64} color={theme.colors.primary.main} />
+          </View>
+          
+          <Text style={styles.authTitle}>Welcome to DiamondInsights</Text>
+          <Text style={styles.authSubtitle}>
+            Sign in to track your investments, view predictions, and join the community
+          </Text>
+          
+          <View style={styles.authButtons}>
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => navigation.navigate('Login')}
+            >
+              <Text style={styles.primaryButtonText}>Sign In</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => navigation.navigate('Signup')}
+            >
+              <Text style={styles.secondaryButtonText}>Create Account</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.featuresPreview}>
+            <Text style={styles.featuresTitle}>What you'll get:</Text>
+            <View style={styles.featuresList}>
+              <View style={styles.featureItem}>
+                <Ionicons name="analytics" size={20} color={theme.colors.primary.main} />
+                <Text style={styles.featureText}>AI-powered predictions</Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Ionicons name="trending-up" size={20} color={theme.colors.primary.main} />
+                <Text style={styles.featureText}>Investment portfolio tracking</Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Ionicons name="people" size={20} color={theme.colors.primary.main} />
+                <Text style={styles.featureText}>Community insights</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -172,14 +256,25 @@ export const ProfileScreen: React.FC = () => {
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
-                {userProfile.displayName.split(' ').map(n => n[0]).join('')}
+                {(userProfile?.displayName || user?.displayName || 'U').split(' ').map(n => n[0]).join('')}
               </Text>
             </View>
           </View>
           
-          <Text style={styles.displayName}>{userProfile.displayName}</Text>
-          <Text style={styles.email}>{userProfile.email}</Text>
-          <Text style={styles.joinDate}>Member since {userProfile.joinDate}</Text>
+          <Text style={styles.displayName}>
+            {userProfile?.displayName || user?.displayName || 'User'}
+          </Text>
+          <Text style={styles.email}>
+            {userProfile?.email || user?.email || 'No email'}
+          </Text>
+          <Text style={styles.joinDate}>
+            Member since {userProfile?.createdAt ? 
+              new Date(userProfile.createdAt.toDate()).toLocaleDateString('en-US', { 
+                month: 'long', 
+                year: 'numeric' 
+              }) : 'Recently'
+            }
+          </Text>
           
           <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
             <Text style={styles.editButtonText}>Edit Profile</Text>
@@ -192,26 +287,30 @@ export const ProfileScreen: React.FC = () => {
           
           <View style={styles.statsContainer}>
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{userProfile.totalInvestments}</Text>
+              <Text style={styles.statNumber}>
+                {userProfile?.totalInvestments || userStats.totalInvestments}
+              </Text>
               <Text style={styles.statLabel}>Total Investments</Text>
             </View>
             
             <View style={styles.statBox}>
               <Text style={styles.statNumber}>
-                {formatCurrency(userProfile.portfolioValue)}
+                {formatCurrency(userProfile?.portfolioValue || userStats.portfolioValue)}
               </Text>
               <Text style={styles.statLabel}>Portfolio Value</Text>
             </View>
             
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{userProfile.accuracyRate}%</Text>
+              <Text style={styles.statNumber}>
+                {userProfile?.accuracyRate || userStats.accuracyRate}%
+              </Text>
               <Text style={styles.statLabel}>Prediction Accuracy</Text>
             </View>
           </View>
           
           <View style={styles.favoritePlayer}>
             <Text style={styles.favoriteLabel}>Favorite Player</Text>
-            <Text style={styles.favoriteValue}>{userProfile.favoritePlayer}</Text>
+            <Text style={styles.favoriteValue}>{userStats.favoritePlayer}</Text>
           </View>
         </View>
 
@@ -296,27 +395,133 @@ export const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: theme.colors.background.dark,
+  },
+  
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  loadingText: {
+    fontSize: 16,
+    color: theme.colors.text.secondary,
+  },
+  
+  authPromptContainer: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  logoContainer: {
+    width: 120,
+    height: 120,
+    backgroundColor: theme.colors.background.medium,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  
+  authTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: theme.colors.text.primary,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  
+  authSubtitle: {
+    fontSize: 16,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 40,
+  },
+  
+  authButtons: {
+    width: '100%',
+    gap: 16,
+    marginBottom: 40,
+  },
+  
+  primaryButton: {
+    backgroundColor: theme.colors.primary.main,
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  
+  primaryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  
+  secondaryButton: {
+    backgroundColor: theme.colors.background.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.border.primary,
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  
+  secondaryButtonText: {
+    color: theme.colors.text.primary,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  
+  featuresPreview: {
+    width: '100%',
+  },
+  
+  featuresTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.text.primary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  
+  featuresList: {
+    gap: 16,
+  },
+  
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  
+  featureText: {
+    fontSize: 16,
+    color: theme.colors.text.secondary,
   },
   
   header: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background.medium,
     paddingVertical: 20,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: theme.colors.border.primary,
   },
   
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1a365d',
+    color: theme.colors.text.primary,
     textAlign: 'center',
   },
   
   subtitle: {
     fontSize: 16,
-    color: '#64748b',
+    color: theme.colors.text.secondary,
     textAlign: 'center',
     marginTop: 4,
   },
