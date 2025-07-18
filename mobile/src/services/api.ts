@@ -20,10 +20,10 @@
  * 3. Environment-specific configuration
  */
 
-// API Base URL - will need to be updated based on environment
+// API Base URL - configured for your DiamondInsights setup
 const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:3000' // Development - your Next.js dev server
-  : 'https://your-production-domain.com'; // Production - your deployed app
+  ? 'http://10.0.0.215:3000' // Development - your Next.js dev server (use IP instead of localhost)
+  : 'https://diamondinsights.vercel.app'; // Production - your deployed app
 
 /**
  * LEARNING NOTE: TypeScript API Interfaces
@@ -102,6 +102,10 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     
+    // Create AbortController for timeout (React Native compatible)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
     try {
       const response = await fetch(url, {
         ...options,
@@ -109,9 +113,10 @@ class ApiClient {
           ...this.defaultHeaders,
           ...options.headers,
         },
-        // Add timeout for mobile networks
-        signal: AbortSignal.timeout(10000), // 10 second timeout
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId); // Clear timeout if request succeeds
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -119,6 +124,7 @@ class ApiClient {
 
       return await response.json();
     } catch (error) {
+      clearTimeout(timeoutId); // Clear timeout on error
       console.error(`API request failed: ${url}`, error);
       throw error;
     }
@@ -166,6 +172,34 @@ class ApiClient {
    */
   async getPlayerPredictions(cardId: string): Promise<PlayerPrediction> {
     return this.request<PlayerPrediction>(`/api/cards/${cardId}/predictions`);
+  }
+
+  /**
+   * Get player with predictions (combined data)
+   */
+  async getPlayerWithPredictions(cardId: string): Promise<{card: PlayerCard, pred: PlayerPrediction}> {
+    const [card, pred] = await Promise.all([
+      this.getPlayerById(cardId),
+      this.getPlayerPredictions(cardId)
+    ]);
+    return { card, pred };
+  }
+
+  /**
+   * Get specific featured players (matching website landing page)
+   */
+  async getFeaturedPlayers(): Promise<Array<{card: PlayerCard, pred: PlayerPrediction}>> {
+    const FEATURED_PLAYER_IDS = [
+      '3e67d1f24ebdbbbe125e7040442f6e84', // Aaron Judge
+      'b2585f509345e30749a913d76f462bc3', // Fernando Tatis Jr.
+      '514cce4a132d7b9e56401205f68d9c04'  // Player 3
+    ];
+    
+    const playerData = await Promise.all(
+      FEATURED_PLAYER_IDS.map(id => this.getPlayerWithPredictions(id))
+    );
+    
+    return playerData;
   }
 
   // === Investment APIs ===

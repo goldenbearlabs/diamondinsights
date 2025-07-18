@@ -11,7 +11,7 @@
  * 5. TypeScript generics for reusable hooks
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiClient } from '../services/api';
 
 /**
@@ -66,12 +66,20 @@ export function useApi<T>(
    * LEARNING NOTE: Fetch Function with Error Handling
    * 
    * Centralized fetch logic with consistent error handling
+   * Using useRef to avoid apiCall dependency issues
    */
+  const apiCallRef = useRef(apiCall);
+  
+  // Update ref when apiCall changes but don't trigger re-renders
+  useEffect(() => {
+    apiCallRef.current = apiCall;
+  });
+
   const fetchData = useCallback(async () => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const data = await apiCall();
+      const data = await apiCallRef.current();
       setState({
         data,
         isLoading: false,
@@ -85,7 +93,7 @@ export function useApi<T>(
         error: error.message || 'An error occurred while fetching data',
       }));
     }
-  }, [apiCall]);
+  }, []); // No dependencies - stable function
 
   /**
    * LEARNING NOTE: Cache Validation
@@ -140,7 +148,81 @@ export function useApi<T>(
  * Hook for fetching player cards
  */
 export const usePlayerCards = (options?: UseApiOptions) => {
-  return useApi(() => apiClient.getPlayerCards(), options);
+  const { immediate = true, cacheTime = 5 * 60 * 1000 } = options || {};
+
+  // State management
+  const [state, setState] = useState<ApiState<any[]>>({
+    data: null,
+    isLoading: false,
+    error: null,
+    lastFetched: null,
+  });
+
+  /**
+   * Stable fetch function that doesn't change on every render
+   */
+  const fetchData = useCallback(async () => {
+    setState(prev => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      const data = await apiClient.getLivePlayerData();
+      
+      // Transform is_hitter field from string to boolean (matching website behavior)
+      const transformedData = data.map(card => ({
+        ...card,
+        is_hitter: card.is_hitter === true || 
+                  card.is_hitter === 'true' || 
+                  card.is_hitter === 'True'
+      }));
+      
+      setState({
+        data: transformedData,
+        isLoading: false,
+        error: null,
+        lastFetched: new Date(),
+      });
+    } catch (error: any) {
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: error.message || 'An error occurred while fetching data',
+      }));
+    }
+  }, []);
+
+  /**
+   * Check if cached data is still valid
+   */
+  const isCacheValid = useCallback(() => {
+    if (!state.lastFetched) return false;
+    const now = new Date().getTime();
+    const lastFetch = state.lastFetched.getTime();
+    return (now - lastFetch) < cacheTime;
+  }, [state.lastFetched, cacheTime]);
+
+  /**
+   * Smart refresh logic
+   */
+  const refresh = useCallback(async (force = false) => {
+    if (force || !isCacheValid()) {
+      await fetchData();
+    }
+  }, [fetchData, isCacheValid]);
+
+  /**
+   * Effect for initial fetch
+   */
+  useEffect(() => {
+    if (immediate) {
+      fetchData();
+    }
+  }, [immediate, fetchData]);
+
+  return {
+    ...state,
+    refresh,
+    refetch: fetchData,
+  };
 };
 
 /**
@@ -148,6 +230,78 @@ export const usePlayerCards = (options?: UseApiOptions) => {
  */
 export const useLivePlayerData = (options?: UseApiOptions) => {
   return useApi(() => apiClient.getLivePlayerData(), options);
+};
+
+/**
+ * Hook for fetching featured players (same as website landing page)
+ */
+export const useFeaturedPlayers = (options?: UseApiOptions) => {
+  const { immediate = true, cacheTime = 5 * 60 * 1000 } = options || {};
+
+  // State management
+  const [state, setState] = useState<ApiState<Array<{card: any, pred: any}>>>({
+    data: null,
+    isLoading: false,
+    error: null,
+    lastFetched: null,
+  });
+
+  /**
+   * Stable fetch function for featured players
+   */
+  const fetchData = useCallback(async () => {
+    setState(prev => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      const data = await apiClient.getFeaturedPlayers();
+      setState({
+        data,
+        isLoading: false,
+        error: null,
+        lastFetched: new Date(),
+      });
+    } catch (error: any) {
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: error.message || 'An error occurred while fetching featured players',
+      }));
+    }
+  }, []);
+
+  /**
+   * Check if cached data is still valid
+   */
+  const isCacheValid = useCallback(() => {
+    if (!state.lastFetched) return false;
+    const now = new Date().getTime();
+    const lastFetch = state.lastFetched.getTime();
+    return (now - lastFetch) < cacheTime;
+  }, [state.lastFetched, cacheTime]);
+
+  /**
+   * Smart refresh logic
+   */
+  const refresh = useCallback(async (force = false) => {
+    if (force || !isCacheValid()) {
+      await fetchData();
+    }
+  }, [fetchData, isCacheValid]);
+
+  /**
+   * Effect for initial fetch
+   */
+  useEffect(() => {
+    if (immediate) {
+      fetchData();
+    }
+  }, [immediate, fetchData]);
+
+  return {
+    ...state,
+    refresh,
+    refetch: fetchData,
+  };
 };
 
 /**

@@ -24,6 +24,7 @@ import { PredictionsScreen } from '../screens/PredictionsScreen';
 import { PortfolioScreen } from '../screens/PortfolioScreen';
 import { CommunityScreen } from '../screens/CommunityScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { theme } from '../styles/theme';
 
 /**
  * LEARNING NOTE: Tab Navigation Type Safety
@@ -56,8 +57,8 @@ export const TabNavigator: React.FC = () => {
       screenOptions={{
         // Global tab bar styling
         tabBarStyle: {
-          backgroundColor: 'white',
-          borderTopColor: '#e2e8f0',
+          backgroundColor: theme.colors.background.medium,
+          borderTopColor: theme.colors.border.primary,
           borderTopWidth: 1,
           paddingBottom: Platform.OS === 'ios' ? 20 : 5, // Account for iPhone home indicator
           paddingTop: 10,

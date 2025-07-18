@@ -49,12 +49,25 @@ function qsValue(ovr: number): number {
 // ——— Route handler ————————————————————————————————————————————————————————
 
 export async function GET() {
-  const snap = await firestore
-    .collection('cards')
-    .where('latestPrediction', '!=', null)
-    .get()
-
-  const merged = snap.docs.map(d => {
+  try {
+    console.log('Fetching cards...')
+    // First get all cards with predictions
+    const snap = await firestore
+      .collection('cards')
+      .where('latestPrediction', '!=', null)
+      .get()
+    
+    console.log(`Found ${snap.docs.length} total cards with predictions`)
+    
+    // Filter for Live series cards in memory for now (until Firestore index is ready)
+    const liveSeriesDocs = snap.docs.filter(doc => {
+      const data = doc.data();
+      return data.series === 'Live';
+    });
+    
+    console.log(`Found ${liveSeriesDocs.length} Live series cards`)
+    
+    const merged = liveSeriesDocs.map(d => {
     const data   = d.data() as CardData
     const market = data.latestMarket   || {}
     // **Here we assert** that latestPrediction really is our typed object:
@@ -66,7 +79,12 @@ export async function GET() {
     let confPct    = 100 - (highRank - lowRank) * 5
     confPct        = Math.max(0, Math.min(100, confPct))
 
-    // 2) quick-sell & predicted-QS
+    // 2) Calculate rating changes (delta rank)
+    const delta_rank_pred = pred.predicted_rank - data.ovr
+    const delta_rank_low = pred.predicted_rank_low - data.ovr  
+    const delta_rank_high = pred.predicted_rank_high - data.ovr
+
+    // 3) quick-sell & predicted-QS
     const ovr          = data.ovr
     const qs_actual    = qsValue(ovr)
 
@@ -113,6 +131,11 @@ export async function GET() {
       ...pred,
       ...market,
 
+      // Delta rank calculations (rating changes)
+      delta_rank_pred,
+      delta_rank_low,
+      delta_rank_high,
+
       market_price:           price,
       qs_actual,
       qs_pred,
@@ -132,10 +155,17 @@ export async function GET() {
     }
   })
 
-  return NextResponse.json(merged, {
-    status: 200,
-    headers: {
-      'Cache-Control': 'public, max-age=900, s-maxage=900, stale-while-revalidate=600'
-    }
-  })
+    return NextResponse.json(merged, {
+      status: 200,
+      headers: {
+        'Cache-Control': 'public, max-age=900, s-maxage=900, stale-while-revalidate=600'
+      }
+    })
+  } catch (error) {
+    console.error('Error in /api/cards/live:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch cards', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    )
+  }
 }

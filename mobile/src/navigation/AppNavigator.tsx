@@ -18,6 +18,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 
 // Import our custom navigators and screens
 import { TabNavigator } from './TabNavigator';
+import { PlayerDetailScreen } from '../screens/PlayerDetailScreen';
 
 /**
  * LEARNING NOTE: Navigation Type Safety
@@ -75,12 +76,10 @@ export const AppNavigator: React.FC = () => {
         */}
         <Stack.Screen 
           name="PlayerDetail" 
-          component={PlayerDetailPlaceholder}
-          options={({ route }) => ({
-            headerShown: true,
-            title: route.params?.playerName || 'Player Details',
-            headerBackTitle: 'Back', // iOS back button text
-          })}
+          component={PlayerDetailScreen}
+          options={{
+            headerShown: false, // Hide the entire header
+          }}
         />
         
         {/* Future authentication screens */}
@@ -93,32 +92,4 @@ export const AppNavigator: React.FC = () => {
   );
 };
 
-/**
- * Temporary placeholder for Player Detail Screen
- * We'll create the actual component later
- */
-import { View, Text, StyleSheet } from 'react-native';
-
-const PlayerDetailPlaceholder: React.FC = () => {
-  return (
-    <View style={styles.placeholder}>
-      <Text style={styles.placeholderText}>
-        Player Detail Screen Coming Soon!
-      </Text>
-    </View>
-  );
-};
-
-const styles = StyleSheet.create({
-  placeholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
-  },
-  placeholderText: {
-    fontSize: 18,
-    color: '#64748b',
-    textAlign: 'center',
-  },
-});
+// PlayerDetailScreen is now imported and used above

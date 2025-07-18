@@ -31,14 +31,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Firebase configuration - using same project as web app
 const firebaseConfig = {
-  // TODO: These will need to be set via environment variables or constants
-  // For now, using placeholder values
-  apiKey: "your-api-key-here",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "your-app-id"
+  apiKey: "AIzaSyAzyyRrIjigUjOjBIiJiInvZbNnivB2zGc",
+  authDomain: "theshow-587b1.firebaseapp.com",
+  projectId: "theshow-587b1",
+  storageBucket: "theshow-587b1.firebasestorage.app",
+  messagingSenderId: "841491877742",
+  appId: "1:841491877742:web:8366dc78539abafcfebb7f"
 };
 
 /**
@@ -122,8 +120,8 @@ export { auth, db, storage };
  */
 export const isFirebaseConfigured = (): boolean => {
   return (
-    firebaseConfig.apiKey !== "your-api-key-here" &&
-    firebaseConfig.projectId !== "your-project-id"
+    firebaseConfig.apiKey.startsWith("AIza") &&
+    firebaseConfig.projectId === "theshow-587b1"
   );
 };
 

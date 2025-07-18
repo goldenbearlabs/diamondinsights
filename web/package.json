@@ -12,6 +12,7 @@
   "dependencies": {
     "@vercel/analytics": "^1.5.0",
     "@vercel/speed-insights": "^1.2.0",
+    "expo-blur": "^14.1.5",
     "firebase": "^11.9.1",
     "firebase-admin": "^13.4.0",
     "next": "15.3.4",
