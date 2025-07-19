@@ -648,3 +648,91 @@
 .cancelButton:hover {
   background: rgba(244, 67, 54, 0.3);
 }
+
+/* Edit Mode Input Styling */
+.quantityInput, .ovrInput {
+  width: 80px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(40, 40, 40, 0.8);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.quantityInput:focus, .ovrInput:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: rgba(40, 40, 40, 1);
+}
+
+.quantityInput::placeholder, .ovrInput::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.investmentEdit input {
+  width: 90px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(40, 40, 40, 0.8);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.investmentEdit input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: rgba(40, 40, 40, 1);
+}
+
+.investmentEdit input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.investmentEdit .inputWithPrefix input {
+  width: 90px;
+  padding: 6px 8px 6px 28px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(40, 40, 40, 0.8);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.investmentEdit .inputWithPrefix input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: rgba(40, 40, 40, 1);
+}
+
+.investmentEdit .inputWithPrefix input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+/* Hide Number Input Spinners for Clean Dark Theme */
+.quantityInput::-webkit-outer-spin-button,
+.quantityInput::-webkit-inner-spin-button,
+.ovrInput::-webkit-outer-spin-button,
+.ovrInput::-webkit-inner-spin-button,
+.investmentEdit input[type="number"]::-webkit-outer-spin-button,
+.investmentEdit input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox - hide spinners */
+.quantityInput[type="number"],
+.ovrInput[type="number"],
+.investmentEdit input[type="number"] {
+  -moz-appearance: textfield;
+}

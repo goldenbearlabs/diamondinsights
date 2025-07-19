@@ -22,6 +22,7 @@ import {
 } from 'firebase/firestore'
 import { FaSpinner } from 'react-icons/fa'
 
+
 interface ProfileData {
   username:         string
   email:            string
@@ -192,7 +193,7 @@ export default function AccountPage() {
     <div className={styles.accountContainer}>
       <div className={styles.accountHeader}>
         <h2>
-          {isOwner ? 'My Account' : `${profile?.username}'s Account`}
+        {isOwner ? 'My Account' : `${profile?.username}'s Account`}
         </h2>
         <p>
           {isOwner
@@ -213,7 +214,7 @@ export default function AccountPage() {
               }}
             />
             <div className={styles.profileInfo}>
-              <h3>{profile?.username}</h3>
+            <h3>{profile?.username}</h3>
             </div>
           </div>
 
@@ -277,22 +278,26 @@ export default function AccountPage() {
           </div>
         </div>
 
+        {/* User statistics section */}
         <div className={styles.accountStats}>
           <div className={styles.statsHeader}>
             <h3>Trader Statistics</h3>
             <p>Your performance metrics and trading insights</p>
           </div>
           <div className={styles.statsGrid}>
+            {/* Investment count statistic */}
             <div className={styles.statItem}>
               <h5>Total Investments</h5>
               <p className={styles.value}>{stats.invCount}</p>
             </div>
+            {/* Total invested amount statistic */}
             <div className={styles.statItem}>
               <h5>Total Invested</h5>
               <p className={styles.value}>
                 ${stats.totalInvested.toLocaleString()}
               </p>
             </div>
+            {/* Message count statistic */}
             <div className={styles.statItem}>
               <h5>Total Messages</h5>
               <p className={styles.value}>{stats.totalMessages}</p>
@@ -301,6 +306,7 @@ export default function AccountPage() {
         </div>
       </div>
 
+      {/* Profile editing actions (owner only) */}
       {isOwner && (
         <div className={styles.accountActions}>
           <div className={styles.actionCard}>

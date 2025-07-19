@@ -147,5 +147,17 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && 
         request.auth.uid == resource.data.userId;
     }
+    
+    // Card votes collection - voting on player cards for trending
+    match /cardVotes/{voteId} {
+      // Anyone can read vote counts (for trending calculation)
+      allow read: if true;
+      // Only authenticated users can create votes
+      allow create: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+      // Only vote author can update/delete their own vote
+      allow update, delete: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+    }
   }
 }

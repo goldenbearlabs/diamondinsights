@@ -18,6 +18,21 @@ export async function GET(
     
     let upvotes = 0
     let downvotes = 0
+    let userVote: 'up' | 'down' | null = null
+    
+    // Check for user authentication to get user's vote status
+    const authHeader = request.headers.get('authorization')
+    let userId: string | null = null
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7)
+        const decodedToken = await admin.auth().verifyIdToken(token)
+        userId = decodedToken.uid
+      } catch {
+        // Continue without user authentication - just don't include userVote
+      }
+    }
     
     votesSnapshot.docs.forEach(doc => {
       const voteData = doc.data()
@@ -26,13 +41,30 @@ export async function GET(
       } else if (voteData.vote === 'down') {
         downvotes++
       }
+      
+      // Check if this is the authenticated user's vote
+      if (userId && voteData.userId === userId) {
+        userVote = voteData.vote
+      }
     })
     
-    return NextResponse.json({
+    const response: {
+      upvotes: number
+      downvotes: number
+      total: number
+      userVote?: 'up' | 'down' | null
+    } = {
       upvotes,
       downvotes,
       total: upvotes + downvotes
-    })
+    }
+    
+    // Only include userVote in response if user is authenticated
+    if (userId !== null) {
+      response.userVote = userVote
+    }
+    
+    return NextResponse.json(response)
     
   } catch (error) {
     console.error('Error fetching votes:', error)

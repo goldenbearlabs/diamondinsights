@@ -1,3 +1,6 @@
+// src/app/community/page.tsx
+// Community hub - main interface for real-time chat, live comments, and trending cards
+// Features: multiple chat rooms, user search, threaded messages, likes, and trending player cards
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
@@ -14,6 +17,7 @@ import {
 } from 'firebase/firestore'
 import { FaSpinner } from 'react-icons/fa'
 
+// Icon imports for various community features
 import {
   FaBroadcastTower,
   FaComments,
@@ -28,51 +32,58 @@ import {
   FaTimes
 } from 'react-icons/fa'
 
+// Message structure for display in the UI with user and interaction data
 interface Message {
   id: string
-  parentId: string | null
+  parentId: string | null  // For threaded replies
   userId: string
   username: string
   profilePicUrl?: string
   text: string
   timestamp: number
-  playerId?: string
+  playerId?: string        // For live comments on specific players
   playerName?: string
   likes: number
-  liked: boolean
+  liked: boolean          // Whether current user has liked this message
 }
 
+// User search result structure for user lookup functionality
 interface UserSearchResult {
   uid: string
   username: string
   profilePic: string
 }
 
+// Raw chat message data structure as stored in Firestore
 interface ChatMessageData {
   parentId: string | null
   userId: string
   text: string
   timestamp: number
-  playerId?: string
-  likedBy: string[]
+  playerId?: string        // For live comments on specific players
+  likedBy: string[]       // Array of user IDs who liked this message
 }
 
+// User profile data structure from Firestore users collection
 interface UserData {
   username: string
   profilePic: string
 }
 
+// Player card data structure for live comments thumbnails
 interface CardData {
   baked_img: string
   name: string
 }
 
+// Message payload structure for API requests
 interface MessagePayload {
   text: string
   userId: string
-  parentId?: string
+  parentId?: string       // For replies in chat rooms
 }
 
+// Trending card structure with voting and prediction data
 interface TrendingCard {
   id: string
   name: string
@@ -88,52 +99,70 @@ interface TrendingCard {
   totalVotes: number
 }
 
+// Recursive message tree structure for threaded conversations
 type MessageTree = Message & { replies: MessageTree[] }
 
+// Tab configuration for different community sections
 const TABS = [
-  { key: 'live',     label: 'Live Comments', icon: <FaBroadcastTower /> },
-  { key: 'trending', label: 'Trending',      icon: <FaFire           /> },
-  { key: 'main',     label: 'Main Chat',     icon: <FaComments       /> },
-  { key: 'invest',   label: 'Investing',     icon: <FaChartLine      /> },
-  { key: 'flip',     label: 'Flipping',      icon: <FaSyncAlt        /> },
-  { key: 'stub',     label: 'Stub Making',   icon: <FaDollarSign     /> },
+  { key: 'live',     label: 'Live Comments', icon: <FaBroadcastTower /> }, // Player card comments
+  { key: 'trending', label: 'Trending',      icon: <FaFire           /> }, // Popular player cards
+  { key: 'main',     label: 'Main Chat',     icon: <FaComments       /> }, // General discussion
+  { key: 'invest',   label: 'Investing',     icon: <FaChartLine      /> }, // Investment strategies  
+  { key: 'flip',     label: 'Flipping',      icon: <FaSyncAlt        /> }, // Card flipping tips
+  { key: 'stub',     label: 'Stub Making',   icon: <FaDollarSign     /> }, // Stub profit methods
 ] as const
 
+/**
+ * Community page component - central hub for all community interactions
+ * Features real-time chat, live player comments, trending cards, and user search
+ * Supports multiple chat rooms with threaded conversations and message reactions
+ */
 export default function CommunityPage() {
   const auth = getAuth()
   const db   = getFirestore()
 
+  // Authentication and user state
   const [user, setUser] = useState<User | null>(null)
+  
+  // Tab and navigation state
   const [activeTab, setActive] = useState<typeof TABS[number]['key']>('live')
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  
+  // Message and chat state
   const [msgs, setMsgs] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
   const [newText, setNewText] = useState('')
   const [replyTo, setReplyTo] = useState<string | null>(null)
+  
+  // Player card data for live comments
   const [cardThumbs, setCardThumbs] = useState<Record<string, string>>({})
   const [cardNames, setCardNames]   = useState<Record<string, string>>({})
+  
+  // Trending cards state
   const [trendingCards, setTrendingCards] = useState<TrendingCard[]>([])
   const [trendingLoading, setTrendingLoading] = useState(false)
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
-  // User search state
+  // User search functionality state
   const [userSearch, setUserSearch] = useState('')
   const [userMatches, setUserMatches] = useState<UserSearchResult[]>([])
   const [userSearchOpen, setUserSearchOpen] = useState(false)
 
+  // DOM references for auto-scrolling and click outside detection
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef    = useRef<HTMLTextAreaElement>(null)
   const userSearchRef  = useRef<HTMLDivElement>(null)
 
+  // Set up authentication state listener
   useEffect(() => {
     return onAuthStateChanged(auth, u => setUser(u))
   }, [auth])
 
-  // Function to fetch trending cards
+  // Function to fetch trending player cards from API
   const fetchTrendingCards = async () => {
     setTrendingLoading(true)
     try {
       const response = await fetch('/api/trending/cards', {
-        cache: 'no-store'
+        cache: 'no-store'  // Always fetch fresh data
       })
       const data: TrendingCard[] = await response.json()
       setTrendingCards(data)
@@ -145,7 +174,7 @@ export default function CommunityPage() {
     }
   }
 
-  // User search effect
+  // User search functionality with debounced API calls
   useEffect(() => {
     const searchUsers = async () => {
       const val = userSearch.trim()
@@ -165,11 +194,12 @@ export default function CommunityPage() {
       }
     }
 
+    // Debounce search to avoid excessive API calls
     const timeoutId = setTimeout(searchUsers, 300)
     return () => clearTimeout(timeoutId)
   }, [userSearch])
 
-  // Close user search on outside click
+  // Close user search dropdown when clicking outside
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (userSearchRef.current && !userSearchRef.current.contains(e.target as Node)) {
@@ -182,7 +212,7 @@ export default function CommunityPage() {
     }
   }, [userSearchOpen])
 
-  // Close sidebar when clicking outside
+  // Close mobile sidebar when clicking outside (mobile UX)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const sidebar = document.querySelector(`.${styles.sidebar}`)
@@ -196,7 +226,7 @@ export default function CommunityPage() {
     }
   }, [mobileSidebarOpen])
 
-  // Auto-refresh trending data on window focus
+  // Auto-refresh trending data when user returns to tab/window
   useEffect(() => {
     const handleFocus = () => {
       if (activeTab === 'trending') {
@@ -207,36 +237,38 @@ export default function CommunityPage() {
     return () => window.removeEventListener('focus', handleFocus)
   }, [activeTab])
 
-  // Real‐time listener for chat messages
+  // Real-time message listener - handles chat rooms and live comments
   useEffect(() => {
     if (activeTab === 'trending') {
       fetchTrendingCards()
       return
     }
 
+    // Reset state when switching tabs
     setLoading(true)
     setReplyTo(null)
     setMsgs([])
     setCardThumbs({})
     setCardNames({})
 
-    // Determine collection name
+    // Map tab keys to Firestore collection names
     const room = activeTab === 'live'
-    ? 'comments'
+    ? 'comments'              // Player card comments
     : activeTab === 'invest'
-      ? 'chat_investing'
+      ? 'chat_investing'      // Investment discussion
       : activeTab === 'flip'
-        ? 'chat_flipping'
-        : `chat_${activeTab}`
+        ? 'chat_flipping'     // Card flipping chat
+        : `chat_${activeTab}` // Other chat rooms (main, stub)
 
-    // Build a Firestore query
+    // Create Firestore query for real-time updates
     const q = query(
       collection(db, room),
-      orderBy('timestamp', 'desc')
+      orderBy('timestamp', 'desc') // Most recent messages first
     )
 
-    // Subscribe to updates
+    // Subscribe to real-time Firestore updates
     const unsubscribe = onSnapshot(q, async snap => {
+      // Transform Firestore documents to message objects
       const raw = snap.docs.map(d => {
         const data = d.data() as ChatMessageData
         return {
@@ -252,7 +284,7 @@ export default function CommunityPage() {
         }
       }) as Array<Omit<Message, 'username' | 'profilePicUrl'>>
 
-      // Bulk‐fetch user profiles
+      // Bulk-fetch user profiles to avoid N+1 queries
       const uids = Array.from(new Set(raw.map(m => m.userId)))
       const userDocs = await Promise.all(
         uids.map(uid => getDoc(doc(db, 'users', uid)))
@@ -268,7 +300,7 @@ export default function CommunityPage() {
         return acc
       }, {})
 
-      // Merge names into messages
+      // Merge user profile data into message objects
       const withNames = raw.map(m => ({
         ...m,
         username:      userMap[m.userId]?.username      || 'Unknown',
@@ -278,10 +310,13 @@ export default function CommunityPage() {
       setMsgs(withNames)
       setLoading(false)
 
+      // Fetch player card data for live comments tab
       if (activeTab === "live") {
         const playerIds = Array.from(new Set(withNames.map(m => m.playerId!).filter(Boolean)))
         const thumbs: Record<string,string> = {}
         const names:  Record<string,string> = {}
+        
+        // Fetch card thumbnails and names for all referenced players
         await Promise.all(playerIds.map(async id => {
           const snap = await getDoc(doc(db, 'cards', id))
           if (!snap.exists()) return
@@ -294,49 +329,58 @@ export default function CommunityPage() {
       }
     })
 
+    // Cleanup listener when component unmounts or dependencies change
     return () => {
       unsubscribe()
     }
   }, [activeTab, user])
 
+  // Auto-resize textarea based on content
   useEffect(() => {
     if (!textareaRef.current) return
     textareaRef.current.style.height = 'auto'
     textareaRef.current.style.height =
-      Math.min(textareaRef.current.scrollHeight, 150) + 'px'
+      Math.min(textareaRef.current.scrollHeight, 150) + 'px'  // Max height 150px
   }, [newText])
 
-  // Build a tree of messages with replies
+  // Build hierarchical message tree structure for threaded conversations
   const buildTree = (list: Message[]): MessageTree[] => {
     const byId: Record<string, MessageTree> = {}
+    // Initialize all messages as tree nodes
     list.forEach(m => (byId[m.id] = { ...m, replies: [] }))
     const roots: MessageTree[] = []
+    
+    // Organize messages into parent-child relationships
     Object.values(byId).forEach(m => {
       if (m.parentId && byId[m.parentId]) {
-        byId[m.parentId].replies.push(m)
+        byId[m.parentId].replies.push(m)  // Add as reply to parent
       } else {
-        roots.push(m)
+        roots.push(m)  // Top-level message
       }
     })
     return roots
   }
 
+  // Send message to appropriate API endpoint (chat room or player comments)
   async function send(text: string, parentId?: string) {
     if (!user) return
     const token = await user.getIdToken()
+    
+    // Determine API endpoint based on active tab
     const endpoint =
       activeTab === 'live'
         ? `/api/cards/${replyTo ? msgs.find(m=>m.id===replyTo)?.playerId : ''}/comments`
         : `/api/chat/${activeTab === 'invest' ? 'investing' : activeTab}`
 
     const payload: MessagePayload = { text, userId: user.uid }
+    // Add parent ID for threaded replies (not used in live comments)
     if (parentId && activeTab !== 'live') payload.parentId = parentId
 
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type':'application/json',
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${token}`  // Firebase ID token for auth
       },
       body: JSON.stringify(payload)
     })
@@ -344,10 +388,12 @@ export default function CommunityPage() {
       console.error(await res.json())
       return alert('Failed to send')
     }
+    // Clear input after successful send
     setNewText('')
     setReplyTo(null)
   }
 
+  // Toggle like status for a message (add/remove like)
   async function toggleLike(id: string) {
     if (!user) return alert('Log in to like')
     const token = await user.getIdToken()
@@ -364,6 +410,8 @@ export default function CommunityPage() {
     )
     if (!res.ok) return console.error('Like failed', await res.json())
     const { toggled } = await res.json()
+    
+    // Update local state optimistically
     setMsgs(ms => ms.map(m =>
       m.id === id
         ? {...m, liked: toggled, likes: m.likes + (toggled ? 1 : -1) }
@@ -371,6 +419,7 @@ export default function CommunityPage() {
     ))
   }
 
+  // Handle Enter key to send message (Shift+Enter for new line)
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -381,7 +430,7 @@ export default function CommunityPage() {
   return (
     <main className={styles.page}>
       <div className={styles.container}>
-        {/* Mobile header */}
+        {/* Mobile header with hamburger menu and room info */}
         <div className={styles.mobileHeader}>
           <button 
             className={styles.mobileMenuButton}
@@ -400,13 +449,13 @@ export default function CommunityPage() {
           </div>
         </div>
 
-        {/* SIDEBAR */}
+        {/* Navigation sidebar with user search and tab switching */}
         <aside className={`${styles.sidebar} ${mobileSidebarOpen ? styles.sidebarOpen : ''}`}>
           <div className={styles.sidebarHeader}>
             <h2 className={styles.head}>Community</h2>
           </div>
 
-          {/* User Search */}
+          {/* User search functionality with dropdown results */}
           <div className={styles.userSearchContainer} ref={userSearchRef}>
             <input
               type="text"
@@ -415,6 +464,7 @@ export default function CommunityPage() {
               value={userSearch}
               onChange={e => setUserSearch(e.target.value)}
             />
+            {/* Search results dropdown */}
             {userSearchOpen && userMatches.length > 0 && (
               <div className={styles.userSearchResults}>
                 {userMatches.map(user => (
@@ -437,6 +487,7 @@ export default function CommunityPage() {
                 ))}
               </div>
             )}
+            {/* No results message */}
             {userSearchOpen && userSearch.length >= 2 && userMatches.length === 0 && (
               <div className={styles.userSearchResults}>
                 <div className={styles.noResults}>No users found</div>
@@ -502,7 +553,7 @@ export default function CommunityPage() {
                   />
                   <div className={styles.userDetails}>
                     <div className={styles.userName}>
-                      {user.displayName||'You'}
+                    {user.displayName||'You'}
                     </div>
                     <div className={styles.userStatus}>Online</div>
                   </div>
@@ -661,11 +712,15 @@ export default function CommunityPage() {
   )
 }
 
-
+/**
+ * MessageTime component - displays relative time since message was posted
+ * Updates automatically every minute for accurate "time ago" display
+ */
 function MessageTime({ timestamp }: { timestamp: number }) {
   const [label, setLabel] = useState<string | null>(null)
 
   useEffect(() => {
+    // Format time difference as human-readable relative time
     function fmt() {
       const diff = Date.now() - timestamp
       if (diff < 2*60_000)       return 'just now'
@@ -675,25 +730,29 @@ function MessageTime({ timestamp }: { timestamp: number }) {
     }
 
     setLabel(fmt())
-    // schedule the next update exactly as you did before
+    // Schedule next update to keep time accurate (updates every minute)
     const nextIn = 60_000 - (Date.now() - timestamp) % 60_000
     const timer = setTimeout(() => setLabel(fmt()), nextIn)
     return () => clearTimeout(timer)
   }, [timestamp])
 
-  // while label===null (SSR or pre-mount) we show nothing (or a spinner)
+  // Don't render anything during SSR or initial mount
   if (label === null) return <></>
   return <span className={styles.time}>{label}</span>
 }
 
+/**
+ * MessageItem component - renders individual messages with threading support
+ * Handles replies, likes, player card links (for live comments), and collapse/expand functionality
+ */
 function MessageItem({
   msg, depth, isLive, thumb, cardName, userLoggedIn, onReply, onLike
 }: {
   msg: MessageTree,
-  depth: number,
-  isLive: boolean,
-  thumb: string,
-  cardName: string,
+  depth: number,      // Nesting level for threaded replies
+  isLive: boolean,    // Whether this is in live comments mode
+  thumb: string,      // Player card thumbnail (live comments only)
+  cardName: string,   // Player name (live comments only)
   userLoggedIn: boolean,
   onReply: (id: string) => void,
   onLike: (id: string) => void

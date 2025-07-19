@@ -310,6 +310,18 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
+.playerNameLink {
+  color: var(--text-primary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.playerNameLink:hover {
+  color: var(--accent-secondary);
+  text-decoration: underline;
+}
+
 /* Pagination nav */
 .paginationNav {
   display: flex;

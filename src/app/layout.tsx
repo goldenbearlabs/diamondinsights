@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <Navbar />
-        <main style={{ paddingTop: '4rem' }}>{children}</main>
+        <main className="main-content">{children}</main>
         <Footer />
         <Analytics />
         <SpeedInsights />
