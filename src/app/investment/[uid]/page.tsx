@@ -1,6 +1,3 @@
-// src/app/investment/[uid]/page.tsx
-// Investment portfolio tracker - displays user investments with profit/loss calculations
-// Features: public/private portfolios, real-time editing, AI vs user projections, quick-sell calculations
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -12,117 +9,113 @@ import { doc, getDoc }               from 'firebase/firestore'
 import { db }                        from '@/lib/firebaseClient'
 import { FaSpinner } from 'react-icons/fa'
 
-// Investment record structure stored in user's subcollection
 interface Investment {
   id: string
-  playerUUID: string         // Reference to player card
-  playerName: string         // Cached player name
-  quantity: number           // Number of cards owned
-  avgBuyPrice: number        // Average purchase price per card
-  userProjectedOvr: number   // User's OVR prediction for profit calculation
+  playerUUID: string
+  playerName: string
+  quantity: number
+  avgBuyPrice: number
+  userProjectedOvr: number
   createdAt: string
 }
 
-// Player card data structure from cards API
 interface Card {
   id: string
   name: string
-  ovr: number | string               // Current overall rating
-  market_price: number | string     // Current market price
-  predicted_rank: number | string   // AI predicted overall rating
-  confidence_percentage: number | string  // AI prediction confidence
-  qs_pred: number | string          // AI predicted quick-sell value
-  baked_img?: string                // Player card image URL
+  ovr: number | string
+  market_price: number | string
+  predicted_rank: number | string
+  confidence_percentage: number | string
+  qs_pred: number | string
+  baked_img?: string
 }
 
-// User profile data structure from Firestore users collection
+interface Suggestion {
+  id: string
+  name: string
+  baked_img?: string
+}
+
 interface UserProfileData {
   username: string
   profilePic: string
-  investmentsPublic: boolean        // Privacy setting for portfolio visibility
+  investmentsPublic: boolean
 }
 
-// Processed profile data for display
 interface Profile {
   username: string
   profilePic: string
   investmentsPublic: boolean
 }
 
-/**
- * Investment portfolio tracker component - displays and manages user investment portfolios
- * Supports both private (owner-only) and public portfolio viewing with real-time editing
- * Features profit/loss calculations comparing AI predictions vs user projections
- */
 export default function InvestmentPage() {
   const { uid }    = useParams() as { uid?: string }
   const router     = useRouter()
   const authClient = getAuth()
 
-  // Authentication and ownership state
+  // auth & ownership
   const [currentUser, setCurrentUser] = useState<User|null>(null)
   const [isOwner,      setIsOwner]    = useState(false)
 
-  // User profile and privacy settings
+  // profile & privacy
   const [profile,     setProfile]     = useState<Profile|null>(null)
   const [publicFlag,  setPublicFlag]  = useState(false)
 
-  // Investment data and player card details
+  // investments & details
   const [inv,         setInv]         = useState<Investment[]>([])
   const [cardDetails, setCardDetails] = useState<Record<string,Card>>({})
 
-  // Loading state for async operations
+  // loading state
   const [loading,     setLoading]     = useState(true)
 
-  // Add new investment form state
-  const [q,        setQ]        = useState('')           // Player search query
-  const [matches,  setMatches]  = useState<Card[]>([])   // Search results
-  const [sel,      setSel]      = useState<Card|null>(null)  // Selected player
-  const [qty,      setQty]      = useState('')           // Quantity input
-  const [avg,      setAvg]      = useState('')           // Average price input
-  const [proj,     setProj]     = useState('')           // Projected OVR input
+  // — form state for adding —
+  const [q,        setQ]        = useState('')
+  const [matches,  setMatches]  = useState<Suggestion[]>([])
+  const [sel,      setSel]      = useState<Suggestion|null>(null)
+  const [qty,      setQty]      = useState('')
+  const [avg,      setAvg]      = useState('')
+  const [proj,     setProj]     = useState('')
 
-  // Inline editing state for existing investments
-  const [editingId,     setEditingId]     = useState<string|null>(null)
-  const [newQuantity,   setNewQuantity]   = useState('')  // Edit quantity
-  const [unitPrice,     setUnitPrice]     = useState('')  // Edit unit price
-  const [newOvr,        setNewOvr]        = useState('')  // Edit projected OVR
+  // — inline edit state —
+  const [editingId,  setEditingId]  = useState<string|null>(null)
+  const [deltaQty,   setDeltaQty]   = useState('0')
+  const [unitPrice,  setUnitPrice]  = useState('')
+  const [newOvr,     setNewOvr]     = useState('')
 
-  // MLB The Show quick-sell value mapping based on player overall rating
-  // Used to calculate potential profit from user's projected OVR improvements
+  // Quick‐sell mapping
   function qsValue(ovr: number): number {
-    if (ovr < 65) return 5        // Bronze cards
-    if (ovr < 75) return 25       // Silver cards
-    if (ovr === 75) return 50     // Gold tier entry
+    if (ovr < 65) return 5
+    if (ovr < 75) return 25
+    if (ovr === 75) return 50
     if (ovr === 76) return 75
     if (ovr === 77) return 100
     if (ovr === 78) return 125
     if (ovr === 79) return 150
-    if (ovr === 80) return 400    // Diamond tier entry - significant jump
+    if (ovr === 80) return 400
     if (ovr === 81) return 600
     if (ovr === 82) return 900
     if (ovr === 83) return 1200
     if (ovr === 84) return 1500
-    if (ovr === 85) return 3000   // High diamond tier - major value increase
+    if (ovr === 85) return 3000
     if (ovr === 86) return 3750
     if (ovr === 87) return 4500
     if (ovr === 88) return 5500
     if (ovr === 89) return 7000
-    if (ovr === 90) return 8000   // Elite tier
+    if (ovr === 90) return 8000
     if (ovr === 91) return 9000
-    return ovr >= 92 ? 10000 : 0  // Max tier cards
+    return ovr >= 92 ? 10000 : 0
   }
 
-  // Set up authentication listener and determine portfolio ownership
+  // 1) Listen for auth + determine ownership
   useEffect(() => {
     const unsub = onAuthStateChanged(authClient, u => {
       setCurrentUser(u)
-      setIsOwner(u?.uid === uid)  // Check if viewing own portfolio
+      setIsOwner(u?.uid === uid)
     })
     return () => unsub()
   }, [authClient, uid])
 
-  // Load user profile and check privacy settings
+  // 2) Load profile & privacy flag
   useEffect(() => {
     if (!uid) return
     getDoc(doc(db, 'users', uid)).then(snap => {
@@ -138,17 +131,18 @@ export default function InvestmentPage() {
         investmentsPublic: pub
       })
       setPublicFlag(pub)
-      // Stop loading if viewing private portfolio as non-owner
       if (!isOwner && !pub) {
         setLoading(false)
       }
+
+
     })
   }, [uid, router])
 
-  // Fetch investment data based on ownership and privacy settings
+  // 3) Fetch investments (owner or public)
   useEffect(() => {
     if (profile === null) return
-    // Skip fetching if viewing someone else's private portfolio
+    // if this is someone else's private sheet, bail
     if (!isOwner && !publicFlag) {
       setLoading(false)
       return
@@ -156,13 +150,11 @@ export default function InvestmentPage() {
     async function loadInv() {
       let res: Response
       if (isOwner) {
-        // Owner uses authenticated endpoint for full access
         const token = await currentUser!.getIdToken()
         res = await fetch('/api/investments', {
           headers: { Authorization: `Bearer ${token}` }
         })
       } else {
-        // Public viewing uses unauthenticated endpoint
         res = await fetch(`/api/users/${uid}/investments`)
       }
       if (res.ok) {
@@ -173,7 +165,7 @@ export default function InvestmentPage() {
     loadInv()
   }, [profile, isOwner, publicFlag, currentUser, uid])
 
-  // Fetch player card details for all investments to display current stats
+  // 4) Fetch card details for each investment
   useEffect(() => {
     if (inv.length === 0) return
     const ids = Array.from(new Set(inv.map(i => i.playerUUID)))
@@ -185,7 +177,6 @@ export default function InvestmentPage() {
         return [id, data] as [string,Card]
       })
     ).then(pairs => {
-      // Build lookup map for quick access during rendering
       const m: Record<string,Card> = {}
       pairs.forEach(p => p && (m[p[0]] = p[1]))
       setCardDetails(m)
@@ -198,22 +189,22 @@ export default function InvestmentPage() {
       setMatches([])
       return
     }
-    if (!q) return setMatches([])
-    fetch('/api/cards/live')
+    const val = q.trim().toLowerCase()
+    if (!val) {
+      setMatches([])
+      return
+    }
+  
+    fetch(`/api/cards/suggestions?q=${encodeURIComponent(val)}`)
       .then(r => r.json())
-      .then((all: Card[]) =>
-        setMatches(
-          all
-            .filter(c => c.name.toLowerCase().includes(q.toLowerCase()))
-            .slice(0, 5)
-        )
-      )
-  }, [q])
+      .then((cards: Suggestion[]) => {
+        setMatches(cards)
+      })
+  }, [q, sel])
 
-  // Validation check for add investment form completeness
   const canAdd = Boolean(sel && +qty > 0 && !isNaN(+avg) && !isNaN(+proj))
 
-  // Add new investment to user's portfolio
+  // — Add new investment —
   async function add() {
     if (!sel || !currentUser) return
     const token = await currentUser.getIdToken()
@@ -235,16 +226,15 @@ export default function InvestmentPage() {
       console.error('Add failed:', await res.json())
       return
     }
-    // Refresh investment list after successful add
+    // refresh
     const nxt = await fetch('/api/investments', {
       headers:{ Authorization:`Bearer ${await currentUser.getIdToken()}` }
     })
     setInv(await nxt.json())
-    // Clear form inputs
     setQ(''); setSel(null); setQty(''); setAvg(''); setProj('')
   }
 
-  // Remove investment from portfolio
+  // — Delete one —
   async function remove(id: string) {
     if (!currentUser) return
     const token = await currentUser.getIdToken()
@@ -252,39 +242,29 @@ export default function InvestmentPage() {
       method:'DELETE',
       headers:{ Authorization:`Bearer ${token}` }
     })
-    // Update local state immediately for responsive UI
     setInv(inv.filter(i=>i.id!==id))
     if (editingId === id) setEditingId(null)
   }
 
-  // Initialize inline editing mode for an investment
+  // — Start inline edit —
   function startEdit(i:Investment) {
     setEditingId(i.id)
-    setNewQuantity(String(i.quantity))  // Start with current quantity
-    setUnitPrice('')                    // Leave blank to avoid accidental price updates
+    setDeltaQty('0')
+    setUnitPrice('')
     setNewOvr(String(i.userProjectedOvr))
   }
 
-  // Submit inline edits with complex average price recalculation
+  // — Submit inline EDIT/PATCH —
   async function submitEdit(i:Investment) {
     if (!currentUser) return
-    const newQty = parseInt(newQuantity) || i.quantity
+    const dQ = parseInt(deltaQty)||0
     const uP = parseFloat(unitPrice)||0
     const oV = parseInt(newOvr)||i.userProjectedOvr
-    const dQ = newQty - i.quantity  // Calculate quantity change delta
+    const newQty = i.quantity + dQ
     let newAvg = i.avgBuyPrice
-    if (newQty < 0) { alert("Cannot have negative quantity"); return }
-    
-    // Complex average price calculation based on quantity and price changes
-    if (dQ > 0 && uP > 0) {
-      // Adding quantity with new unit price - weighted average calculation
+    if (newQty < 0) { alert("Cannot remove more than you own"); return }
+    if (dQ > 0) {
       newAvg = ((i.quantity*i.avgBuyPrice)+(dQ*uP)) / newQty
-    } else if (dQ === 0 && uP > 0) {
-      // Just updating the unit price without changing quantity
-      newAvg = uP
-    } else if (dQ < 0) {
-      // Reducing quantity - keep current average price (selling at market)
-      newAvg = i.avgBuyPrice
     }
     const token = await currentUser.getIdToken()
     const res = await fetch(`/api/investments/${i.id}`, {
@@ -303,15 +283,14 @@ export default function InvestmentPage() {
       console.error("Update failed", await res.json())
       return
     }
-    // Refresh investment list after successful update
+    // refresh
     const nxt = await fetch('/api/investments',{
       headers:{ Authorization:`Bearer ${await currentUser.getIdToken()}` }
     })
     setInv(await nxt.json())
-    setEditingId(null)  // Exit edit mode
+    setEditingId(null)
   }
 
-  // Show loading spinner while fetching data
   if (loading) {
     return (
       <div className="spinner-container">
@@ -320,12 +299,12 @@ export default function InvestmentPage() {
     )
   }
 
-  // Handle case where profile failed to load
   if (!profile) {
+    // you could return null or another spinner/fallback
     return null
   }
   
-  // Show privacy message for private portfolios viewed by non-owners
+
   if (!isOwner && !publicFlag) {
     return (
       <main className={styles.investmentContainer}>
@@ -345,17 +324,17 @@ export default function InvestmentPage() {
     )
   }
 
-  // Calculate comprehensive portfolio summary with AI vs user projections
+  // build portfolio summary
   const summary = inv.reduce((a,i)=>{
     const c = cardDetails[i.playerUUID]
     if (!c) return a
-    const cost     = i.quantity * i.avgBuyPrice         // Total investment cost
-    const aiPrice  = Number(c.qs_pred)||0              // AI predicted quick-sell value
-    const aiValue  = i.quantity * aiPrice              // AI projected portfolio value
-    const aiProfit = aiValue - cost                    // AI projected profit/loss
-    const myQs     = qsValue(i.userProjectedOvr)       // User projected quick-sell value
-    const myValue  = i.quantity * myQs                 // User projected portfolio value  
-    const myProfit = myValue - cost                    // User projected profit/loss
+    const cost     = i.quantity * i.avgBuyPrice
+    const aiPrice  = Number(c.qs_pred)||0
+    const aiValue  = i.quantity * aiPrice
+    const aiProfit = aiValue - cost
+    const myQs     = qsValue(i.userProjectedOvr)
+    const myValue  = i.quantity * myQs
+    const myProfit = myValue - cost
     return {
       cost:    a.cost+cost,
       aiValue: a.aiValue+aiValue,
@@ -531,7 +510,7 @@ export default function InvestmentPage() {
               </div>
               
               <div className={styles.formGroup}>
-                <label>Your Projected OVR</label>
+                <label>Projected OVR</label>
                 <input
                   type="number"
                   value={proj}
@@ -634,10 +613,10 @@ export default function InvestmentPage() {
                               {editingId === i.id && (
                                 <input
                                   type="number"
-                                  value={newQuantity}
-                                  onChange={e => setNewQuantity(e.target.value)}
+                                  value={deltaQty}
+                                  onChange={e => setDeltaQty(e.target.value)}
                                   className={styles.quantityInput}
-                                  placeholder="New Qty"
+                                  placeholder="Δ Qty"
                                 />
                               )}
                             </div>
@@ -659,7 +638,7 @@ export default function InvestmentPage() {
                                       type="number"
                                       value={unitPrice}
                                       onChange={e => setUnitPrice(e.target.value)}
-                                      placeholder="Unit"
+                                      placeholder="Unit price"
                                     />
                                   </div>
                                 </div>

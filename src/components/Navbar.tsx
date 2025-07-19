@@ -11,8 +11,11 @@ import { onAuthStateChanged, signOut, User } from 'firebase/auth'
 import styles from './Navbar.module.css'
 import { FaBars, FaTimes, FaCaretDown, FaUser, FaSignOutAlt } from 'react-icons/fa'
 
-// Interface for player search autocomplete functionality
-interface Player { name: string; uuid: string }
+interface Player { 
+  uuid: string 
+  name: string 
+  baked_img?: string 
+}
 
 /**
  * Navbar component - provides primary site navigation with advanced features
@@ -20,47 +23,36 @@ interface Player { name: string; uuid: string }
  * Features dynamic routing based on auth state and comprehensive dropdown functionality
  */
 export default function Navbar() {
-  // Navigation and routing state
-  const pathname = usePathname()  // Current page path for active link highlighting
-  
-  // Search functionality state
-  const [search, setSearch] = useState('')                    // User's search input
-  const [allPlayers, setAll] = useState<Player[]>([])         // Complete player database for autocomplete
-  const [matches, setMatches] = useState<Player[]>([])        // Filtered search results
-  
-  // User authentication and UI control state
-  const [user, setUser] = useState<User | null>(null)         // Current authenticated user
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false) // Mobile hamburger menu toggle
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false) // Desktop user profile dropdown
-  
-  // Refs for click-outside detection to close dropdowns
-  const listRef = useRef<HTMLDivElement>(null)                // Search results dropdown reference
-  const userDropdownRef = useRef<HTMLDivElement>(null)        // User profile dropdown reference
+  const pathname = usePathname()
+  const [search, setSearch] = useState('')
+  const [matches, setMatches] = useState<Player[]>([])
+  const [user, setUser] = useState<User | null>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+  const listRef = useRef<HTMLDivElement>(null)
+  const userDropdownRef = useRef<HTMLDivElement>(null)
 
-  // Fetch all players from API for search autocomplete functionality
   useEffect(() => {
-    fetch('/api/cards/live')
+    const q = search.trim().toLowerCase()
+    if (!q) {
+      setMatches([])
+      return
+    }
+    fetch(`/api/cards/suggestions?q=${encodeURIComponent(q)}`)
       .then(r => r.json())
-      .then((data: Array<{ name: string; id: string }>) => {
-        // Transform API response to match Player interface
-        setAll(data.map(item => ({ name: item.name, uuid: item.id })))
+      .then((data: Array<{ id: string; name: string; baked_img: string|null }>) => {
+        setMatches(
+          data.map(c => ({
+            uuid:       c.id,
+            name:       c.name,
+            baked_img:  c.baked_img ?? undefined,
+          }))
+        )
       })
-  }, [])
+  }, [search])
 
-  // Search autocomplete filtering logic
-  useEffect(() => {
-    const val = search.trim().toLowerCase()
-    if (!val) return setMatches([])  // Clear results if search is empty
-    
-    // Filter players by name match and limit to 5 results for performance
-    setMatches(
-      allPlayers
-        .filter(p => p.name.toLowerCase().includes(val))
-        .slice(0, 5)
-    )
-  }, [search, allPlayers])
+  // 2) close dropdowns on outside click
 
-  // Click-outside detection to close dropdown menus for better UX
   useEffect(() => {
     function onClick(e: MouseEvent) {
       // Close search autocomplete if clicking outside the results
@@ -76,16 +68,14 @@ export default function Navbar() {
     return () => document.removeEventListener('click', onClick)
   }, [])
 
-  // Authentication listener - monitors Firebase auth state for dynamic navigation
+  // 3) listen for auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, u => setUser(u))
-    return () => unsubscribe()
+    const unsub = onAuthStateChanged(auth, u => setUser(u))
+    return () => unsub()
   }, [])
 
-  // Dynamic URL generation based on authentication status
-  // Authenticated users get direct access to their account/investment pages
-  // Unauthenticated users are redirected to login
-  const accountHref = user ? `/account/${user.uid}` : '/login'
+  const accountHref    = user ? `/account/${user.uid}` : '/login'
+
   const investmentHref = user ? `/investment/${user.uid}` : '/login'
 
   return (
