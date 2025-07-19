@@ -3,38 +3,45 @@ import { NextResponse } from 'next/server'
 import { firestore }     from '@/lib/firebaseAdmin'
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const q = (searchParams.get('q') || '').trim().toLowerCase()
+  const q = (new URL(request.url)).searchParams.get('q')?.trim().toLowerCase() || ''
+  if (!q) return NextResponse.json([], { status: 200 })
 
-  // Firestore doesn’t have a true “startsWith” operator,
-  // but you can do range queries on strings:
-  const start = q
-  const end   = q + '\uf8ff'
+  // helper to build a prefix query
+  const makeQ = (field: string) =>
+    firestore
+      .collection('cards')
+      .where('series', '==', 'Live')
+      .orderBy(field)
+      .startAt(q)
+      .endAt(q + '\uf8ff')
+      .limit(5)
+      .select('name','baked_img')
 
-  const query = firestore
-    .collection('cards')
-    .where('series', '==', "Live")
-    .orderBy('name_lowercase')    // you’ll need a lowercase‐name field indexed
-    .startAt(start)
-    .endAt(end)
-    .limit(5)
-    .select('name', 'baked_img')
+  // run both in parallel
+  const [byFirst, byLast] = await Promise.all([
+    makeQ('name_lowercase').get(),
+    makeQ('last_name_lowercase').get()
+  ])
 
-  const snap = await query.get()
-
-  const suggestions = snap.docs.map(doc => {
-    const data = doc.data()
-    return {
-      id:          doc.id,
-      name:        data.name,
-      baked_img:   data.baked_img || null,
+  // merge & dedupe, preserving original order
+  const seen = new Set<string>()
+  const out: Array<{id:string, name:string, baked_img?:string}> = []
+  for (const snap of [byFirst, byLast]) {
+    for (const doc of snap.docs) {
+      if (out.length >= 5) break
+      if (seen.has(doc.id)) continue
+      seen.add(doc.id)
+      const d = doc.data()
+      out.push({
+        id:        doc.id,
+        name:      d.name as string,
+        baked_img: d.baked_img as string | undefined
+      })
     }
-  })
+  }
 
-  return NextResponse.json(suggestions, {
+  return NextResponse.json(out, {
     status: 200,
-    headers: {
-      'Cache-Control': 'public, max-age=0, s-maxage=60'
-    }
+    headers: { 'Cache-Control': 'public, max-age=0, s-maxage=60' }
   })
 }
