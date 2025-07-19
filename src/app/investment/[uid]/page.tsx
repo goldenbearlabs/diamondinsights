@@ -30,6 +30,12 @@ interface Card {
   baked_img?: string
 }
 
+interface Suggestion {
+  id: string
+  name: string
+  baked_img?: string
+}
+
 interface UserProfileData {
   username: string
   profilePic: string
@@ -64,8 +70,8 @@ export default function InvestmentPage() {
 
   // — form state for adding —
   const [q,        setQ]        = useState('')
-  const [matches,  setMatches]  = useState<Card[]>([])
-  const [sel,      setSel]      = useState<Card|null>(null)
+  const [matches,  setMatches]  = useState<Suggestion[]>([])
+  const [sel,      setSel]      = useState<Suggestion|null>(null)
   const [qty,      setQty]      = useState('')
   const [avg,      setAvg]      = useState('')
   const [proj,     setProj]     = useState('')
@@ -183,17 +189,18 @@ export default function InvestmentPage() {
       setMatches([])
       return
     }
-    if (!q) return setMatches([])
-    fetch('/api/cards/live')
+    const val = q.trim().toLowerCase()
+    if (!val) {
+      setMatches([])
+      return
+    }
+  
+    fetch(`/api/cards/suggestions?q=${encodeURIComponent(val)}`)
       .then(r => r.json())
-      .then((all: Card[]) =>
-        setMatches(
-          all
-            .filter(c => c.name.toLowerCase().includes(q.toLowerCase()))
-            .slice(0, 5)
-        )
-      )
-  }, [q])
+      .then((cards: Suggestion[]) => {
+        setMatches(cards)
+      })
+  }, [q, sel])
 
   const canAdd = Boolean(sel && +qty > 0 && !isNaN(+avg) && !isNaN(+proj))
 

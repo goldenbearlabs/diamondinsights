@@ -8,12 +8,15 @@ import { onAuthStateChanged, signOut, User } from 'firebase/auth'
 import styles from './Navbar.module.css'
 import { FaBars, FaTimes, FaCaretDown, FaUser, FaSignOutAlt } from 'react-icons/fa'
 
-interface Player { name: string; uuid: string }
+interface Player { 
+  uuid: string 
+  name: string 
+  baked_img?: string 
+}
 
 export default function Navbar() {
   const pathname = usePathname()
   const [search, setSearch] = useState('')
-  const [allPlayers, setAll] = useState<Player[]>([])
   const [matches, setMatches] = useState<Player[]>([])
   const [user, setUser] = useState<User | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -21,27 +24,27 @@ export default function Navbar() {
   const listRef = useRef<HTMLDivElement>(null)
   const userDropdownRef = useRef<HTMLDivElement>(null)
 
-  // fetch all players for autocomplete
+  // 1) fetch up to 5 suggestions on each change
   useEffect(() => {
-    fetch('/api/cards/live')
+    const q = search.trim().toLowerCase()
+    if (!q) {
+      setMatches([])
+      return
+    }
+    fetch(`/api/cards/suggestions?q=${encodeURIComponent(q)}`)
       .then(r => r.json())
-      .then((data: Array<{ name: string; id: string }>) => {
-        setAll(data.map(item => ({ name: item.name, uuid: item.id })))
+      .then((data: Array<{ id: string; name: string; baked_img: string|null }>) => {
+        setMatches(
+          data.map(c => ({
+            uuid:       c.id,
+            name:       c.name,
+            baked_img:  c.baked_img ?? undefined,
+          }))
+        )
       })
-  }, [])
+  }, [search])
 
-  // autocomplete filtering
-  useEffect(() => {
-    const val = search.trim().toLowerCase()
-    if (!val) return setMatches([])
-    setMatches(
-      allPlayers
-        .filter(p => p.name.toLowerCase().includes(val))
-        .slice(0, 5)
-    )
-  }, [search, allPlayers])
-
-  // close dropdowns on outside click
+  // 2) close dropdowns on outside click
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (listRef.current && !listRef.current.contains(e.target as Node)) {
@@ -55,13 +58,13 @@ export default function Navbar() {
     return () => document.removeEventListener('click', onClick)
   }, [])
 
-  // listen for auth state
+  // 3) listen for auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, u => setUser(u))
-    return () => unsubscribe()
+    const unsub = onAuthStateChanged(auth, u => setUser(u))
+    return () => unsub()
   }, [])
 
-  const accountHref = user ? `/account/${user.uid}` : '/login'
+  const accountHref    = user ? `/account/${user.uid}` : '/login'
   const investmentHref = user ? `/investment/${user.uid}` : '/login'
 
   return (

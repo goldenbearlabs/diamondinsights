@@ -1,63 +1,97 @@
-// app/page.tsx
+'use client'
 
-export const revalidate = 86400  // 24-hour ISR
-export const metadata = {
-  title: 'DiamondInsights',
-}
-export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
-
+import Head from 'next/head'
+import { useState, useEffect } from 'react'
 import styles from './page.module.css'
+import { FaSpinner } from 'react-icons/fa'
+
+// FA5 icons
 import {
-  FaRocket, FaPlayCircle, FaChartLine,
-  FaLongArrowAltRight, FaDatabase, FaBrain,
-  FaSyncAlt, FaBolt, FaCrown, FaUsers,
-  FaTwitter, FaInstagram, FaTiktok
+  FaRocket,
+  FaPlayCircle,
+  FaChartLine,
+  FaLongArrowAltRight,
+  FaDatabase,
+  FaBrain,
+  FaSyncAlt,
+  FaBolt,
+  FaCrown,
+  FaUsers,
+  FaTwitter,
+  FaInstagram,
+  FaTiktok
 } from 'react-icons/fa'
+
+// FA6-only icons
 import { FaArrowTrendUp, FaRobot } from 'react-icons/fa6'
 
-const PLAYER_IDS = [
-  '3e67d1f24ebdbbbe125e7040442f6e84',
-  'b2585f509345e30749a913d76f462bc3',
-  '514cce4a132d7b9e56401205f68d9c04'
-]
+export default function LandingPage() {
+  
+  const PLAYER_IDS = [
+    '3e67d1f24ebdbbbe125e7040442f6e84', // Aaron Judge
+    'b2585f509345e30749a913d76f462bc3', // Fernando Tatis (now middle)
+    '514cce4a132d7b9e56401205f68d9c04'  // Player 3
+  ]
+  
+  interface LandingPlayer { card: Record<string, unknown>; pred: Record<string, unknown> }
+  const [players, setPlayers] = useState<LandingPlayer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string|null>(null)
 
-type Player = {
-  card: Record<string, unknown>
-  pred: Record<string, unknown>
-}
-
-export default async function LandingPage() {
-  // determine absolute base URL for server-side fetch
-  const baseUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`          // preview & prod
-  : process.env.NODE_ENV === 'production'
-    ? 'https://diamondinsights.app'             // custom domain
-    : 'http://localhost:3000';                  // local dev
-
-  const players: Player[] = await Promise.all(
-    PLAYER_IDS.map(async (id) => {
-      const [cardRes, predRes] = await Promise.all([
-        fetch(`${baseUrl}/api/cards/${id}`,        { next: { revalidate } }),
-        fetch(`${baseUrl}/api/cards/${id}/predictions`, { next: { revalidate } }),
-      ]);
-
-      if (!cardRes.ok || !predRes.ok) {
-        throw new Error(`Failed to fetch data for player ${id}`);
+  useEffect(() => {
+    const fetchPlayers = async () => {
+      try {
+        const playerData = await Promise.all(
+          PLAYER_IDS.map(id => 
+            Promise.all([
+              fetch(`/api/cards/${id}`).then(r => r.json()),
+              fetch(`/api/cards/${id}/predictions`).then(r => r.json())
+            ])
+          )
+        )
+        
+        setPlayers(playerData.map(([card, pred]) => ({ card, pred })))
+        setLoading(false)
+      } catch (err: unknown) {
+        console.error(err)
+        if (!(err instanceof DOMException && err.name === 'AbortError')) {
+          setError((err as Error).message || 'Unknown error')
+        }
+      } finally {
+        setLoading(false)
       }
+    }
 
-      return {
-        card: await cardRes.json(),
-        pred: await predRes.json(),
-      };
-    })
-  );
+    fetchPlayers()
+  }, [])
 
-  // helper to format numbers
+  if (loading) {
+    return (
+      <div className={styles.spinnerContainer}>
+        <FaSpinner className={styles.spinner} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className={styles.errorContainer}>
+        <p>Oops—something went wrong:</p>
+        <pre className={styles.errorMessage}>{error}</pre>
+        <button className="btn btn-primary" onClick={() => window.location.reload()}>
+          Retry
+        </button>
+      </div>
+    )
+  }
+
   const fmt = (n: number, d = 2) => n.toFixed(d)
 
   return (
     <>
+      <Head>
+        <title>DiamondInsights</title>
+      </Head>
       <main className={styles.landingContainer}>
 
         {/* Hero */}
@@ -216,7 +250,7 @@ export default async function LandingPage() {
             <p>Join thousands of MLB The Show investors making smarter decisions</p>
             <div className={styles.ctaButtons}>
               <a href="/signup" className="btn btn-primary">
-                <FaCrown /> Start Free Trial
+                <FaCrown /> Sign up now
               </a>
               <a href="/predictions" className="btn btn-secondary">
                 <FaChartLine /> View Predictions

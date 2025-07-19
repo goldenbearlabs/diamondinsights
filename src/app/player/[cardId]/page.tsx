@@ -67,6 +67,8 @@ interface Card {
   [key: string]: string | number | boolean | null | undefined
 }
 
+const fmt2 = (n: number) => n.toFixed(2)
+
 export default function CardPage() {
   const router = useRouter()
   const [card, setCard] = useState<Card | null>(null)
@@ -416,7 +418,7 @@ export default function CardPage() {
               ['Overall', card.ovr, '', ''],
               [
                 'Change In Overall',
-                card.delta_rank_pred,
+                fmt2(card.delta_rank_pred),
                 card.delta_rank_pred >= 0 ? 'positive' : 'negative',
                 card.delta_rank_pred >= 0 ? '+' : '',
               ],
@@ -464,7 +466,7 @@ export default function CardPage() {
               chance that <strong>{card.name}</strong> upgrades{' '}
               <strong className={card.delta_rank_pred >= 0 ? styles.positive : styles.negative}>
                 {card.delta_rank_pred >= 0 ? '+' : ''}
-                {card.delta_rank_pred}
+                {fmt2(card.delta_rank_pred)}
               </strong>{' '}
               to <strong>{card.predicted_rank}</strong> overall.
               {card.market_price && (
@@ -484,7 +486,7 @@ export default function CardPage() {
               )}{' '}Low‐case is{' '}
               <strong className={card.delta_rank_low >= 0 ? styles.positive : styles.negative}>
                 {card.delta_rank_low >= 0 ? '+' : ''}
-                {card.delta_rank_low}
+                {fmt2(card.delta_rank_low)}
               </strong>{' '}
               to <strong>{card.predicted_rank_low}</strong>, profit{' '}
               <strong className={card.predicted_profit_low >= 0 ? styles.positive : styles.negative}>
@@ -789,7 +791,7 @@ export default function CardPage() {
             ['Predicted Overall', card.predicted_rank],
             [
               'Change in Overall',
-              card.delta_rank_pred,
+              fmt2(card.delta_rank_pred),
               card.delta_rank_pred >= 0 ? 'positive' : 'negative',
               card.delta_rank_pred >= 0 ? '+' : '',
             ],
