@@ -4,7 +4,8 @@
   "private": true,
   "workspaces": [
     "web",
-    "shared"
+    "shared",
+    "mobile"
   ],
   "scripts": {
     "dev:web": "npm run dev --workspace=web",

@@ -22,7 +22,7 @@
 
 // API Base URL - configured for your DiamondInsights setup
 const API_BASE_URL = __DEV__ 
-  ? 'http://10.0.0.215:3000' // Development - your Next.js dev server (use IP instead of localhost)
+  ? 'http://localhost:3000' // Development - your Next.js dev server
   : 'https://diamondinsights.vercel.app'; // Production - your deployed app
 
 /**
