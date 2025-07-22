@@ -38,6 +38,23 @@
     gap: 2rem;
   }
   
+  .legalLinks {
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+  
+  .legalLinks a {
+    color: var(--accent-primary);
+    text-decoration: none;
+    transition: color 0.3s ease;
+  }
+  
+  .legalLinks a:hover {
+    color: var(--accent-secondary);
+    text-decoration: underline;
+  }
+  
   .linkGroup h4 {
     color: var(--accent-secondary);
     margin-bottom: 1rem;
