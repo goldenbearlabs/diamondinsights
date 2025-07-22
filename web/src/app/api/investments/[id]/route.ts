@@ -22,25 +22,30 @@ export async function PATCH(
 ) {
   try {
     const uid = await getUserId()
+    
     // await the params promise:
     const { id } = await context.params
 
     const body = await req.json()
+    
     // round the avgBuyPrice:
     const newAvg = Math.round(body.avgBuyPrice)
 
     const invRef = firestore
       .collection('users').doc(uid)
       .collection('investments').doc(id)
-
-    await invRef.update({
+    
+    const updateData = {
       quantity:         body.quantity,
       avgBuyPrice:      newAvg,
       userProjectedOvr: body.userProjectedOvr,
-    })
+    };
+
+    await invRef.update(updateData)
 
     return NextResponse.json({ ok: true })
-  } catch {
+  } catch (error) {
+    console.error('PATCH /api/investments/[id] - Error:', error);
     return NextResponse.json({ error: 'Authentication failed' }, { status: 401 })
   }
 }

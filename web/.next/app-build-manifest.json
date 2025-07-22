@@ -1,3 +1,29 @@
 {
-  "pages": {}
+  "pages": {
+    "/api/cards/[cardId]/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/cards/[cardId]/route.js"
+    ],
+    "/api/cards/[cardId]/predictions/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/cards/[cardId]/predictions/route.js"
+    ],
+    "/api/cards/live/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/cards/live/route.js"
+    ],
+    "/api/investments/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/investments/route.js"
+    ],
+    "/api/investments/[id]/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/investments/[id]/route.js"
+    ]
+  }
 }

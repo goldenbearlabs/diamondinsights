@@ -1,1 +1,0 @@
-{"c":["webpack"],"r":["app/api/cards/live/route","app/api/cards/[cardId]/route","app/api/cards/[cardId]/predictions/route","app/api/investments/route"],"m":["(app-pages-browser)/../node_modules/next/dist/build/webpack/loaders/next-flight-client-entry-loader.js?server=false!"]}

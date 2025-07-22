@@ -22,7 +22,7 @@
 
 // API Base URL - configured for your DiamondInsights setup
 const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:3000' // Development - your Next.js dev server
+  ? 'http://10.0.0.215:3002' // Development - your Next.js dev server (using network IP)
   : 'https://diamondinsights.vercel.app'; // Production - your deployed app
 
 /**
@@ -155,25 +155,43 @@ class ApiClient {
     
     // Create AbortController for timeout (React Native compatible)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    const finalHeaders = {
+      ...this.defaultHeaders,
+      ...options.headers,
+    };
+    
+    // Optional debug logging (disabled in production)
+    if (__DEV__) {
+      console.log('API REQUEST:', {
+        url,
+        method: options.method || 'GET',
+      });
+    }
     
     try {
       const response = await fetch(url, {
         ...options,
-        headers: {
-          ...this.defaultHeaders,
-          ...options.headers,
-        },
+        headers: finalHeaders,
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId); // Clear timeout if request succeeds
 
+      if (__DEV__) {
+        console.log('API RESPONSE:', {
+          url,
+          status: response.status,
+        });
+      }
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      return await response.json();
+      const responseData = await response.json();
+      return responseData;
     } catch (error) {
       clearTimeout(timeoutId); // Clear timeout on error
       console.error(`API request failed: ${url}`, error);
@@ -396,7 +414,7 @@ export const checkApiHealth = async (): Promise<boolean> => {
  */
 export const apiConfig = {
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   retryAttempts: 3,
   cacheEnabled: true,
 };

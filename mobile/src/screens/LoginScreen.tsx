@@ -24,6 +24,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -123,22 +124,6 @@ export const LoginScreen: React.FC = () => {
     navigation.navigate('Signup');
   };
 
-  /**
-   * Demo login for testing
-   */
-  const handleDemoLogin = async () => {
-    setLoading(true);
-    setError('');
-    
-    try {
-      await signIn('demo@diamondinsights.com', 'demo123');
-    } catch (error: any) {
-      console.error('Demo login error:', error);
-      setError('Demo account not available. Please create your own account or contact support.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -161,7 +146,13 @@ export const LoginScreen: React.FC = () => {
             </TouchableOpacity>
             
             <View style={styles.logoContainer}>
-              <Ionicons name="diamond" size={48} color={theme.colors.primary.main} />
+              <Image 
+                source={require('../../assets/diamond_icon.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+                onError={(error) => console.log('Logo loading error:', error)}
+                onLoad={() => console.log('Logo loaded successfully')}
+              />
             </View>
             
             <Text style={styles.title}>Welcome Back</Text>
@@ -263,14 +254,6 @@ export const LoginScreen: React.FC = () => {
               )}
             </TouchableOpacity>
 
-            {/* Demo Login */}
-            <TouchableOpacity
-              style={[styles.demoButton, loading && styles.disabledButton]}
-              onPress={handleDemoLogin}
-              disabled={loading}
-            >
-              <Text style={styles.demoButtonText}>Try Demo Account</Text>
-            </TouchableOpacity>
 
             {/* Sign Up Link */}
             <View style={styles.signUpContainer}>
@@ -343,6 +326,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     marginTop: 20,
+    overflow: 'hidden',
+  },
+  
+  logo: {
+    width: 78,
+    height: 78,
   },
   
   title: {
@@ -474,20 +463,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   
-  demoButton: {
-    backgroundColor: theme.colors.background.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.border.primary,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  
-  demoButtonText: {
-    color: theme.colors.text.secondary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
   
   signUpContainer: {
     flexDirection: 'row',

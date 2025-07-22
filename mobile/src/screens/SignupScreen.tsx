@@ -25,6 +25,7 @@ import {
   Platform,
   ScrollView,
   Image,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -256,6 +257,58 @@ export const SignupScreen: React.FC = () => {
     navigation.navigate('Login');
   };
 
+  /**
+   * Open Terms of Service in browser
+   */
+  const handleTermsPress = async () => {
+    const termsUrl = 'https://diamondinsights.vercel.app/terms';
+    try {
+      const supported = await Linking.canOpenURL(termsUrl);
+      if (supported) {
+        await Linking.openURL(termsUrl);
+      } else {
+        Alert.alert(
+          'Terms of Service',
+          'Unable to open browser. Please visit diamondinsights.vercel.app/terms in your web browser.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error opening terms URL:', error);
+      Alert.alert(
+        'Terms of Service',
+        'Unable to open browser. Please visit diamondinsights.vercel.app/terms in your web browser.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  /**
+   * Open Privacy Policy in browser
+   */
+  const handlePrivacyPress = async () => {
+    const privacyUrl = 'https://diamondinsights.vercel.app/privacy';
+    try {
+      const supported = await Linking.canOpenURL(privacyUrl);
+      if (supported) {
+        await Linking.openURL(privacyUrl);
+      } else {
+        Alert.alert(
+          'Privacy Policy',
+          'Unable to open browser. Please visit diamondinsights.vercel.app/privacy in your web browser.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error opening privacy URL:', error);
+      Alert.alert(
+        'Privacy Policy',
+        'Unable to open browser. Please visit diamondinsights.vercel.app/privacy in your web browser.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
@@ -277,7 +330,13 @@ export const SignupScreen: React.FC = () => {
             </TouchableOpacity>
             
             <View style={styles.logoContainer}>
-              <Ionicons name="diamond" size={48} color={theme.colors.primary.main} />
+              <Image 
+                source={require('../../assets/diamond_icon.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+                onError={(error) => console.log('Logo loading error:', error)}
+                onLoad={() => console.log('Logo loaded successfully')}
+              />
             </View>
             
             <Text style={styles.title}>Join DiamondInsights</Text>
@@ -449,9 +508,16 @@ export const SignupScreen: React.FC = () => {
 
           {/* Terms and Features */}
           <View style={styles.footerContainer}>
-            <Text style={styles.termsText}>
-              By creating an account, you agree to our Terms of Service and Privacy Policy
-            </Text>
+            <View style={styles.termsContainer}>
+              <Text style={styles.termsText}>By creating an account, you agree to our </Text>
+              <TouchableOpacity onPress={handleTermsPress}>
+                <Text style={styles.linkText}>Terms of Service</Text>
+              </TouchableOpacity>
+              <Text style={styles.termsText}> and </Text>
+              <TouchableOpacity onPress={handlePrivacyPress}>
+                <Text style={styles.linkText}>Privacy Policy</Text>
+              </TouchableOpacity>
+            </View>
             
             <View style={styles.featuresContainer}>
               <Text style={styles.featuresTitle}>What you'll get:</Text>
@@ -515,6 +581,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     marginTop: 20,
+    overflow: 'hidden',
+  },
+  
+  logo: {
+    width: 78,
+    height: 78,
   },
   
   title: {
@@ -675,11 +747,26 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   
+  termsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  
   termsText: {
     fontSize: 12,
     color: theme.colors.text.secondary,
-    textAlign: 'center',
     lineHeight: 18,
+  },
+  
+  linkText: {
+    fontSize: 12,
+    color: theme.colors.primary.main,
+    lineHeight: 18,
+    textDecorationLine: 'underline',
+    fontWeight: '500',
   },
   
   featuresContainer: {

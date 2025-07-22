@@ -11,7 +11,7 @@
  * 5. Quick-sell value calculations
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -31,12 +32,44 @@ import { StackNavigationProp } from '@react-navigation/stack';
 // Import design system, API hooks, and authentication
 import { theme } from '../styles/theme';
 import { useUserInvestments, useInvestmentActions, usePlayerCards } from '../hooks/useApi';
-import { qsValue, Investment } from '../services/api';
+import { qsValue, Investment, apiClient } from '../services/api';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth, useAuthStatus } from '../contexts/AuthContext';
 
 // Navigation type
 type PortfolioScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Main'>;
+
+// Sorting options for investments
+enum SortOption {
+  CREATION_DATE = 'creation',
+  CREATION_DATE_ASC = 'creation_asc',
+  QUANTITY_DESC = 'quantity_desc', 
+  QUANTITY_ASC = 'quantity_asc',
+  OVR_DESC = 'ovr_desc',
+  OVR_ASC = 'ovr_asc', 
+  PRICE_DESC = 'price_desc',
+  PRICE_ASC = 'price_asc',
+  YOUR_POTENTIAL_DESC = 'your_potential_desc',
+  YOUR_POTENTIAL_ASC = 'your_potential_asc',
+  AI_POTENTIAL_DESC = 'ai_potential_desc',
+  AI_POTENTIAL_ASC = 'ai_potential_asc'
+}
+
+// Sort option labels for UI
+const SORT_LABELS: Record<SortOption, string> = {
+  [SortOption.CREATION_DATE]: 'Newest First',
+  [SortOption.CREATION_DATE_ASC]: 'Oldest First',
+  [SortOption.QUANTITY_DESC]: 'Quantity ↓',
+  [SortOption.QUANTITY_ASC]: 'Quantity ↑',
+  [SortOption.OVR_DESC]: 'Player OVR ↓',
+  [SortOption.OVR_ASC]: 'Player OVR ↑',
+  [SortOption.PRICE_DESC]: 'Avg Buy Price ↓',
+  [SortOption.PRICE_ASC]: 'Avg Buy Price ↑',
+  [SortOption.YOUR_POTENTIAL_DESC]: 'Your Potential ↓',
+  [SortOption.YOUR_POTENTIAL_ASC]: 'Your Potential ↑',
+  [SortOption.AI_POTENTIAL_DESC]: 'AI Potential ↓',
+  [SortOption.AI_POTENTIAL_ASC]: 'AI Potential ↑',
+};
 
 /**
  * Portfolio summary calculation interface
@@ -58,11 +91,14 @@ export const PortfolioScreen: React.FC = () => {
 
   // Investment data and actions (only fetch if authenticated)
   const { 
-    data: investments, 
+    data: hookInvestments, 
     isLoading: investmentsLoading, 
     error: investmentsError, 
     refresh: refreshInvestments 
   } = useUserInvestments({ immediate: isAuthenticated });
+
+  // Use hook data directly (no optimistic updates)
+  const investments = hookInvestments;
   
   const { 
     data: playerCards, 
@@ -81,6 +117,18 @@ export const PortfolioScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  
+  // Toast notification state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  
+  // Portfolio privacy status (public by default, will be controlled from account settings later)
+  const [isPublic, setIsPublic] = useState(true);
+  
+  // Investment sorting state
+  const [sortOption, setSortOption] = useState<SortOption>(SortOption.CREATION_DATE);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   // Add investment form state
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,6 +153,11 @@ export const PortfolioScreen: React.FC = () => {
       )
       .slice(0, 5);
   }, [playerCards, searchQuery]);
+
+  /**
+   * Form validation for add investment
+   */
+  const canAdd = Boolean(selectedPlayer && quantity && avgPrice && projectedOvr);
 
   /**
    * Portfolio summary calculations
@@ -143,7 +196,7 @@ export const PortfolioScreen: React.FC = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await refreshInvestments();
+      await refreshInvestments(true);
     } catch (error) {
       console.error('Failed to refresh investments:', error);
     } finally {
@@ -176,7 +229,10 @@ export const PortfolioScreen: React.FC = () => {
       setAvgPrice('');
       setProjectedOvr('');
       setShowAddForm(false);
-      await refreshInvestments();
+      await refreshInvestments(true);
+      
+      // Show success notification
+      showSuccessToast(`Added ${selectedPlayer.name}`);
     } catch (error) {
       console.error('Failed to add investment:', error);
       Alert.alert('Error', 'Failed to add investment');
@@ -189,7 +245,7 @@ export const PortfolioScreen: React.FC = () => {
   const startEdit = (investment: Investment) => {
     setEditingId(investment.id);
     setEditQuantity(String(investment.quantity));
-    setEditPrice(''); // Leave blank to avoid accidental changes
+    setEditPrice(String(investment.avgBuyPrice)); // Pre-populate with current price
     setEditOvr(String(investment.userProjectedOvr));
   };
 
@@ -198,34 +254,60 @@ export const PortfolioScreen: React.FC = () => {
    */
   const saveEdit = async (investment: Investment) => {
     try {
-      const newQty = parseInt(editQuantity) || investment.quantity;
-      const unitPrice = parseFloat(editPrice) || 0;
-      const newOvr = parseInt(editOvr) || investment.userProjectedOvr;
-      const deltaQty = newQty - investment.quantity;
+      // Parse and validate inputs
+      const newQty = parseInt(editQuantity);
+      const newPrice = parseFloat(editPrice);
+      const newOvr = parseInt(editOvr);
 
-      let newAvgPrice = investment.avgBuyPrice;
-      
-      // Recalculate average price based on quantity and price changes
-      if (deltaQty > 0 && unitPrice > 0) {
-        // Adding quantity with new unit price
-        newAvgPrice = ((investment.quantity * investment.avgBuyPrice) + (deltaQty * unitPrice)) / newQty;
-      } else if (deltaQty === 0 && unitPrice > 0) {
-        // Just updating price without changing quantity
-        newAvgPrice = unitPrice;
+      // Validation
+      if (isNaN(newQty) || newQty <= 0) {
+        Alert.alert('Error', 'Quantity must be a positive number');
+        return;
       }
-      // If reducing quantity, keep existing average price
+      
+      if (isNaN(newPrice) || newPrice <= 0) {
+        Alert.alert('Error', 'Average price must be a positive number');
+        return;
+      }
+      
+      if (isNaN(newOvr) || newOvr < 50 || newOvr > 99) {
+        Alert.alert('Error', 'Overall rating must be between 50 and 99');
+        return;
+      }
 
+      // Show loading state
+      setSavingId(investment.id);
+
+      // 1. Update via API
       await updateInvestment(investment.id, {
         quantity: newQty,
-        avgBuyPrice: Math.round(newAvgPrice),
+        avgBuyPrice: Math.round(newPrice),
         userProjectedOvr: newOvr,
       });
 
+      // 2. Immediate refresh to get updated data
+      await refreshInvestments(true);
+
+      // 3. Show success notification
+      const playerCard = playerCards?.find(card => card.id === investment.playerUUID);
+      const playerName = investment.playerName || playerCard?.name || 'Player';
+      showSuccessToast(`Updated ${playerName}`);
+
+      // 4. Exit edit mode and clear state
       setEditingId(null);
-      await refreshInvestments();
+      setEditQuantity('');
+      setEditPrice('');
+      setEditOvr('');
+      setSavingId(null);
     } catch (error) {
       console.error('Failed to update investment:', error);
       Alert.alert('Error', 'Failed to update investment');
+      // Clear states on error
+      setEditingId(null);
+      setEditQuantity('');
+      setEditPrice('');
+      setEditOvr('');
+      setSavingId(null);
     }
   };
 
@@ -244,7 +326,12 @@ export const PortfolioScreen: React.FC = () => {
           onPress: async () => {
             try {
               await deleteInvestment(investment.id);
-              await refreshInvestments();
+              await refreshInvestments(true);
+              
+              // Show success notification
+              const playerCard = playerCards?.find(card => card.id === investment.playerUUID);
+              const playerName = investment.playerName || playerCard?.name || 'Player';
+              showSuccessToast(`Deleted ${playerName}`);
             } catch (error) {
               console.error('Failed to delete investment:', error);
               Alert.alert('Error', 'Failed to delete investment');
@@ -271,6 +358,141 @@ export const PortfolioScreen: React.FC = () => {
   const formatCurrency = (amount: number): string => {
     return amount.toLocaleString();
   };
+
+  /**
+   * Show success toast notification
+   */
+  const showSuccessToast = (message: string) => {
+    setToastMessage(message);
+    setShowToast(true);
+    // Auto-dismiss after 3 seconds
+    setTimeout(() => {
+      setShowToast(false);
+      setToastMessage('');
+    }, 3000);
+  };
+
+  /**
+   * Handle projected OVR input validation (1-99 range)
+   */
+  const handleProjectedOvrChange = (text: string) => {
+    // Allow empty string for clearing
+    if (text === '') {
+      setProjectedOvr('');
+      return;
+    }
+    
+    // Only allow numeric characters
+    const numericValue = text.replace(/[^0-9]/g, '');
+    
+    // Convert to number and validate range
+    const number = parseInt(numericValue);
+    if (!isNaN(number) && number >= 1 && number <= 99) {
+      setProjectedOvr(number.toString());
+    }
+    // If invalid, don't update state (keeps previous valid value)
+  };
+
+  /**
+   * Handle quantity input validation (1 or greater)
+   */
+  const handleQuantityChange = (text: string) => {
+    // Allow empty string for clearing
+    if (text === '') {
+      setQuantity('');
+      return;
+    }
+    
+    // Only allow numeric characters
+    const numericValue = text.replace(/[^0-9]/g, '');
+    
+    // Convert to number and validate (must be 1 or greater)
+    const number = parseInt(numericValue);
+    if (!isNaN(number) && number >= 1) {
+      setQuantity(number.toString());
+    }
+    // If invalid (0 or negative), don't update state
+  };
+
+  /**
+   * Sort investments based on selected option
+   */
+  const sortInvestments = useCallback((investments: Investment[], sortOption: SortOption) => {
+    if (!investments || !playerCards) return investments;
+
+    const sorted = [...investments].sort((a, b) => {
+      const playerCardA = playerCards.find(card => card.id === a.playerUUID);
+      const playerCardB = playerCards.find(card => card.id === b.playerUUID);
+
+      switch (sortOption) {
+        case SortOption.CREATION_DATE:
+          // Newest first (default) - convert to numbers for reliable comparison
+          return Number(b.createdAt) - Number(a.createdAt);
+          
+        case SortOption.CREATION_DATE_ASC:
+          // Oldest first - convert to numbers for reliable comparison
+          return Number(a.createdAt) - Number(b.createdAt);
+          
+        case SortOption.QUANTITY_DESC:
+          return b.quantity - a.quantity;
+          
+        case SortOption.QUANTITY_ASC:
+          return a.quantity - b.quantity;
+          
+        case SortOption.OVR_DESC:
+          const ovrA = Number(playerCardA?.ovr) || 0;
+          const ovrB = Number(playerCardB?.ovr) || 0;
+          return ovrB - ovrA;
+          
+        case SortOption.OVR_ASC:
+          const ovrA2 = Number(playerCardA?.ovr) || 0;
+          const ovrB2 = Number(playerCardB?.ovr) || 0;
+          return ovrA2 - ovrB2;
+          
+        case SortOption.PRICE_DESC:
+          return b.avgBuyPrice - a.avgBuyPrice;
+          
+        case SortOption.PRICE_ASC:
+          return a.avgBuyPrice - b.avgBuyPrice;
+          
+        case SortOption.YOUR_POTENTIAL_DESC:
+          const yourPotentialA = (a.quantity * qsValue(a.userProjectedOvr)) - (a.quantity * a.avgBuyPrice);
+          const yourPotentialB = (b.quantity * qsValue(b.userProjectedOvr)) - (b.quantity * b.avgBuyPrice);
+          return yourPotentialB - yourPotentialA;
+          
+        case SortOption.YOUR_POTENTIAL_ASC:
+          const yourPotentialA2 = (a.quantity * qsValue(a.userProjectedOvr)) - (a.quantity * a.avgBuyPrice);
+          const yourPotentialB2 = (b.quantity * qsValue(b.userProjectedOvr)) - (b.quantity * b.avgBuyPrice);
+          return yourPotentialA2 - yourPotentialB2;
+          
+        case SortOption.AI_POTENTIAL_DESC:
+          const aiQsA = Number(playerCardA?.qs_pred) || 0;
+          const aiQsB = Number(playerCardB?.qs_pred) || 0;
+          const aiPotentialA = (a.quantity * aiQsA) - (a.quantity * a.avgBuyPrice);
+          const aiPotentialB = (b.quantity * aiQsB) - (b.quantity * b.avgBuyPrice);
+          return aiPotentialB - aiPotentialA;
+          
+        case SortOption.AI_POTENTIAL_ASC:
+          const aiQsA2 = Number(playerCardA?.qs_pred) || 0;
+          const aiQsB2 = Number(playerCardB?.qs_pred) || 0;
+          const aiPotentialA2 = (a.quantity * aiQsA2) - (a.quantity * a.avgBuyPrice);
+          const aiPotentialB2 = (b.quantity * aiQsB2) - (b.quantity * b.avgBuyPrice);
+          return aiPotentialA2 - aiPotentialB2;
+          
+        default:
+          return 0;
+      }
+    });
+
+    return sorted;
+  }, [playerCards]);
+
+  /**
+   * Apply sorting to investments
+   */
+  const sortedInvestments = useMemo(() => {
+    return sortInvestments(investments || [], sortOption);
+  }, [investments, sortOption, sortInvestments]);
 
   // Authentication loading state
   if (authLoading) {
@@ -342,10 +564,29 @@ export const PortfolioScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Success Toast Notification */}
+      {showToast && (
+        <View style={styles.toastContainer}>
+          <View style={styles.toast}>
+            <Ionicons name="checkmark-circle" size={20} color="white" />
+            <Text style={styles.toastText}>{toastMessage}</Text>
+          </View>
+        </View>
+      )}
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Portfolio</Text>
         <Text style={styles.subtitle}>Your investment tracker</Text>
+        
+        {/* Portfolio Status Tag */}
+        <View style={styles.portfolioStatusContainer}>
+          <View style={styles.portfolioStatus}>
+            <Text style={styles.portfolioStatusText}>
+              {isPublic ? 'Public' : 'Private'} Portfolio
+            </Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView
@@ -375,18 +616,6 @@ export const PortfolioScreen: React.FC = () => {
           <View style={styles.summaryRow}>
             <View style={[
               styles.summaryCard,
-              portfolioSummary.aiProfit >= 0 ? styles.positiveCard : styles.negativeCard
-            ]}>
-              <Text style={styles.summaryLabel}>AI P/L</Text>
-              <Text style={[
-                styles.summaryValue,
-                { color: portfolioSummary.aiProfit >= 0 ? '#10b981' : '#ef4444' }
-              ]}>
-                ${formatCurrency(portfolioSummary.aiProfit)}
-              </Text>
-            </View>
-            <View style={[
-              styles.summaryCard,
               portfolioSummary.myProfit >= 0 ? styles.positiveCard : styles.negativeCard
             ]}>
               <Text style={styles.summaryLabel}>Your P/L</Text>
@@ -395,6 +624,18 @@ export const PortfolioScreen: React.FC = () => {
                 { color: portfolioSummary.myProfit >= 0 ? '#10b981' : '#ef4444' }
               ]}>
                 ${formatCurrency(portfolioSummary.myProfit)}
+              </Text>
+            </View>
+            <View style={[
+              styles.summaryCard,
+              portfolioSummary.aiProfit >= 0 ? styles.positiveCard : styles.negativeCard
+            ]}>
+              <Text style={styles.summaryLabel}>AI P/L</Text>
+              <Text style={[
+                styles.summaryValue,
+                { color: portfolioSummary.aiProfit >= 0 ? '#10b981' : '#ef4444' }
+              ]}>
+                ${formatCurrency(portfolioSummary.aiProfit)}
               </Text>
             </View>
           </View>
@@ -433,6 +674,7 @@ export const PortfolioScreen: React.FC = () => {
               <TextInput
                 style={styles.textInput}
                 placeholder="Search for player..."
+                placeholderTextColor="#999999"
                 value={searchQuery}
                 onChangeText={(text) => {
                   setSearchQuery(text);
@@ -441,7 +683,11 @@ export const PortfolioScreen: React.FC = () => {
               />
               
               {searchResults.length > 0 && !selectedPlayer && (
-                <View style={styles.searchResults}>
+                <ScrollView 
+                  style={styles.searchResults}
+                  showsVerticalScrollIndicator={false}
+                  nestedScrollEnabled={true}
+                >
                   {searchResults.map((player) => (
                     <TouchableOpacity
                       key={player.id}
@@ -451,10 +697,17 @@ export const PortfolioScreen: React.FC = () => {
                         setSearchQuery(player.name);
                       }}
                     >
+                      <Image
+                        source={{
+                          uri: player.baked_img || 'https://via.placeholder.com/40x56/cccccc/ffffff?text=?'
+                        }}
+                        style={styles.searchResultImage}
+                        defaultSource={{ uri: 'https://via.placeholder.com/40x56/cccccc/ffffff?text=?' }}
+                      />
                       <Text style={styles.searchResultText}>{player.name}</Text>
                     </TouchableOpacity>
                   ))}
-                </View>
+                </ScrollView>
               )}
             </View>
 
@@ -464,17 +717,19 @@ export const PortfolioScreen: React.FC = () => {
                 <Text style={styles.formLabel}>Quantity</Text>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="0"
+                  placeholder="1"
+                  placeholderTextColor="#999999"
                   value={quantity}
-                  onChangeText={setQuantity}
+                  onChangeText={handleQuantityChange}
                   keyboardType="numeric"
                 />
               </View>
               <View style={[styles.formGroup, { flex: 1, marginLeft: 10 }]}>
-                <Text style={styles.formLabel}>Avg Price</Text>
+                <Text style={styles.formLabel}>Avg Buy Price</Text>
                 <TextInput
                   style={styles.textInput}
                   placeholder="0"
+                  placeholderTextColor="#999999"
                   value={avgPrice}
                   onChangeText={setAvgPrice}
                   keyboardType="numeric"
@@ -483,17 +738,22 @@ export const PortfolioScreen: React.FC = () => {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Your Projected OVR</Text>
+              <Text style={styles.formLabel}>Projected OVR</Text>
               <TextInput
                 style={styles.textInput}
-                placeholder="85"
+                placeholder="50-99"
+                placeholderTextColor="#999999"
                 value={projectedOvr}
-                onChangeText={setProjectedOvr}
+                onChangeText={handleProjectedOvrChange}
                 keyboardType="numeric"
+                maxLength={2}
               />
             </View>
 
-            <TouchableOpacity style={styles.submitButton} onPress={handleAddInvestment}>
+            <TouchableOpacity 
+              style={[styles.submitButton, canAdd && styles.submitButtonEnabled]} 
+              onPress={handleAddInvestment}
+            >
               <Text style={styles.submitButtonText}>Add Investment</Text>
             </TouchableOpacity>
           </View>
@@ -501,24 +761,87 @@ export const PortfolioScreen: React.FC = () => {
 
         {/* Investments List */}
         <View style={styles.investmentsList}>
-          <Text style={styles.sectionTitle}>
-            Your Investments ({investments?.length || 0})
-          </Text>
+          <View style={styles.investmentsHeader}>
+            <Text style={styles.sectionTitle}>
+              Your Investments ({investments?.length || 0})
+            </Text>
+            <View style={styles.sortContainer}>
+              <TouchableOpacity 
+                style={styles.sortButton}
+                onPress={() => setShowSortDropdown(!showSortDropdown)}
+              >
+                <Text style={styles.sortButtonText}>
+                  {SORT_LABELS[sortOption]}
+                </Text>
+                <View style={styles.sortButtonDivider} />
+                <Ionicons 
+                  name={showSortDropdown ? "chevron-up" : "chevron-down"} 
+                  size={16} 
+                  color={theme.colors.text.secondary} 
+                />
+              </TouchableOpacity>
+
+              {showSortDropdown && (
+                <>
+                  {/* Overlay to close dropdown when touching outside */}
+                  <TouchableOpacity 
+                    style={styles.dropdownOverlay}
+                    onPress={() => setShowSortDropdown(false)}
+                    activeOpacity={1}
+                  />
+                  
+                  {/* Dropdown Content */}
+                  <View style={styles.sortDropdown}>
+                    <ScrollView 
+                      showsVerticalScrollIndicator={false}
+                      style={styles.sortDropdownScroll}
+                    >
+                      {Object.values(SortOption).map((option, index, array) => (
+                        <TouchableOpacity
+                          key={option}
+                          style={[
+                            styles.sortDropdownItem,
+                            sortOption === option && styles.sortDropdownItemSelected,
+                            index === array.length - 1 && styles.sortDropdownItemLast
+                          ]}
+                          onPress={() => {
+                            setSortOption(option);
+                            setShowSortDropdown(false);
+                          }}
+                        >
+                          <Text style={[
+                            styles.sortDropdownText,
+                            sortOption === option && styles.sortDropdownTextSelected
+                          ]}>
+                            {SORT_LABELS[option]}
+                          </Text>
+                          {sortOption === option && (
+                            <Ionicons name="checkmark" size={16} color={theme.colors.primary.main} />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
           
-          {!investments || investments.length === 0 ? (
+          {!sortedInvestments || sortedInvestments.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="briefcase-outline" size={48} color={theme.colors.text.secondary} />
               <Text style={styles.emptyStateText}>No investments yet</Text>
               <Text style={styles.emptyStateSubtext}>Add your first investment above</Text>
             </View>
           ) : (
-            investments.map((investment) => {
+            sortedInvestments.map((investment) => {
               const playerCard = playerCards?.find(card => card.id === investment.playerUUID);
               const currentOvr = Number(playerCard?.ovr) || 0;
               const predictedOvr = Number(playerCard?.predicted_rank) || 0;
               const aiQsValue = Number(playerCard?.qs_pred) || 0;
               const myQsValue = qsValue(investment.userProjectedOvr);
               const isEditing = editingId === investment.id;
+              const isSaving = savingId === investment.id;
 
               return (
                 <View key={investment.id} style={styles.investmentCard}>
@@ -527,10 +850,23 @@ export const PortfolioScreen: React.FC = () => {
                     onPress={() => handlePlayerPress(investment.playerUUID, investment.playerName)}
                   >
                     <View style={styles.investmentHeader}>
-                      <Text style={styles.playerName}>{investment.playerName}</Text>
-                      <Text style={styles.playerMeta}>
-                        OVR: {currentOvr} • Pred: {predictedOvr.toFixed(1)}
-                      </Text>
+                      <View style={styles.playerImageContainer}>
+                        <Image
+                          source={{
+                            uri: playerCard?.baked_img || 'https://via.placeholder.com/50x70/cccccc/ffffff?text=?'
+                          }}
+                          style={styles.playerImage}
+                          defaultSource={{ uri: 'https://via.placeholder.com/50x70/cccccc/ffffff?text=?' }}
+                        />
+                      </View>
+                      <View style={styles.playerInfo}>
+                        <Text style={styles.playerName}>
+                          {investment.playerName || playerCard?.name || 'Unknown Player'}
+                        </Text>
+                        <Text style={styles.playerMeta}>
+                          OVR: {currentOvr} • Pred: {predictedOvr.toFixed(1)}
+                        </Text>
+                      </View>
                     </View>
                   </TouchableOpacity>
 
@@ -552,7 +888,7 @@ export const PortfolioScreen: React.FC = () => {
                       </View>
                       
                       <View style={styles.investmentDetail}>
-                        <Text style={styles.detailLabel}>Avg Price</Text>
+                        <Text style={styles.detailLabel}>Avg Buy Price</Text>
                         {isEditing ? (
                           <TextInput
                             style={styles.editInput}
@@ -629,15 +965,29 @@ export const PortfolioScreen: React.FC = () => {
                     {isEditing ? (
                       <>
                         <TouchableOpacity
-                          style={[styles.actionButton, styles.saveButton]}
+                          style={[styles.actionButton, styles.saveButton, isSaving && styles.disabledButton]}
                           onPress={() => saveEdit(investment)}
+                          disabled={isSaving}
                         >
-                          <Ionicons name="checkmark" size={16} color="white" />
-                          <Text style={styles.actionButtonText}>Save</Text>
+                          {isSaving ? (
+                            <ActivityIndicator size={16} color="white" />
+                          ) : (
+                            <Ionicons name="checkmark" size={16} color="white" />
+                          )}
+                          <Text style={styles.actionButtonText}>
+                            {isSaving ? 'Saving...' : 'Save'}
+                          </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={[styles.actionButton, styles.cancelButton]}
-                          onPress={() => setEditingId(null)}
+                          style={[styles.actionButton, styles.cancelButton, isSaving && styles.disabledButton]}
+                          disabled={isSaving}
+                          onPress={() => {
+                            setEditingId(null);
+                            // Clear edit state when canceling
+                            setEditQuantity('');
+                            setEditPrice('');
+                            setEditOvr('');
+                          }}
                         >
                           <Ionicons name="close" size={16} color="white" />
                           <Text style={styles.actionButtonText}>Cancel</Text>
@@ -815,6 +1165,24 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+
+  portfolioStatusContainer: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+
+  portfolioStatus: {
+    backgroundColor: 'rgba(77, 184, 184, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+
+  portfolioStatusText: {
+    color: '#4db8b8',
+    fontSize: 12,
+    fontWeight: '500',
+  },
   
   summaryContainer: {
     padding: 16,
@@ -937,17 +1305,28 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border.primary,
     borderRadius: 8,
     marginTop: 4,
-    maxHeight: 200,
+    maxHeight: 280,
   },
   
   searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border.primary,
+    gap: 12,
+  },
+
+  searchResultImage: {
+    width: 40,
+    height: 56,
+    borderRadius: 6,
+    backgroundColor: theme.colors.background.medium,
   },
   
   searchResultText: {
+    flex: 1,
     fontSize: 16,
     color: theme.colors.text.primary,
   },
@@ -957,6 +1336,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
+  },
+
+  submitButtonEnabled: {
+    backgroundColor: '#10b981',
   },
   
   submitButtonText: {
@@ -968,12 +1351,116 @@ const styles = StyleSheet.create({
   investmentsList: {
     paddingHorizontal: 16,
   },
+
+  investmentsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: theme.colors.text.primary,
-    marginBottom: 16,
+  },
+
+  sortContainer: {
+    position: 'relative',
+  },
+
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background.medium,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border.primary,
+    gap: 6,
+  },
+
+  sortButtonText: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    fontWeight: '500',
+  },
+
+  sortButtonDot: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    marginHorizontal: 4,
+  },
+  sortButtonDivider: {
+    width: 1,
+    backgroundColor: theme.colors.text.secondary,
+    marginHorizontal: 8,
+    alignSelf: 'stretch',
+  },
+
+  dropdownOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: -1000,
+    right: -1000,
+    bottom: -1000,
+    zIndex: 999,
+  },
+
+  sortDropdown: {
+    position: 'absolute',
+    top: 42,
+    right: 0,
+    backgroundColor: theme.colors.background.light,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border.primary,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 1000,
+    maxHeight: 200,
+    minWidth: 180,
+  },
+
+  sortDropdownScroll: {
+    maxHeight: 200,
+  },
+
+  sortDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border.primary,
+  },
+
+  sortDropdownItemSelected: {
+    backgroundColor: theme.colors.primary.main + '20',
+  },
+
+  sortDropdownText: {
+    fontSize: 14,
+    color: theme.colors.text.primary,
+    fontWeight: '500',
+    flex: 1,
+  },
+
+  sortDropdownTextSelected: {
+    color: theme.colors.primary.main,
+    fontWeight: '600',
+  },
+
+  sortDropdownItemLast: {
+    borderBottomWidth: 0,
   },
   
   emptyState: {
@@ -1003,7 +1490,24 @@ const styles = StyleSheet.create({
   },
   
   investmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
+  },
+
+  playerImageContainer: {
+    marginRight: 12,
+  },
+
+  playerImage: {
+    width: 50,
+    height: 70,
+    borderRadius: 6,
+    backgroundColor: theme.colors.background.medium,
+  },
+
+  playerInfo: {
+    flex: 1,
   },
   
   playerName: {
@@ -1119,6 +1623,44 @@ const styles = StyleSheet.create({
   
   cancelButton: {
     backgroundColor: '#64748b',
+  },
+
+  disabledButton: {
+    opacity: 0.6,
+  },
+
+  toastContainer: {
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    paddingHorizontal: 16,
+  },
+
+  toast: {
+    backgroundColor: '#10b981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    gap: 8,
+  },
+
+  toastText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
   },
   
   bottomPadding: {

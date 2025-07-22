@@ -22,6 +22,7 @@ import {
   Switch,
   Alert,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -190,7 +191,13 @@ export const ProfileScreen: React.FC = () => {
       <SafeAreaView style={styles.container}>
         <View style={styles.authPromptContainer}>
           <View style={styles.logoContainer}>
-            <Ionicons name="diamond" size={64} color={theme.colors.primary.main} />
+            <Image 
+              source={require('../../assets/diamond_icon.png')} 
+              style={styles.logo}
+              resizeMode="contain"
+              onError={(error) => console.log('Welcome logo loading error:', error)}
+              onLoad={() => console.log('Welcome logo loaded successfully')}
+            />
           </View>
           
           <Text style={styles.authTitle}>Welcome to DiamondInsights</Text>
@@ -425,6 +432,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 32,
+    overflow: 'hidden',
+  },
+  
+  logo: {
+    width: 118,
+    height: 118,
   },
   
   authTitle: {
