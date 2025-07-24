@@ -42,6 +42,7 @@ import {
 import { theme } from '../styles/theme';
 import { storage } from '../services/firebase';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { TabParamList } from '../navigation/TabNavigator';
 import { useAuth } from '../contexts/AuthContext';
 
 type SignupScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Signup'>;
@@ -235,8 +236,9 @@ export const SignupScreen: React.FC = () => {
       // Use AuthContext signUp method (handles all user creation steps)
       await signUp(username.trim(), email.trim(), password, photoURL);
 
-      // Success - navigation will happen automatically via auth state change
+      // Success - navigate to Profile tab
       console.log('Account created successfully');
+      navigation.navigate('Main', { screen: 'Profile' });
       
     } catch (error: any) {
       console.error('Signup error:', error);

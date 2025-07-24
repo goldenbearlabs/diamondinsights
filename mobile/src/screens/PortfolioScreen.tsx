@@ -360,6 +360,15 @@ export const PortfolioScreen: React.FC = () => {
   };
 
   /**
+   * Format stubs values (no currency symbol, for use with stubs icon)
+   */
+  const formatStubs = (amount: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  /**
    * Show success toast notification
    */
   const showSuccessToast = (message: string) => {
@@ -605,11 +614,11 @@ export const PortfolioScreen: React.FC = () => {
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>Total Invested</Text>
-              <Text style={styles.summaryValue}>${formatCurrency(portfolioSummary.cost)}</Text>
+              <Text style={styles.summaryValue}>{formatStubs(portfolioSummary.cost)}</Text>
             </View>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>AI Value</Text>
-              <Text style={styles.summaryValue}>${formatCurrency(portfolioSummary.aiValue)}</Text>
+              <Text style={styles.summaryValue}>{formatStubs(portfolioSummary.aiValue)}</Text>
             </View>
           </View>
           
@@ -623,7 +632,7 @@ export const PortfolioScreen: React.FC = () => {
                 styles.summaryValue,
                 { color: portfolioSummary.myProfit >= 0 ? '#10b981' : '#ef4444' }
               ]}>
-                ${formatCurrency(portfolioSummary.myProfit)}
+                {formatStubs(portfolioSummary.myProfit)}
               </Text>
             </View>
             <View style={[
@@ -635,14 +644,14 @@ export const PortfolioScreen: React.FC = () => {
                 styles.summaryValue,
                 { color: portfolioSummary.aiProfit >= 0 ? '#10b981' : '#ef4444' }
               ]}>
-                ${formatCurrency(portfolioSummary.aiProfit)}
+                {formatStubs(portfolioSummary.aiProfit)}
               </Text>
             </View>
           </View>
           
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Your Value</Text>
-            <Text style={styles.summaryValueLarge}>${formatCurrency(portfolioSummary.myValue)}</Text>
+            <Text style={styles.summaryValueLarge}>{formatStubs(portfolioSummary.myValue)}</Text>
           </View>
         </View>
 
@@ -898,14 +907,14 @@ export const PortfolioScreen: React.FC = () => {
                             keyboardType="numeric"
                           />
                         ) : (
-                          <Text style={styles.detailValue}>${investment.avgBuyPrice}</Text>
+                          <Text style={styles.detailValue}>{investment.avgBuyPrice}</Text>
                         )}
                       </View>
                       
                       <View style={styles.investmentDetail}>
                         <Text style={styles.detailLabel}>Total Cost</Text>
                         <Text style={styles.detailValue}>
-                          ${formatCurrency(investment.quantity * investment.avgBuyPrice)}
+                          {formatStubs(investment.quantity * investment.avgBuyPrice)}
                         </Text>
                       </View>
                     </View>
@@ -944,7 +953,7 @@ export const PortfolioScreen: React.FC = () => {
                           styles.profitValue,
                           { color: (investment.quantity * aiQsValue - investment.quantity * investment.avgBuyPrice) >= 0 ? '#10b981' : '#ef4444' }
                         ]}>
-                          ${formatCurrency(investment.quantity * aiQsValue - investment.quantity * investment.avgBuyPrice)}
+                          {formatStubs(investment.quantity * aiQsValue - investment.quantity * investment.avgBuyPrice)}
                         </Text>
                       </View>
                       
@@ -954,7 +963,7 @@ export const PortfolioScreen: React.FC = () => {
                           styles.profitValue,
                           { color: (investment.quantity * myQsValue - investment.quantity * investment.avgBuyPrice) >= 0 ? '#10b981' : '#ef4444' }
                         ]}>
-                          ${formatCurrency(investment.quantity * myQsValue - investment.quantity * investment.avgBuyPrice)}
+                          {formatStubs(investment.quantity * myQsValue - investment.quantity * investment.avgBuyPrice)}
                         </Text>
                       </View>
                     </View>

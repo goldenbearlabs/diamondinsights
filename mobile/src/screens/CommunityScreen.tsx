@@ -1,17 +1,19 @@
 /**
- * CommunityScreen - Chat and Comments
+ * CommunityScreen - Real-time Chat and Comments
  * 
- * LEARNING NOTES: Social Mobile Interfaces
+ * LEARNING NOTES: Mobile Community Features
  * 
  * This screen demonstrates:
- * 1. Chat/messaging UI patterns
- * 2. Real-time data with timestamps
- * 3. User-generated content display
- * 4. Interactive elements (likes, replies)
- * 5. Input handling for new messages
+ * 1. Real-time chat with Firebase Firestore
+ * 2. Multiple chat rooms with tab navigation
+ * 3. Live player comments with card integration
+ * 4. Trending player cards with voting data
+ * 5. Message interactions (likes, replies)
+ * 6. User search and profile integration
+ * 7. Mobile-optimized UI patterns
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,396 +25,1211 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  Image,
+  Alert,
+  ActivityIndicator,
+  Animated,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+
+import { theme } from '../styles/theme';
+import type { RootStackParamList } from '../navigation/AppNavigator';
+import { useAuth, useAuthStatus } from '../contexts/AuthContext';
+import { 
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 /**
- * LEARNING NOTE: Social Data Types
- * Chat and comment systems need structured data for proper display
+ * LEARNING NOTE: Community Data Types
+ * Comprehensive type system for real-time chat features
  */
-interface ChatMessage {
-  id: string;
-  userName: string;
-  message: string;
-  timestamp: string;
-  likes: number;
-  isLiked: boolean;
-  playerTag?: string; // Optional player reference
+
+// Tab definition for different chat rooms
+interface CommunityTab {
+  key: string;
+  label: string;
+  icon: string;
+  collection: string; // Firestore collection name
 }
 
-export const CommunityScreen: React.FC = () => {
-  // Sample chat data - will be replaced with real-time Firebase data
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      userName: 'BaseballFan23',
-      message: 'Anyone else think Judge is due for a massive rating boost? His stats this season are insane! 🔥',
-      timestamp: '2 hours ago',
-      likes: 12,
-      isLiked: false,
-      playerTag: 'Aaron Judge',
-    },
-    {
-      id: '2',
-      userName: 'DiamondPro',
-      message: 'The AI predictions for Tatis Jr. look really promising. Might be a good investment opportunity.',
-      timestamp: '3 hours ago',
-      likes: 8,
-      isLiked: true,
-      playerTag: 'Fernando Tatis Jr.',
-    },
-    {
-      id: '3',
-      userName: 'MLBAnalyst',
-      message: 'Just saw the latest confidence scores. 87% accuracy rate is pretty impressive for AI predictions.',
-      timestamp: '4 hours ago',
-      likes: 15,
-      isLiked: false,
-    },
-    {
-      id: '4',
-      userName: 'CardCollector',
-      message: 'Which players are you all watching for the next update cycle? I\'m keeping an eye on the rookie ratings.',
-      timestamp: '5 hours ago',
-      likes: 6,
-      isLiked: false,
-    },
-    {
-      id: '5',
-      userName: 'StatHead',
-      message: 'The portfolio tracker is so helpful! Up 15% this month thanks to the AI recommendations 📈',
-      timestamp: '6 hours ago',
-      likes: 22,
-      isLiked: true,
-    },
-  ]);
+// Message structure for display
+interface Message {
+  id: string;
+  parentId: string | null;
+  userId: string;
+  username: string;
+  profilePicUrl: string;
+  text: string;
+  timestamp: number;
+  playerId?: string;
+  playerName?: string;
+  likes: number;
+  liked: boolean;
+}
 
-  // UI state
-  const [newMessage, setNewMessage] = useState('');
+// Raw Firestore message data
+interface MessageData {
+  parentId: string | null;
+  userId: string;
+  text: string;
+  timestamp: any; // Firestore timestamp
+  playerId?: string;
+  likedBy: string[];
+}
+
+// User profile data from Firestore
+interface UserData {
+  username: string;
+  profilePic: string;
+}
+
+// Trending card data structure
+interface TrendingCard {
+  id: string;
+  name: string;
+  team_short_name: string;
+  display_position: string;
+  baked_img: string;
+  ovr: number;
+  predicted_rank: number;
+  delta_rank_pred: number;
+  upvotes: number;
+  downvotes: number;
+  netVotes: number;
+  totalVotes: number;
+}
+
+// Tab configuration matching web version
+const COMMUNITY_TABS: CommunityTab[] = [
+  { key: 'live', label: 'Live', icon: 'radio-outline', collection: 'comments' },
+  { key: 'trending', label: 'Trending', icon: 'flame-outline', collection: 'trending' },
+  { key: 'main', label: 'Main', icon: 'chatbubbles-outline', collection: 'chat_main' },
+  { key: 'investing', label: 'Investing', icon: 'trending-up-outline', collection: 'chat_investing' },
+  { key: 'flipping', label: 'Flipping', icon: 'sync-outline', collection: 'chat_flipping' },
+  { key: 'stub', label: 'Stubs', icon: 'cash-outline', collection: 'chat_stub' },
+];
+
+// Tab title mapping for header display
+const TAB_TITLES: Record<string, string> = {
+  live: 'Live Comments',
+  trending: 'Trending Players',
+  main: 'Main Chat',
+  investing: 'Investing Chat',
+  flipping: 'Flipping Chat',
+  stub: 'Stub Making Chat',
+};
+
+type CommunityScreenNavigationProp = StackNavigationProp<RootStackParamList>;
+
+export const CommunityScreen: React.FC = () => {
+  // Navigation
+  const navigation = useNavigation<CommunityScreenNavigationProp>();
+  
+  // Authentication state
+  const { user, userProfile } = useAuth();
+  const { isAuthenticated, isGuest } = useAuthStatus();
+
+  // Navigation state
+  const [activeTab, setActiveTab] = useState<string>('live');
+  const [showUserSearch, setShowUserSearch] = useState(false);
+  
+  // Chat state
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [newMessageText, setNewMessageText] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  
+  // Trending state
+  const [trendingCards, setTrendingCards] = useState<TrendingCard[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(false);
+  
+  // Player card data for live comments
+  const [cardThumbs, setCardThumbs] = useState<Record<string, string>>({});
+  const [cardNames, setCardNames] = useState<Record<string, string>>({});
+  
+  // User search state
+  const [userSearch, setUserSearch] = useState('');
+  const [userMatches, setUserMatches] = useState<{id: string, username: string, profilePic: string}[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  
+  // References
+  const flatListRef = useRef<FlatList>(null);
+  const textInputRef = useRef<TextInput>(null);
 
   /**
-   * LEARNING NOTE: Real-time Data Refresh
-   * Chat interfaces need frequent updates for new messages
+   * Get display title for active tab
+   */
+  const getTabTitle = (tabKey: string): string => {
+    return TAB_TITLES[tabKey] || 'Community';
+  };
+
+  /**
+   * LEARNING NOTE: Real-time Message Listener
+   * Firebase Firestore real-time updates for chat messages
+   */
+  useEffect(() => {
+    if (activeTab === 'trending') {
+      fetchTrendingCards();
+      return;
+    }
+
+    setLoading(true);
+    setMessages([]);
+    setCardThumbs({});
+    setCardNames({});
+
+    const currentTab = COMMUNITY_TABS.find(tab => tab.key === activeTab);
+    if (!currentTab) return;
+
+    // Create Firestore query for real-time updates
+    const messagesQuery = query(
+      collection(db, currentTab.collection),
+      orderBy('timestamp', 'desc')
+    );
+
+    // Subscribe to real-time updates
+    const unsubscribe = onSnapshot(messagesQuery, async (snapshot) => {
+      try {
+        // Transform Firestore documents to message objects
+        const rawMessages = snapshot.docs.map(doc => {
+          const data = doc.data() as MessageData;
+          return {
+            id: doc.id,
+            parentId: data.parentId || null,
+            userId: data.userId,
+            text: data.text,
+            timestamp: data.timestamp?.toMillis ? data.timestamp.toMillis() : (data.timestamp || Date.now()),
+            playerId: data.playerId,
+            likes: (data.likedBy || []).length,
+            liked: user ? (data.likedBy || []).includes(user.uid) : false,
+          };
+        });
+
+        // Fetch user profiles for all message authors
+        const userIds = Array.from(new Set(rawMessages.map(msg => msg.userId)));
+        const userProfiles = await Promise.all(
+          userIds.map(async (userId) => {
+            const userDoc = await getDoc(doc(db, 'users', userId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data() as UserData;
+              return {
+                userId,
+                username: userData.username || 'Unknown',
+                profilePicUrl: userData.profilePic || '',
+              };
+            }
+            return {
+              userId,
+              username: 'Unknown',
+              profilePicUrl: '',
+            };
+          })
+        );
+
+        // Create user lookup map
+        const userMap = userProfiles.reduce((acc, profile) => {
+          acc[profile.userId] = profile;
+          return acc;
+        }, {} as Record<string, { username: string; profilePicUrl: string }>);
+
+        // Merge user data into messages
+        const messagesWithUserData: Message[] = rawMessages.map(msg => ({
+          ...msg,
+          username: userMap[msg.userId]?.username || 'Unknown',
+          profilePicUrl: userMap[msg.userId]?.profilePicUrl || '',
+          playerName: '', // Will be populated for live comments
+        }));
+
+        // Fetch player card data for live comments
+        if (activeTab === 'live') {
+          const playerIds = Array.from(new Set(
+            messagesWithUserData
+              .map(msg => msg.playerId)
+              .filter(Boolean) as string[]
+          ));
+
+          const thumbs: Record<string, string> = {};
+          const names: Record<string, string> = {};
+
+          await Promise.all(playerIds.map(async (playerId) => {
+            const cardDoc = await getDoc(doc(db, 'cards', playerId));
+            if (cardDoc.exists()) {
+              const cardData = cardDoc.data();
+              if (cardData.baked_img) thumbs[playerId] = cardData.baked_img;
+              if (cardData.name) names[playerId] = cardData.name;
+            }
+          }));
+
+          setCardThumbs(thumbs);
+          setCardNames(names);
+        }
+
+        setMessages(messagesWithUserData);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [activeTab, user]);
+
+  /**
+   * Fetch trending cards from API
+   */
+  const fetchTrendingCards = async () => {
+    setTrendingLoading(true);
+    try {
+      // TODO: Replace with proper API endpoint once mobile API is configured
+      // For now, fetch directly from Firestore cards collection with vote data
+      const cardsQuery = query(
+        collection(db, 'cards'),
+        orderBy('timestamp', 'desc') // Will be replaced with vote sorting
+      );
+      
+      const snapshot = await getDocs(cardsQuery);
+      const cards = snapshot.docs.slice(0, 10).map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name || 'Unknown Player',
+          team_short_name: data.team_short_name || 'UNK',
+          display_position: data.display_position || 'N/A',
+          baked_img: data.baked_img || '',
+          ovr: data.ovr || 0,
+          predicted_rank: data.predicted_rank || 0,
+          delta_rank_pred: data.delta_rank_pred || 0,
+          upvotes: Math.floor(Math.random() * 50), // Temporary mock data
+          downvotes: Math.floor(Math.random() * 20), // Will be replaced with real votes
+          netVotes: 0, // Will be calculated from real vote data
+          totalVotes: 0, // Will be calculated from real vote data
+        };
+      });
+
+      // Calculate net votes and total votes
+      const cardsWithVotes = cards.map(card => ({
+        ...card,
+        netVotes: card.upvotes - card.downvotes,
+        totalVotes: card.upvotes + card.downvotes,
+      }));
+
+      // Sort by net votes (highest first)
+      cardsWithVotes.sort((a, b) => b.netVotes - a.netVotes);
+
+      setTrendingCards(cardsWithVotes);
+    } catch (error) {
+      console.error('Error fetching trending cards:', error);
+      setTrendingCards([]);
+    } finally {
+      setTrendingLoading(false);
+    }
+  };
+
+  /**
+   * Handle tab change
+   */
+  const handleTabChange = (tabKey: string) => {
+    setActiveTab(tabKey);
+    setNewMessageText('');
+  };
+
+  /**
+   * Handle search tab press
+   */
+  const handleSearchPress = () => {
+    setShowUserSearch(true);
+  };
+
+  /**
+   * Search for users
+   */
+  const searchUsers = async (searchTerm: string) => {
+    if (!searchTerm.trim()) {
+      setUserMatches([]);
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      // Query users collection for username matches
+      const usersQuery = query(
+        collection(db, 'users'),
+        orderBy('username'),
+        // Note: Firestore doesn't support contains queries, so we'll implement basic prefix matching
+      );
+      
+      const snapshot = await getDocs(usersQuery);
+      const matches = snapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          username: doc.data().username || '',
+          profilePic: doc.data().profilePic || ''
+        }))
+        .filter(user => 
+          user.username.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        .slice(0, 10); // Limit to 10 results
+        
+      setUserMatches(matches);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      setUserMatches([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  /**
+   * Handle user search input change
+   */
+  const handleUserSearchChange = (text: string) => {
+    setUserSearch(text);
+    searchUsers(text);
+  };
+
+  /**
+   * Handle user selection from search
+   */
+  const handleUserSelect = (user: {id: string, username: string, profilePic: string}) => {
+    // For now, just close the modal. In the future, this could navigate to user profile
+    Alert.alert('User Selected', `Selected user: ${user.username}`);
+    closeUserSearch();
+  };
+
+  /**
+   * Close user search
+   */
+  const closeUserSearch = () => {
+    setShowUserSearch(false);
+    setUserSearch('');
+    setUserMatches([]);
+    setSearchLoading(false);
+  };
+
+  /**
+   * Send new message
+   */
+  const handleSendMessage = async () => {
+    if (!user || !newMessageText.trim() || sendingMessage) return;
+
+    const currentTab = COMMUNITY_TABS.find(tab => tab.key === activeTab);
+    if (!currentTab || activeTab === 'trending' || activeTab === 'live') return;
+
+    setSendingMessage(true);
+
+    try {
+      await addDoc(collection(db, currentTab.collection), {
+        userId: user.uid,
+        text: newMessageText.trim(),
+        parentId: null,
+        timestamp: serverTimestamp(),
+        likedBy: [],
+      });
+
+      setNewMessageText('');
+      textInputRef.current?.blur();
+    } catch (error) {
+      console.error('Error sending message:', error);
+      Alert.alert('Error', 'Failed to send message. Please try again.');
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  /**
+   * Toggle like on message
+   */
+  const handleToggleLike = async (messageId: string, currentlyLiked: boolean) => {
+    if (!user) {
+      Alert.alert('Login Required', 'Please sign in to like messages.');
+      return;
+    }
+
+    const currentTab = COMMUNITY_TABS.find(tab => tab.key === activeTab);
+    if (!currentTab) return;
+
+    try {
+      const messageRef = doc(db, currentTab.collection, messageId);
+      
+      if (currentlyLiked) {
+        await updateDoc(messageRef, {
+          likedBy: arrayRemove(user.uid)
+        });
+      } else {
+        await updateDoc(messageRef, {
+          likedBy: arrayUnion(user.uid)
+        });
+      }
+
+      // Update local state optimistically
+      setMessages(prevMessages =>
+        prevMessages.map(msg =>
+          msg.id === messageId
+            ? {
+                ...msg,
+                liked: !currentlyLiked,
+                likes: currentlyLiked ? msg.likes - 1 : msg.likes + 1,
+              }
+            : msg
+        )
+      );
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      Alert.alert('Error', 'Failed to update like. Please try again.');
+    }
+  };
+
+  /**
+   * Handle refresh
    */
   const onRefresh = async () => {
     setRefreshing(true);
-    // TODO: Fetch latest messages from Firebase
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    if (activeTab === 'trending') {
+      await fetchTrendingCards();
+    }
+    // Real-time listeners will automatically update other tabs
+    setTimeout(() => setRefreshing(false), 1000);
   };
 
   /**
-   * LEARNING NOTE: Message Interactions
-   * Social features need interactive elements like likes
+   * Format relative time
    */
-  const handleLike = (messageId: string) => {
-    setMessages(prevMessages =>
-      prevMessages.map(msg =>
-        msg.id === messageId
-          ? {
-              ...msg,
-              isLiked: !msg.isLiked,
-              likes: msg.isLiked ? msg.likes - 1 : msg.likes + 1,
-            }
-          : msg
-      )
-    );
+  const formatTime = (timestamp: number): string => {
+    const diff = Date.now() - timestamp;
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return `${Math.floor(diff / 86400000)}d ago`;
   };
 
   /**
-   * LEARNING NOTE: Message Sending
-   * Chat interfaces need input handling and validation
+   * Render message item
    */
-  const handleSendMessage = () => {
-    if (newMessage.trim().length === 0) return;
-
-    const message: ChatMessage = {
-      id: Date.now().toString(),
-      userName: 'You', // TODO: Get from user auth
-      message: newMessage.trim(),
-      timestamp: 'Just now',
-      likes: 0,
-      isLiked: false,
-    };
-
-    setMessages(prevMessages => [message, ...prevMessages]);
-    setNewMessage('');
-  };
-
-  /**
-   * LEARNING NOTE: FlatList Item Rendering
-   * Chat messages need consistent, performant rendering
-   */
-  const renderMessage = ({ item }: { item: ChatMessage }) => (
+  const renderMessage = ({ item }: { item: Message }) => (
     <View style={styles.messageCard}>
       <View style={styles.messageHeader}>
-        <Text style={styles.userName}>{item.userName}</Text>
-        <Text style={styles.timestamp}>{item.timestamp}</Text>
+        <Image
+          source={
+            item.profilePicUrl
+              ? { uri: item.profilePicUrl }
+              : require('../../assets/default_profile.jpg')
+          }
+          style={styles.avatar}
+          defaultSource={require('../../assets/default_profile.jpg')}
+        />
+        <View style={styles.messageInfo}>
+          <Text style={styles.username}>{item.username}</Text>
+          <Text style={styles.timestamp}>{formatTime(item.timestamp)}</Text>
+        </View>
+        {activeTab === 'live' && item.playerId && (
+          <TouchableOpacity 
+            style={styles.playerTag}
+            onPress={() => navigation.navigate('PlayerDetail', {
+              playerId: item.playerId,
+              playerName: cardNames[item.playerId] || 'Unknown Player'
+            })}
+          >
+            {cardThumbs[item.playerId] && (
+              <Image
+                source={{ uri: cardThumbs[item.playerId] }}
+                style={styles.playerThumb}
+              />
+            )}
+            <Text style={styles.playerName}>
+              {cardNames[item.playerId] || 'Unknown Player'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
       
-      {item.playerTag && (
-        <View style={styles.playerTag}>
-          <Text style={styles.playerTagText}>#{item.playerTag}</Text>
+      <Text style={styles.messageText}>{item.text}</Text>
+      
+      {activeTab !== 'live' && (
+        <View style={styles.messageActions}>
+          <TouchableOpacity 
+            style={styles.likeButton}
+            onPress={() => handleToggleLike(item.id, item.liked)}
+          >
+            <Ionicons 
+              name={item.liked ? 'heart' : 'heart-outline'} 
+              size={16} 
+              color={item.liked ? '#ef4444' : theme.colors.text.secondary} 
+            />
+            <Text style={[
+              styles.likeCount,
+              item.liked && styles.likeCountActive
+            ]}>
+              {item.likes}
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
-      
-      <Text style={styles.messageText}>{item.message}</Text>
-      
-      <View style={styles.messageFooter}>
-        <TouchableOpacity 
-          style={styles.likeButton}
-          onPress={() => handleLike(item.id)}
-        >
-          <Text style={[
-            styles.likeText,
-            item.isLiked && styles.likeTextActive
-          ]}>
-            {item.isLiked ? '❤️' : '🤍'} {item.likes}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.replyButton}>
-          <Text style={styles.replyText}>Reply</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
+
+  /**
+   * Render trending card
+   */
+  const renderTrendingCard = ({ item }: { item: TrendingCard }) => (
+    <TouchableOpacity 
+      style={styles.trendingCard}
+      onPress={() => navigation.navigate('PlayerDetail', {
+        playerId: item.id,
+        playerName: item.name
+      })}
+    >
+      <Image source={{ uri: item.baked_img }} style={styles.trendingImage} />
+      <Text style={styles.trendingName}>{item.name}</Text>
+      <Text style={styles.trendingMeta}>
+        {item.team_short_name} • {item.display_position} • {item.ovr} OVR
+      </Text>
+      <View style={styles.trendingVotes}>
+        <Text style={styles.upvotes}>↑ {item.upvotes}</Text>
+        <Text style={styles.downvotes}>↓ {item.downvotes}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  /**
+   * Render main content based on active tab
+   */
+  const renderContent = () => {
+    if (activeTab === 'trending') {
+      return (
+        <FlatList
+          key="trending-grid" // Add key to force remount when switching tabs
+          data={trendingCards}
+          renderItem={renderTrendingCard}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          contentContainerStyle={styles.trendingGrid}
+          refreshControl={
+            <RefreshControl refreshing={trendingLoading} onRefresh={onRefresh} />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="flame-outline" size={48} color={theme.colors.text.secondary} />
+              <Text style={styles.emptyTitle}>No trending players yet</Text>
+              <Text style={styles.emptySubtitle}>Players with the most votes will appear here!</Text>
+            </View>
+          }
+        />
+      );
+    }
+
+    return (
+      <FlatList
+        key={`messages-${activeTab}`} // Add key to force remount when switching tabs
+        ref={flatListRef}
+        data={messages}
+        renderItem={renderMessage}
+        keyExtractor={(item) => item.id}
+        style={styles.messagesList}
+        contentContainerStyle={styles.messagesContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary.main} />
+              <Text style={styles.loadingText}>Loading messages...</Text>
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons 
+                name={activeTab === 'live' ? 'radio-outline' : 'chatbubbles-outline'} 
+                size={48} 
+                color={theme.colors.text.secondary} 
+              />
+              <Text style={styles.emptyTitle}>
+                {activeTab === 'live' ? 'No player comments yet' : 'No messages yet'}
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                {activeTab === 'live' 
+                  ? 'Player comments will appear here when users discuss specific players'
+                  : isGuest ? 'Sign in to join the conversation!' : 'Be the first to start the conversation!'
+                }
+              </Text>
+            </View>
+          )
+        }
+        showsVerticalScrollIndicator={false}
+      />
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Community</Text>
-        <Text style={styles.subtitle}>Chat with other players</Text>
+        <Text style={styles.subtitle}>{getTabTitle(activeTab)}</Text>
       </View>
+
+      {/* Tab Row */}
+      <View style={styles.tabRow}>
+        {/* Search Tab */}
+        <TouchableOpacity style={styles.searchTab} onPress={handleSearchPress}>
+          <Ionicons name="search" size={20} color={theme.colors.text.primary} />
+        </TouchableOpacity>
+        
+        {/* Chat Room Tabs */}
+        {COMMUNITY_TABS.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[
+              styles.tab,
+              activeTab === tab.key && styles.activeTab
+            ]}
+            onPress={() => handleTabChange(tab.key)}
+          >
+            <Ionicons 
+              name={tab.icon as any} 
+              size={20} 
+              color={activeTab === tab.key ? 'white' : theme.colors.text.secondary} 
+            />
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* User Search Modal */}
+      {showUserSearch && (
+        <View style={styles.searchModal}>
+          <View style={styles.searchModalContent}>
+            <View style={styles.searchModalHeader}>
+              <Text style={styles.searchModalTitle}>Search Users</Text>
+              <TouchableOpacity onPress={closeUserSearch}>
+                <Ionicons name="close" size={24} color={theme.colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search for users..."
+              value={userSearch}
+              onChangeText={handleUserSearchChange}
+              autoFocus
+            />
+            <ScrollView style={styles.searchResults}>
+              {searchLoading ? (
+                <View style={styles.searchLoadingContainer}>
+                  <ActivityIndicator size="small" color={theme.colors.primary.main} />
+                  <Text style={styles.searchLoadingText}>Searching...</Text>
+                </View>
+              ) : userMatches.length > 0 ? (
+                userMatches.map((user) => (
+                  <TouchableOpacity
+                    key={user.id}
+                    style={styles.searchResultItem}
+                    onPress={() => handleUserSelect(user)}
+                  >
+                    <Image
+                      source={
+                        user.profilePic
+                          ? { uri: user.profilePic }
+                          : require('../../assets/default_profile.jpg')
+                      }
+                      style={styles.searchResultAvatar}
+                      defaultSource={require('../../assets/default_profile.jpg')}
+                    />
+                    <Text style={styles.searchResultUsername}>{user.username}</Text>
+                  </TouchableOpacity>
+                ))
+              ) : userSearch.length > 0 ? (
+                <Text style={styles.searchResultsText}>No users found</Text>
+              ) : (
+                <Text style={styles.searchResultsText}>Type to search for users</Text>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      )}
 
       <KeyboardAvoidingView 
         style={styles.mainContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {/* Messages List */}
-        <FlatList
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          style={styles.messagesList}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.messagesContent}
-          inverted // Show newest messages at bottom like typical chat
-        />
+        {/* Content Area */}
+        {renderContent()}
 
-        {/* Message Input */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.messageInput}
-            placeholder="Share your thoughts..."
-            value={newMessage}
-            onChangeText={setNewMessage}
-            multiline
-            maxLength={280}
-            autoCapitalize="sentences"
-            blurOnSubmit={false}
-          />
-          <TouchableOpacity 
-            style={[
-              styles.sendButton,
-              newMessage.trim().length === 0 && styles.sendButtonDisabled
-            ]}
-            onPress={handleSendMessage}
-            disabled={newMessage.trim().length === 0}
-          >
-            <Text style={[
-              styles.sendButtonText,
-              newMessage.trim().length === 0 && styles.sendButtonTextDisabled
-            ]}>
-              Send
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {/* Message Input - only show for chat rooms */}
+        {activeTab !== 'trending' && activeTab !== 'live' && (
+          <View style={styles.inputContainer}>
+            {isGuest ? (
+              <View style={styles.loginPrompt}>
+                <Text style={styles.loginPromptText}>Sign in to join the chat</Text>
+              </View>
+            ) : (
+              <>
+                <TextInput
+                  ref={textInputRef}
+                  style={styles.messageInput}
+                  placeholder={`Message ${COMMUNITY_TABS.find(t => t.key === activeTab)?.label}...`}
+                  value={newMessageText}
+                  onChangeText={setNewMessageText}
+                  multiline
+                  maxLength={500}
+                  editable={!sendingMessage}
+                />
+                <TouchableOpacity 
+                  style={[
+                    styles.sendButton,
+                    (!newMessageText.trim() || sendingMessage) && styles.sendButtonDisabled
+                  ]}
+                  onPress={handleSendMessage}
+                  disabled={!newMessageText.trim() || sendingMessage}
+                >
+                  {sendingMessage ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Ionicons name="send" size={20} color="white" />
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
 /**
- * LEARNING NOTES: Chat UI Design Principles
+ * LEARNING NOTES: Mobile Community Design
  * 
- * Key considerations for social mobile interfaces:
- * 1. Clear visual hierarchy - User names, timestamps, content
- * 2. Interactive elements - Likes, replies, shares
- * 3. Keyboard handling - Proper spacing and scrolling
- * 4. Real-time updates - Auto-refresh and push notifications
- * 5. Performance - Efficient list rendering for many messages
- * 6. Accessibility - Screen reader support for social content
- * 7. Input validation - Character limits and content filtering
+ * Key mobile adaptations from web version:
+ * 1. Horizontal scrollable tabs instead of sidebar
+ * 2. Simplified message threading for touch interface
+ * 3. Pull-to-refresh pattern for mobile users
+ * 4. Keyboard-aware input handling
+ * 5. Touch-optimized message cards and interactions
+ * 6. Proper loading states and empty states
+ * 7. Performance optimized FlatList rendering
  */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: theme.colors.background.dark,
   },
   
   header: {
-    backgroundColor: 'white',
-    paddingVertical: 20,
+    backgroundColor: theme.colors.background.medium,
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    alignItems: 'center',
   },
   
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1a365d',
+    color: theme.colors.text.primary,
     textAlign: 'center',
   },
   
   subtitle: {
     fontSize: 16,
-    color: '#64748b',
+    color: theme.colors.text.secondary,
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: 2,
   },
-  
+
+  // Tab Row
+  tabRow: {
+    backgroundColor: theme.colors.background.medium,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border.primary,
+    flexDirection: 'row',
+    paddingLeft: 12,
+    paddingRight: 6,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+
+  searchTab: {
+    backgroundColor: theme.colors.background.dark,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+    marginRight: 8,
+    width: 48,
+    height: 48,
+    borderWidth: 1,
+    borderColor: theme.colors.border.secondary,
+  },
+
+  tab: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.background.dark,
+    padding: 12,
+    borderRadius: 20,
+    marginRight: 6,
+    width: 48,
+    height: 48,
+    borderWidth: 1,
+    borderColor: theme.colors.border.secondary,
+  },
+
+  activeTab: {
+    backgroundColor: theme.colors.primary.main,
+    borderColor: theme.colors.primary.main,
+  },
+
+
+  // User Search Modal
+  searchModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 2000,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  searchModalContent: {
+    backgroundColor: theme.colors.background.medium,
+    width: '90%',
+    maxHeight: '80%',
+    borderRadius: 12,
+    padding: 20,
+  },
+
+  searchModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+
+  searchModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.text.primary,
+  },
+
+  searchInput: {
+    backgroundColor: theme.colors.background.dark,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    fontSize: 16,
+    color: theme.colors.text.primary,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border.secondary,
+  },
+
+  searchResults: {
+    maxHeight: 200,
+  },
+
+  searchResultsText: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    padding: 20,
+  },
+
+  searchLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+
+  searchLoadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+  },
+
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border.secondary,
+  },
+
+  searchResultAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 12,
+  },
+
+  searchResultUsername: {
+    fontSize: 16,
+    color: theme.colors.text.primary,
+    fontWeight: '500',
+  },
+
+  // Main Content
   mainContainer: {
     flex: 1,
   },
-  
+
   messagesList: {
     flex: 1,
   },
-  
+
   messagesContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 0,
+    paddingBottom: 16,
   },
-  
+
+  // Messages
   messageCard: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.surface.elevated,
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
-  
+
   messageHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
-  
-  userName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1a202c',
+
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 12,
   },
-  
+
+  messageInfo: {
+    flex: 1,
+  },
+
+  username: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.text.primary,
+  },
+
   timestamp: {
     fontSize: 12,
-    color: '#64748b',
+    color: theme.colors.text.secondary,
+    marginTop: 2,
   },
-  
+
   playerTag: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#dbeafe',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.primary.main,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    marginBottom: 8,
   },
-  
-  playerTagText: {
-    fontSize: 12,
-    color: '#1d4ed8',
+
+  playerThumb: {
+    width: 20,
+    height: 28,
+    borderRadius: 4,
+    marginRight: 4,
+  },
+
+  playerName: {
+    fontSize: 10,
+    color: 'white',
     fontWeight: '500',
   },
-  
+
   messageText: {
     fontSize: 16,
-    color: '#374151',
+    color: theme.colors.text.primary,
     lineHeight: 22,
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  
-  messageFooter: {
+
+  messageActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  
+
   likeButton: {
-    marginRight: 16,
-  },
-  
-  likeText: {
-    fontSize: 14,
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  
-  likeTextActive: {
-    color: '#dc2626',
-  },
-  
-  replyButton: {
-    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
   },
-  
-  replyText: {
-    fontSize: 14,
-    color: '#3b82f6',
+
+  likeCount: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: theme.colors.text.secondary,
     fontWeight: '500',
   },
-  
+
+  likeCountActive: {
+    color: '#ef4444',
+  },
+
+  // Trending
+  trendingGrid: {
+    paddingHorizontal: 16,
+    paddingTop: 0,
+    paddingBottom: 16,
+  },
+
+  trendingCard: {
+    flex: 1,
+    backgroundColor: theme.colors.surface.elevated,
+    margin: 6,
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+
+  trendingImage: {
+    width: 60,
+    height: 80,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+
+  trendingName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.text.primary,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+
+  trendingMeta: {
+    fontSize: 10,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+
+  trendingVotes: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  upvotes: {
+    fontSize: 10,
+    color: '#10b981',
+    fontWeight: '500',
+  },
+
+  downvotes: {
+    fontSize: 10,
+    color: '#ef4444',
+    fontWeight: '500',
+  },
+
+  // Input
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background.medium,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: theme.colors.border.primary,
   },
-  
+
   messageInput: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: theme.colors.background.dark,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 20,
     fontSize: 16,
-    color: '#374151',
+    color: theme.colors.text.primary,
     maxHeight: 100,
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border.secondary,
   },
-  
+
   sendButton: {
-    backgroundColor: '#3b82f6',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 20,
+    backgroundColor: theme.colors.primary.main,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  
+
   sendButtonDisabled: {
-    backgroundColor: '#cbd5e1',
+    backgroundColor: theme.colors.surface.elevated,
   },
-  
-  sendButtonText: {
-    color: 'white',
+
+  loginPrompt: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+
+  loginPromptText: {
     fontSize: 16,
-    fontWeight: '600',
+    color: theme.colors.text.secondary,
   },
-  
-  sendButtonTextDisabled: {
-    color: '#94a3b8',
+
+  // States
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: theme.colors.text.secondary,
+  },
+
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.text.primary,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+
+  emptySubtitle: {
+    fontSize: 16,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

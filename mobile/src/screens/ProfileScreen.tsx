@@ -11,7 +11,7 @@
  * 5. Profile image handling
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,14 @@ import {
   Alert,
   RefreshControl,
   Image,
+  ActivityIndicator,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Linking,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,6 +38,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth, useAuthStatus } from '../contexts/AuthContext';
+import { apiClient } from '../services/api';
+import { storage, auth } from '../services/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import {
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+} from 'firebase/auth';
 
 /**
  * LEARNING NOTE: User Profile Data Types
@@ -49,9 +64,7 @@ interface UserProfile {
 
 interface UserSettings {
   notifications: boolean;
-  darkMode: boolean;
-  emailUpdates: boolean;
-  pushPredictions: boolean;
+  publicPortfolio: boolean;
 }
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
@@ -60,26 +73,79 @@ export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   
   // Authentication state from context
-  const { user, userProfile, logout, refreshUserProfile } = useAuth();
+  const { user, userProfile, logout, refreshUserProfile, updateUserProfile } = useAuth();
   const { loading: authLoading, isAuthenticated, isGuest } = useAuthStatus();
   
-  // Sample user data - will be replaced with actual user stats
-  const [userStats] = useState({
-    totalInvestments: 15,
-    portfolioValue: 12450.75,
-    accuracyRate: 78.5,
-    favoritePlayer: 'Aaron Judge',
+  // Real user statistics state
+  const [userStats, setUserStats] = useState({
+    totalInvestments: 0,
+    totalInvested: 0,
+    totalMessages: 0,
   });
+  const [statsLoading, setStatsLoading] = useState(false);
 
   const [settings, setSettings] = useState<UserSettings>({
     notifications: true,
-    darkMode: false,
-    emailUpdates: true,
-    pushPredictions: false,
+    publicPortfolio: true, // Default to public (matches backend default)
   });
 
   // UI state
   const [refreshing, setRefreshing] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  
+  // Toast notification state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  
+  // Edit profile modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    displayName: '',
+    email: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [editLoading, setEditLoading] = useState(false);
+
+  /**
+   * LEARNING NOTE: Real User Stats Loading
+   * Load actual investment data and calculate statistics
+   */
+  const loadUserStats = async () => {
+    if (!isAuthenticated) return;
+    
+    setStatsLoading(true);
+    try {
+      // Get user's investment data
+      const investments = await apiClient.getUserInvestments();
+      
+      // Calculate total investments count
+      const totalInvestments = investments.length;
+      
+      // Calculate total invested amount (quantity * avgBuyPrice)
+      const totalInvested = investments.reduce((sum, investment) => {
+        return sum + (investment.quantity * investment.avgBuyPrice);
+      }, 0);
+      
+      // Set calculated stats
+      setUserStats({
+        totalInvestments,
+        totalInvested,
+        totalMessages: 0, // TODO: Implement message counting like website
+      });
+    } catch (error) {
+      console.error('Failed to load user stats:', error);
+      // Keep stats at 0 on error
+      setUserStats({
+        totalInvestments: 0,
+        totalInvested: 0,
+        totalMessages: 0,
+      });
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
   /**
    * LEARNING NOTE: Profile Data Refresh
@@ -89,7 +155,10 @@ export const ProfileScreen: React.FC = () => {
     setRefreshing(true);
     try {
       if (isAuthenticated) {
-        await refreshUserProfile();
+        await Promise.all([
+          refreshUserProfile(),
+          loadUserStats()
+        ]);
       }
     } catch (error) {
       console.error('Refresh error:', error);
@@ -99,26 +168,289 @@ export const ProfileScreen: React.FC = () => {
   };
 
   /**
-   * LEARNING NOTE: Settings Management
-   * Profile screens handle user preferences
+   * LEARNING NOTE: Component Lifecycle for Stats Loading
+   * Load stats when user becomes authenticated
    */
-  const updateSetting = (key: keyof UserSettings, value: boolean) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-    // TODO: Save settings to backend
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      loadUserStats();
+    }
+  }, [isAuthenticated, authLoading]);
+
+  /**
+   * Sync settings with user profile when profile loads
+   */
+  useEffect(() => {
+    if (userProfile) {
+      setSettings(prev => ({
+        ...prev,
+        publicPortfolio: userProfile.investmentsPublic ?? true
+      }));
+    }
+  }, [userProfile]);
+
+  /**
+   * LEARNING NOTE: Settings Management
+   * Profile screens handle user preferences with real backend sync
+   */
+  const updateSetting = async (key: keyof UserSettings, value: boolean) => {
+    try {
+      // Update local state immediately for responsive UI
+      setSettings(prev => ({ ...prev, [key]: value }));
+      
+      // Handle backend sync for Public Portfolio
+      if (key === 'publicPortfolio') {
+        await updateUserProfile({ investmentsPublic: value });
+        showSuccessToast(value ? 'Portfolio is now public' : 'Portfolio is now private');
+      }
+      
+      // For notifications, just update local state (no backend sync needed yet)
+      // TODO: Implement backend sync for push notifications when ready
+    } catch (error) {
+      console.error('Failed to update setting:', error);
+      // Revert local state on error
+      setSettings(prev => ({ ...prev, [key]: !value }));
+      Alert.alert('Error', 'Failed to update setting. Please try again.');
+    }
   };
 
   /**
-   * LEARNING NOTE: Account Actions
-   * Profile screens need critical account operations
+   * LEARNING NOTE: Profile Picture Upload
+   * Handle image selection and upload to Firebase Storage
    */
-  const handleEditProfile = () => {
-    console.log('Navigate to edit profile screen');
-    // TODO: Navigate to profile editing screen
+  const handleEditProfilePicture = async () => {
+    try {
+      // Request image picker permissions (not required for library access, but good practice)
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Sorry, we need camera roll permissions to change your profile picture!'
+        );
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1], // Square aspect ratio for profile pictures
+        quality: 0.8, // Good quality but manageable file size
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedImage = result.assets[0];
+        await uploadProfilePicture(selectedImage.uri);
+      }
+    } catch (error) {
+      console.error('Error selecting image:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    }
   };
 
-  const handleChangePassword = () => {
-    console.log('Navigate to change password screen');
-    // TODO: Navigate to password change screen
+  /**
+   * Upload selected image to Firebase Storage and update user profile
+   */
+  const uploadProfilePicture = async (imageUri: string) => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to update your profile picture.');
+      return;
+    }
+
+    setUploadingImage(true);
+
+    try {
+      // Verify user authentication and get fresh token
+      console.log('Verifying authentication for upload...');
+      const token = await user.getIdToken(true); // Force refresh token
+      console.log('Authentication verified, token refreshed');
+
+      // Log user info for debugging
+      console.log('Uploading for user:', user.uid);
+      console.log('Image URI:', imageUri);
+
+      // Convert image URI to blob for Firebase Storage
+      console.log('Converting image to blob...');
+      const response = await fetch(imageUri);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      console.log('Blob created successfully, size:', blob.size, 'type:', blob.type);
+
+      // Create storage reference (match Firebase Storage rules path)
+      const storageRef = `profilePics/${user.uid}/profile.jpg`;
+      console.log('Storage reference:', storageRef);
+      const imageRef = ref(storage, storageRef);
+
+      // Upload image
+      console.log('Starting upload to Firebase Storage...');
+      await uploadBytes(imageRef, blob);
+      console.log('Upload completed successfully');
+
+      // Get download URL
+      console.log('Getting download URL...');
+      const downloadURL = await getDownloadURL(imageRef);
+      console.log('Download URL obtained:', downloadURL);
+
+      // Update user profile with new image URL
+      console.log('Updating user profile...');
+      await updateUserProfile({ profilePic: downloadURL });
+      console.log('Profile updated successfully');
+
+      showSuccessToast('Updated Profile Picture');
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to upload image. Please try again.';
+      
+      if (error.code === 'storage/unauthorized') {
+        errorMessage = 'Permission denied. Please contact support if this persists.';
+        console.error('Storage rules may need to be updated for profile_pics path');
+      } else if (error.code === 'storage/unknown') {
+        errorMessage = 'Storage error occurred. Please check your internet connection.';
+      } else if (error.message?.includes('Failed to fetch')) {
+        errorMessage = 'Failed to process selected image. Please try a different image.';
+      } else if (error.code === 'auth/requires-recent-login') {
+        errorMessage = 'Please log out and log back in, then try again.';
+      }
+      
+      Alert.alert('Upload Error', errorMessage);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  /**
+   * Handle edit profile button press
+   */
+  const handleEditProfile = () => {
+    // Pre-populate form with current user data
+    setEditForm({
+      displayName: userProfile?.displayName || user?.displayName || '',
+      email: userProfile?.email || user?.email || '',
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    });
+    setShowEditModal(true);
+  };
+
+  /**
+   * Handle save profile changes
+   */
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    // Basic validation
+    if (!editForm.displayName.trim()) {
+      Alert.alert('Error', 'Username is required');
+      return;
+    }
+
+    if (!editForm.email.trim()) {
+      Alert.alert('Error', 'Email is required');
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editForm.email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
+    // Check if sensitive changes require current password
+    const hasEmailChange = editForm.email.trim() !== (userProfile?.email || user?.email);
+    const hasPasswordChange = editForm.newPassword.trim() !== '';
+    const requiresAuth = hasEmailChange || hasPasswordChange;
+
+    if (requiresAuth && !editForm.currentPassword.trim()) {
+      Alert.alert('Error', 'Current password is required to change email or password');
+      return;
+    }
+
+    // Password confirmation validation
+    if (hasPasswordChange) {
+      if (editForm.newPassword !== editForm.confirmPassword) {
+        Alert.alert('Error', 'New passwords do not match');
+        return;
+      }
+      
+      if (editForm.newPassword.length < 6) {
+        Alert.alert('Error', 'New password must be at least 6 characters');
+        return;
+      }
+    }
+
+    setEditLoading(true);
+
+    try {
+      // Re-authenticate if changing sensitive information
+      if (requiresAuth) {
+        const currentEmail = userProfile?.email || user?.email;
+        if (!currentEmail) {
+          throw new Error('Unable to verify current email');
+        }
+        
+        const credential = EmailAuthProvider.credential(currentEmail, editForm.currentPassword);
+        await reauthenticateWithCredential(user, credential);
+      }
+
+      // Update profile information (username/email)
+      await updateUserProfile({
+        displayName: editForm.displayName.trim(),
+        email: editForm.email.trim(),
+      });
+
+      // Update password if provided
+      if (hasPasswordChange) {
+        await updatePassword(user, editForm.newPassword);
+      }
+
+      // Close modal and show success
+      setShowEditModal(false);
+      
+      // Show specific success message
+      if (hasPasswordChange && hasEmailChange) {
+        showSuccessToast('Profile and password updated successfully!');
+      } else if (hasPasswordChange) {
+        showSuccessToast('Password updated successfully!');
+      } else if (hasEmailChange) {
+        showSuccessToast('Profile updated successfully!');
+      } else {
+        showSuccessToast('Profile updated successfully!');
+      }
+      
+      // Refresh user profile to show changes
+      await refreshUserProfile();
+    } catch (error: any) {
+      console.error('Failed to update profile:', error);
+      
+      // Handle specific Firebase errors
+      let errorMessage = 'Failed to update profile. Please try again.';
+      
+      if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Current password is incorrect';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'New password is too weak. Please choose a stronger password';
+      } else if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already in use by another account';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address format';
+      } else if (error.code === 'auth/requires-recent-login') {
+        errorMessage = 'Please log out and log back in, then try again';
+      } else if (error.message?.includes('Username already taken')) {
+        errorMessage = 'This username is already taken';
+      }
+      
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -163,6 +495,64 @@ export const ProfileScreen: React.FC = () => {
   };
 
   /**
+   * Handle contact support - opens email app with pre-filled support request
+   */
+  const handleContactSupport = () => {
+    const supportEmail = 'diamondinsights25@gmail.com';
+    const subject = 'DiamondInsights Mobile App Support Request';
+    const userName = userProfile?.displayName || user?.displayName || 'N/A';
+    const userEmail = userProfile?.email || user?.email || 'N/A';
+    
+    const body = `Hi DiamondInsights Support Team,
+
+I need help with:
+[Please describe your issue here]
+
+User Details:
+- Username: ${userName}
+- Email: ${userEmail}
+- App Version: Mobile App
+- Device: ${Platform.OS === 'ios' ? 'iOS' : 'Android'}
+
+Thank you!`;
+
+    const mailtoUrl = `mailto:${supportEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    
+    Linking.openURL(mailtoUrl).catch(() => {
+      Alert.alert(
+        'Email Not Available',
+        `Please email us directly at ${supportEmail}`,
+        [
+          { 
+            text: 'Show Email', 
+            onPress: () => {
+              Alert.alert(
+                'Contact Support',
+                `Email: ${supportEmail}\n\nPlease copy this email address and contact us with your support request.`,
+                [{ text: 'OK' }]
+              );
+            }
+          },
+          { text: 'OK', style: 'cancel' }
+        ]
+      );
+    });
+  };
+
+  /**
+   * Show success toast notification
+   */
+  const showSuccessToast = (message: string) => {
+    setToastMessage(message);
+    setShowToast(true);
+    // Auto-dismiss after 3 seconds
+    setTimeout(() => {
+      setShowToast(false);
+      setToastMessage('');
+    }, 3000);
+  };
+
+  /**
    * LEARNING NOTE: Currency Formatting
    * Consistent formatting across the app
    */
@@ -170,8 +560,33 @@ export const ProfileScreen: React.FC = () => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 2,
+      minimumFractionDigits: 0,
     }).format(amount);
+  };
+
+  /**
+   * LEARNING NOTE: Stubs Formatting
+   * Format numbers for display with stubs icon (no currency symbol)
+   */
+  const formatStubs = (amount: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  /**
+   * LEARNING NOTE: Profile Picture Source Selection
+   * Matches web app's image fallback pattern
+   */
+  const pickProfilePic = (profilePic?: string, photoURL?: string) => {
+    // Priority: 1. Firestore profilePic, 2. Firebase Auth photoURL, 3. Default image
+    if (profilePic && profilePic.trim() !== '') {
+      return { uri: profilePic };
+    }
+    if (photoURL && photoURL.trim() !== '') {
+      return { uri: photoURL };
+    }
+    return require('../../assets/default_profile.jpg');
   };
 
   // Show loading spinner while checking auth
@@ -245,6 +660,16 @@ export const ProfileScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Success Toast Notification */}
+      {showToast && (
+        <View style={styles.toastContainer}>
+          <View style={styles.toast}>
+            <Ionicons name="checkmark-circle" size={20} color="white" />
+            <Text style={styles.toastText}>{toastMessage}</Text>
+          </View>
+        </View>
+      )}
+      
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Profile</Text>
@@ -261,11 +686,15 @@ export const ProfileScreen: React.FC = () => {
         {/* User Info Card */}
         <View style={styles.userCard}>
           <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {(userProfile?.displayName || user?.displayName || 'U').split(' ').map(n => n[0]).join('')}
-              </Text>
-            </View>
+            <Image
+              source={pickProfilePic(userProfile?.profilePic, user?.photoURL)}
+              style={styles.avatar}
+              resizeMode="cover"
+              onError={() => {
+                // Fallback is already handled by pickProfilePic function
+                console.log('Profile image failed to load, using fallback');
+              }}
+            />
           </View>
           
           <Text style={styles.displayName}>
@@ -283,45 +712,54 @@ export const ProfileScreen: React.FC = () => {
             }
           </Text>
           
-          <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
-            <Text style={styles.editButtonText}>Edit Profile</Text>
+          <TouchableOpacity 
+            style={[styles.editButton, uploadingImage && styles.editButtonDisabled]} 
+            onPress={handleEditProfile}
+            disabled={uploadingImage}
+          >
+            {uploadingImage ? (
+              <>
+                <ActivityIndicator size="small" color="#3b82f6" style={{ marginRight: 8 }} />
+                <Text style={styles.editButtonText}>Uploading...</Text>
+              </>
+            ) : (
+              <Text style={styles.editButtonText}>Edit Profile</Text>
+            )}
           </TouchableOpacity>
         </View>
 
         {/* Stats Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Stats</Text>
-          
-          <View style={styles.statsContainer}>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>
-                {userProfile?.totalInvestments || userStats.totalInvestments}
-              </Text>
-              <Text style={styles.statLabel}>Total Investments</Text>
-            </View>
-            
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>
-                {formatCurrency(userProfile?.portfolioValue || userStats.portfolioValue)}
-              </Text>
-              <Text style={styles.statLabel}>Portfolio Value</Text>
-            </View>
-            
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>
-                {userProfile?.accuracyRate || userStats.accuracyRate}%
-              </Text>
-              <Text style={styles.statLabel}>Prediction Accuracy</Text>
-            </View>
+          <View style={styles.statsHeader}>
+            <Text style={styles.statsTitle}>Trader Statistics</Text>
+            <Text style={styles.statsSubtitle}>Your performance metrics and trading insights</Text>
           </View>
           
-          <View style={styles.favoritePlayer}>
-            <Text style={styles.favoriteLabel}>Favorite Player</Text>
-            <Text style={styles.favoriteValue}>{userStats.favoritePlayer}</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Total Investments</Text>
+              <Text style={styles.statNumber}>
+                {statsLoading ? '...' : userStats.totalInvestments}
+              </Text>
+            </View>
+            
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Total Invested</Text>
+              <Text style={styles.statNumber}>
+                {statsLoading ? '...' : formatStubs(userStats.totalInvested)}
+              </Text>
+            </View>
+            
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Total Messages</Text>
+              <Text style={styles.statNumber}>
+                {statsLoading ? '...' : userStats.totalMessages}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Settings Section */}
+        {/* Settings & Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
           
@@ -334,40 +772,28 @@ export const ProfileScreen: React.FC = () => {
           </View>
           
           <View style={styles.settingItem}>
-            <Text style={styles.settingLabel}>Dark Mode</Text>
+            <Text style={styles.settingLabel}>Public Portfolio</Text>
             <Switch
-              value={settings.darkMode}
-              onValueChange={(value) => updateSetting('darkMode', value)}
+              value={settings.publicPortfolio}
+              onValueChange={(value) => updateSetting('publicPortfolio', value)}
             />
           </View>
           
-          <View style={styles.settingItem}>
-            <Text style={styles.settingLabel}>Email Updates</Text>
-            <Switch
-              value={settings.emailUpdates}
-              onValueChange={(value) => updateSetting('emailUpdates', value)}
-            />
-          </View>
-          
-          <View style={styles.settingItem}>
-            <Text style={styles.settingLabel}>Prediction Alerts</Text>
-            <Switch
-              value={settings.pushPredictions}
-              onValueChange={(value) => updateSetting('pushPredictions', value)}
-            />
-          </View>
-        </View>
-
-        {/* Account Actions Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          
-          <TouchableOpacity style={styles.actionButton} onPress={handleChangePassword}>
-            <Text style={styles.actionButtonText}>Change Password</Text>
+          <TouchableOpacity 
+            style={[styles.actionButton, { marginTop: 16 }]} 
+            onPress={handleContactSupport}
+          >
+            <View style={styles.buttonContent}>
+              <Ionicons name="help-circle-outline" size={20} color={theme.colors.text.primary} />
+              <Text style={styles.actionButtonText}>Contact Support</Text>
+            </View>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.actionButton} onPress={handleLogout}>
-            <Text style={styles.actionButtonText}>Logout</Text>
+            <View style={styles.buttonContent}>
+              <Ionicons name="log-out-outline" size={20} color={theme.colors.text.primary} />
+              <Text style={styles.actionButtonText}>Logout</Text>
+            </View>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -383,6 +809,153 @@ export const ProfileScreen: React.FC = () => {
         {/* Bottom padding */}
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <KeyboardAvoidingView 
+            style={styles.modalContent}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity 
+                onPress={() => setShowEditModal(false)}
+                style={styles.modalCancelButton}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <Text style={styles.modalTitle}>Edit Profile</Text>
+              
+              <TouchableOpacity 
+                onPress={handleSaveProfile}
+                style={styles.modalSaveButton}
+                disabled={editLoading}
+              >
+                {editLoading ? (
+                  <ActivityIndicator size="small" color="#3b82f6" />
+                ) : (
+                  <Text style={styles.modalSaveText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Form Fields */}
+            <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
+              <View style={styles.modalFormContainer}>
+                
+                {/* Profile Picture Section */}
+                <View style={styles.modalField}>
+                  <Text style={styles.modalFieldLabel}>Profile Picture</Text>
+                  <TouchableOpacity 
+                    style={styles.profilePictureButton}
+                    onPress={handleEditProfilePicture}
+                    disabled={uploadingImage}
+                  >
+                    <Image
+                      source={pickProfilePic(userProfile?.profilePic, user?.photoURL)}
+                      style={styles.modalProfilePic}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.profilePictureOverlay}>
+                      {uploadingImage ? (
+                        <ActivityIndicator size="small" color="white" />
+                      ) : (
+                        <Ionicons name="camera" size={24} color="white" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Username Field */}
+                <View style={styles.modalField}>
+                  <Text style={styles.modalFieldLabel}>Username</Text>
+                  <TextInput
+                    style={styles.modalTextInput}
+                    value={editForm.displayName}
+                    onChangeText={(text) => setEditForm(prev => ({ ...prev, displayName: text }))}
+                    placeholder="Enter username"
+                    placeholderTextColor="#999"
+                    editable={!editLoading}
+                  />
+                </View>
+
+                {/* Email Field */}
+                <View style={styles.modalField}>
+                  <Text style={styles.modalFieldLabel}>Email</Text>
+                  <TextInput
+                    style={styles.modalTextInput}
+                    value={editForm.email}
+                    onChangeText={(text) => setEditForm(prev => ({ ...prev, email: text }))}
+                    placeholder="Enter email"
+                    placeholderTextColor="#999"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    editable={!editLoading}
+                  />
+                </View>
+
+                {/* Current Password Field */}
+                <View style={styles.modalField}>
+                  <Text style={styles.modalFieldLabel}>
+                    Current Password
+                    <Text style={styles.helpText}> (required to change email or password)</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.modalTextInput}
+                    value={editForm.currentPassword}
+                    onChangeText={(text) => setEditForm(prev => ({ ...prev, currentPassword: text }))}
+                    placeholder="Enter current password"
+                    placeholderTextColor="#999"
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoComplete="current-password"
+                    editable={!editLoading}
+                  />
+                </View>
+
+                {/* New Password Field */}
+                <View style={styles.modalField}>
+                  <Text style={styles.modalFieldLabel}>New Password</Text>
+                  <TextInput
+                    style={styles.modalTextInput}
+                    value={editForm.newPassword}
+                    onChangeText={(text) => setEditForm(prev => ({ ...prev, newPassword: text }))}
+                    placeholder="Leave blank to keep current"
+                    placeholderTextColor="#999"
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoComplete="new-password"
+                    editable={!editLoading}
+                  />
+                </View>
+
+                {/* Confirm New Password Field */}
+                <View style={styles.modalField}>
+                  <Text style={styles.modalFieldLabel}>Confirm New Password</Text>
+                  <TextInput
+                    style={styles.modalTextInput}
+                    value={editForm.confirmPassword}
+                    onChangeText={(text) => setEditForm(prev => ({ ...prev, confirmPassword: text }))}
+                    placeholder="Must match new password"
+                    placeholderTextColor="#999"
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoComplete="new-password"
+                    editable={!editLoading}
+                  />
+                </View>
+                
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -544,7 +1117,7 @@ const styles = StyleSheet.create({
   },
   
   userCard: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.surface.elevated,
     margin: 16,
     padding: 20,
     borderRadius: 12,
@@ -564,41 +1137,42 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#3b82f6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  
-  avatarText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: 'white',
+    backgroundColor: theme.colors.surface.elevated,
+    borderWidth: 2,
+    borderColor: theme.colors.primary.main,
   },
   
   displayName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1a202c',
+    color: theme.colors.text.primary,
     marginBottom: 4,
   },
   
   email: {
     fontSize: 16,
-    color: '#64748b',
+    color: theme.colors.text.secondary,
     marginBottom: 4,
   },
   
   joinDate: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: theme.colors.text.secondary,
     marginBottom: 16,
   },
   
   editButton: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: theme.colors.background.medium,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  
+  editButtonDisabled: {
+    opacity: 0.6,
   },
   
   editButtonText: {
@@ -608,7 +1182,7 @@ const styles = StyleSheet.create({
   },
   
   section: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.surface.elevated,
     marginHorizontal: 16,
     marginBottom: 16,
     padding: 20,
@@ -623,53 +1197,55 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#374151',
+    color: theme.colors.text.primary,
     marginBottom: 16,
   },
   
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+  statsHeader: {
+    marginBottom: 20,
   },
   
-  statBox: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 8,
+  statsTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+    marginBottom: 8,
   },
   
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1a202c',
-    marginBottom: 4,
+  statsSubtitle: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    lineHeight: 20,
+  },
+  
+  statsGrid: {
+    gap: 12,
+  },
+  
+  statCard: {
+    backgroundColor: theme.colors.background.medium,
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   
   statLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    textAlign: 'center',
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    marginBottom: 8,
+    fontWeight: '500',
   },
   
-  favoritePlayer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-  },
-  
-  favoriteLabel: {
-    fontSize: 16,
-    color: '#374151',
-  },
-  
-  favoriteValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1a202c',
+  statNumber: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
   },
   
   settingItem: {
@@ -678,34 +1254,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: theme.colors.border.secondary,
   },
   
   settingLabel: {
     fontSize: 16,
-    color: '#374151',
+    color: theme.colors.text.primary,
   },
   
   actionButton: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: theme.colors.background.medium,
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 8,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: theme.colors.border.primary,
   },
   
   actionButtonText: {
     fontSize: 16,
-    color: '#374151',
+    color: theme.colors.text.primary,
     textAlign: 'center',
     fontWeight: '500',
   },
+
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
   
   dangerButton: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
+    backgroundColor: theme.colors.surface.elevated,
+    borderColor: theme.colors.error,
   },
   
   dangerButtonText: {
@@ -714,5 +1297,147 @@ const styles = StyleSheet.create({
   
   bottomPadding: {
     height: 20,
+  },
+
+  toastContainer: {
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    paddingHorizontal: 16,
+  },
+
+  toast: {
+    backgroundColor: '#10b981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    gap: 8,
+  },
+
+  toastText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background.dark,
+  },
+
+  modalContent: {
+    flex: 1,
+  },
+
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border.primary,
+    backgroundColor: theme.colors.background.medium,
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.text.primary,
+  },
+
+  modalCancelButton: {
+    width: 60,
+  },
+
+  modalCancelText: {
+    fontSize: 16,
+    color: '#3b82f6',
+  },
+
+  modalSaveButton: {
+    width: 60,
+    alignItems: 'flex-end',
+  },
+
+  modalSaveText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+
+  modalScrollView: {
+    flex: 1,
+  },
+
+  modalFormContainer: {
+    padding: 20,
+  },
+
+  modalField: {
+    marginBottom: 24,
+  },
+
+  modalFieldLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: theme.colors.text.primary,
+    marginBottom: 8,
+  },
+
+  modalTextInput: {
+    backgroundColor: theme.colors.background.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.border.primary,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: theme.colors.text.primary,
+  },
+
+  profilePictureButton: {
+    alignSelf: 'center',
+    position: 'relative',
+  },
+
+  modalProfilePic: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: theme.colors.primary.main,
+  },
+
+  profilePictureOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 16,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  helpText: {
+    fontSize: 12,
+    color: theme.colors.text.secondary,
+    fontWeight: '400',
   },
 });

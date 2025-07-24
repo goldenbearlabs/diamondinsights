@@ -34,6 +34,7 @@ import { FirebaseError } from 'firebase/auth';
 // Import design system and authentication context
 import { theme } from '../styles/theme';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { TabParamList } from '../navigation/TabNavigator';
 import { useAuth } from '../contexts/AuthContext';
 
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
@@ -100,8 +101,9 @@ export const LoginScreen: React.FC = () => {
       // Use AuthContext signIn method (handles username/email resolution)
       await signIn(identifier.trim(), password);
       
-      // Success - navigation will happen automatically via auth state change
+      // Success - navigate to Profile tab
       console.log('Login successful');
+      navigation.navigate('Main', { screen: 'Profile' });
       
     } catch (error: any) {
       console.error('Login error:', error);

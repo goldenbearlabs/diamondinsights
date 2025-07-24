@@ -17,17 +17,18 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 
 // Import our custom navigators and screens
-import { TabNavigator } from './TabNavigator';
+import { TabNavigator, TabParamList } from './TabNavigator';
 import { PlayerDetailScreen } from '../screens/PlayerDetailScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { SignupScreen } from '../screens/SignupScreen';
+import { NavigatorScreenParams } from '@react-navigation/native';
 
 /**
  * LEARNING NOTE: Navigation Type Safety
  * TypeScript types for navigation help catch errors and provide autocomplete
  */
 export type RootStackParamList = {
-  Main: undefined;  // Main tab navigator (no params)
+  Main: NavigatorScreenParams<TabParamList> | undefined;  // Main tab navigator with nested tab params
   PlayerDetail: {   // Player detail screen with required params
     playerId: string;
     playerName: string;
