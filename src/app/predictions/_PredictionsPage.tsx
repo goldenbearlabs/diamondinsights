@@ -289,7 +289,7 @@ export default function PredictionsPage() {
         (typeFilter === 'hitters'  && c.is_hitter) ||
         (typeFilter === 'pitchers' && !c.is_hitter)
       )
-      .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
+      .filter(c => (c.name ?? '').toLowerCase().includes(search.toLowerCase()))
   }, [cards, rarity, typeFilter, search])
 
   // 2) sort
