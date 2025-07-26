@@ -538,7 +538,7 @@ export default function PredictionsPage() {
             </thead>
             <tbody>
               {paged.map(c => (
-                <tr key={c.id} data-rarity={c.rarity.toLowerCase()}>
+                <tr key={c.id} data-rarity={c.rarity? (c.rarity as string).toLowerCase(): "unknown"}>
                   {columns.map(col => {
                     const raw = (c as Record<string, unknown>)[col]
                     let cell: string | number | undefined                    
