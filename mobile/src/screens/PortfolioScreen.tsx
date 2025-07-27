@@ -873,7 +873,7 @@ export const PortfolioScreen: React.FC = () => {
                           {investment.playerName || playerCard?.name || 'Unknown Player'}
                         </Text>
                         <Text style={styles.playerMeta}>
-                          OVR: {currentOvr} • Pred: {predictedOvr.toFixed(1)}
+                          OVR: {currentOvr} • Predicted: {predictedOvr.toFixed(1)}
                         </Text>
                       </View>
                     </View>

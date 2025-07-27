@@ -38,8 +38,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth, useAuthStatus } from '../contexts/AuthContext';
-import { apiClient } from '../services/api';
-import { storage, auth } from '../services/firebase';
+import { apiClient, apiConfig } from '../services/api';
+import { storage, auth, db } from '../services/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
   updatePassword,
@@ -128,11 +129,55 @@ export const ProfileScreen: React.FC = () => {
         return sum + (investment.quantity * investment.avgBuyPrice);
       }, 0);
       
+      // Calculate total messages across all chat rooms and live comments
+      let totalMessages = 0;
+      try {
+        // Count chat room messages via API
+        const chatRooms = ['main', 'investing', 'flipping', 'stub'];
+        const messageCounts = await Promise.all(
+          chatRooms.map(async (room) => {
+            try {
+              const response = await fetch(`${apiConfig.baseURL}/api/chat/${room}`);
+              if (response.ok) {
+                const messages = await response.json();
+                return messages.filter((msg: any) => msg.userId === user?.uid).length;
+              }
+              return 0;
+            } catch {
+              return 0;
+            }
+          })
+        );
+        
+        const chatRoomMessages = messageCounts.reduce((sum, count) => sum + count, 0);
+        
+        // Count live comments from Firestore comments collection
+        let liveCommentsCount = 0;
+        if (user?.uid) {
+          try {
+            const commentsQuery = query(
+              collection(db, 'comments'),
+              where('userId', '==', user.uid)
+            );
+            const commentsSnapshot = await getDocs(commentsQuery);
+            liveCommentsCount = commentsSnapshot.size;
+          } catch (error) {
+            console.error('Error counting live comments:', error);
+            // Keep liveCommentsCount as 0 if query fails
+          }
+        }
+        
+        totalMessages = chatRoomMessages + liveCommentsCount;
+      } catch (error) {
+        console.error('Error counting user messages:', error);
+        // Keep totalMessages as 0 if API call fails
+      }
+      
       // Set calculated stats
       setUserStats({
         totalInvestments,
         totalInvested,
-        totalMessages: 0, // TODO: Implement message counting like website
+        totalMessages,
       });
     } catch (error) {
       console.error('Failed to load user stats:', error);

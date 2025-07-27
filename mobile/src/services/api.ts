@@ -71,6 +71,22 @@ export interface PortfolioSummary {
   myProfit: number;       // User projected profit/loss
 }
 
+// Trending card data structure matching website API
+export interface TrendingCard {
+  id: string;
+  name: string;
+  team_short_name: string;
+  display_position: string;
+  baked_img: string;
+  ovr: number;
+  predicted_rank: number;
+  delta_rank_pred: number;
+  upvotes: number;        // Real vote counts from API
+  downvotes: number;      // Real vote counts from API
+  netVotes: number;       // upvotes - downvotes (calculated by API)
+  totalVotes: number;     // upvotes + downvotes (calculated by API)
+}
+
 /**
  * MLB The Show quick-sell value calculation
  * Maps overall rating to quick-sell stub value
@@ -333,6 +349,13 @@ class ApiClient {
   }
 
   // === Community APIs ===
+
+  /**
+   * Get trending player cards with vote data (matches /api/trending/cards)
+   */
+  async getTrendingCards(): Promise<TrendingCard[]> {
+    return this.request<TrendingCard[]>('/api/trending/cards');
+  }
 
   /**
    * Get community chat messages (matches /api/chat)

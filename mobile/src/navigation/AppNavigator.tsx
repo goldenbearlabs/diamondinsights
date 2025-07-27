@@ -19,6 +19,8 @@ import { createStackNavigator } from '@react-navigation/stack';
 // Import our custom navigators and screens
 import { TabNavigator, TabParamList } from './TabNavigator';
 import { PlayerDetailScreen } from '../screens/PlayerDetailScreen';
+import { UserProfileScreen } from '../screens/UserProfileScreen';
+import { UserInvestmentScreen } from '../screens/UserInvestmentScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { SignupScreen } from '../screens/SignupScreen';
 import { NavigatorScreenParams } from '@react-navigation/native';
@@ -32,6 +34,13 @@ export type RootStackParamList = {
   PlayerDetail: {   // Player detail screen with required params
     playerId: string;
     playerName: string;
+  };
+  UserProfile: {    // User profile screen for viewing other users
+    userId: string;
+  };
+  UserInvestment: { // User investment portfolio screen
+    userId: string;
+    username: string;
   };
   // Future screens can be added here
   Login: undefined;
@@ -80,6 +89,30 @@ export const AppNavigator: React.FC = () => {
         <Stack.Screen 
           name="PlayerDetail" 
           component={PlayerDetailScreen}
+          options={{
+            headerShown: false, // Hide the entire header
+          }}
+        />
+
+        {/* 
+          User Profile Screen
+          This will be pushed on top when user taps a user in search results
+        */}
+        <Stack.Screen 
+          name="UserProfile" 
+          component={UserProfileScreen}
+          options={{
+            headerShown: false, // Hide the entire header
+          }}
+        />
+
+        {/* 
+          User Investment Screen
+          This will be pushed on top when user taps "View Investments" on a profile
+        */}
+        <Stack.Screen 
+          name="UserInvestment" 
+          component={UserInvestmentScreen}
           options={{
             headerShown: false, // Hide the entire header
           }}
