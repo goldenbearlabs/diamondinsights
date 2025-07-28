@@ -33,6 +33,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { theme } from '../styles/theme';
 import { usePlayer } from '../hooks/useApi';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { useAuth } from '../contexts/AuthContext';
+import { apiConfig } from '../services/api';
 
 // Type definitions
 type PlayerDetailRouteProp = RouteProp<RootStackParamList, 'PlayerDetail'>;
@@ -152,6 +154,9 @@ export const PlayerDetailScreen: React.FC = () => {
   const navigation = useNavigation<PlayerDetailNavigationProp>();
   const { playerId, playerName } = route.params;
   
+  // Authentication
+  const { user } = useAuth();
+  
   // API data
   const { 
     data: playerData, 
@@ -170,6 +175,10 @@ export const PlayerDetailScreen: React.FC = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [showComments, setShowComments] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [postingComment, setPostingComment] = useState(false);
+  const [votesLoading, setVotesLoading] = useState(false);
+  const [votingInProgress, setVotingInProgress] = useState(false);
   
   // Attributes/Stats toggle state
   const [activeTab, setActiveTab] = useState<'attributes' | 'stats'>('attributes');
@@ -188,46 +197,148 @@ export const PlayerDetailScreen: React.FC = () => {
   }, [refresh]);
   
   // Vote handlers
-  const handleVote = useCallback((type: 'up' | 'down') => {
-    setVotes(prev => {
-      const newVote = prev.userVote === type ? null : type;
-      let newUpvotes = prev.upvotes;
-      let newDownvotes = prev.downvotes;
+  const handleVote = useCallback(async (voteType: 'up' | 'down') => {
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to vote on players.');
+      return;
+    }
+    
+    if (votingInProgress) return;
+    
+    setVotingInProgress(true);
+    
+    try {
+      const token = await user.getIdToken();
       
-      // Remove previous vote
-      if (prev.userVote === 'up') newUpvotes--;
-      else if (prev.userVote === 'down') newDownvotes--;
+      // If user clicks the same vote they already made, remove it (toggle off)
+      const method = votes.userVote === voteType ? 'DELETE' : 'POST';
+      const body = method === 'POST' ? JSON.stringify({ vote: voteType }) : undefined;
       
-      // Add new vote
-      if (newVote === 'up') newUpvotes++;
-      else if (newVote === 'down') newDownvotes++;
+      const response = await fetch(`${apiConfig.baseURL}/api/cards/${playerId}/votes`, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body
+      });
       
-      return {
-        upvotes: newUpvotes,
-        downvotes: newDownvotes,
-        userVote: newVote,
-      };
-    });
-  }, []);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit vote');
+      }
+      
+      const result = await response.json();
+      setVotes({
+        upvotes: result.upvotes,
+        downvotes: result.downvotes,
+        userVote: result.userVote
+      });
+    } catch (error) {
+      console.error('Error voting:', error);
+      Alert.alert('Error', 'Failed to submit vote. Please try again.');
+    } finally {
+      setVotingInProgress(false);
+    }
+  }, [user, votes.userVote, playerId, votingInProgress]);
+  
+  // Load votes from API
+  const loadVotes = useCallback(async () => {
+    setVotesLoading(true);
+    try {
+      const headers: Record<string, string> = {};
+      
+      // Include auth token if user is logged in
+      if (user) {
+        const token = await user.getIdToken();
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`${apiConfig.baseURL}/api/cards/${playerId}/votes`, { headers });
+      if (response.ok) {
+        const voteData = await response.json();
+        setVotes({
+          upvotes: voteData.upvotes || 0,
+          downvotes: voteData.downvotes || 0,
+          userVote: voteData.userVote || null
+        });
+      } else {
+        console.error('Failed to load votes:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error loading votes:', error);
+    } finally {
+      setVotesLoading(false);
+    }
+  }, [playerId, user]);
+  
+  // Load comments from API
+  const loadComments = useCallback(async () => {
+    setLoadingComments(true);
+    try {
+      const response = await fetch(`${apiConfig.baseURL}/api/cards/${playerId}/comments`);
+      if (response.ok) {
+        const commentsData = await response.json();
+        setComments(commentsData);
+      } else {
+        console.error('Failed to load comments:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error loading comments:', error);
+    } finally {
+      setLoadingComments(false);
+    }
+  }, [playerId]);
   
   // Comment handlers
-  const handleAddComment = useCallback(() => {
-    if (!newComment.trim()) return;
+  const handleAddComment = useCallback(async () => {
+    if (!newComment.trim() || !user || postingComment) return;
     
-    const comment: Comment = {
-      id: Date.now().toString(),
-      parentId: null,
-      userId: 'current-user', // TODO: Get from auth
-      username: 'Anonymous',
-      profilePicUrl: '',
-      text: newComment.trim(),
-      timestamp: Date.now(),
-      likes: [],
-    };
+    setPostingComment(true);
     
-    setComments(prev => [comment, ...prev]);
-    setNewComment('');
-  }, [newComment]);
+    try {
+      // Get Firebase ID token for authentication
+      const token = await user.getIdToken();
+      
+      // Send comment to API
+      const response = await fetch(`${apiConfig.baseURL}/api/cards/${playerId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          text: newComment.trim(),
+          playerId: playerId
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to post comment');
+      }
+      
+      // Clear input and reload comments to show the new comment
+      setNewComment('');
+      await loadComments();
+    } catch (error) {
+      console.error('Error posting comment:', error);
+      Alert.alert('Error', 'Failed to post comment. Please try again.');
+    } finally {
+      setPostingComment(false);
+    }
+  }, [newComment, user, playerId, loadComments, postingComment]);
+  
+  // Handle user profile navigation
+  const handleUserPress = useCallback((userId: string) => {
+    navigation.navigate('UserProfile', { userId });
+  }, [navigation]);
+  
+  // Load votes and comments when component mounts
+  useEffect(() => {
+    loadVotes();
+    loadComments();
+  }, [loadVotes, loadComments]);
   
   // Loading state
   if (isLoading) {
@@ -331,20 +442,26 @@ export const PlayerDetailScreen: React.FC = () => {
                 style={[
                   styles.voteButton, 
                   styles.upvoteButton,
-                  votes.userVote === 'up' && styles.voteButtonActive
+                  votes.userVote === 'up' && styles.voteButtonActive,
+                  (votesLoading || votingInProgress) && styles.voteButtonDisabled
                 ]}
                 onPress={() => handleVote('up')}
+                disabled={votesLoading || votingInProgress}
               >
-                <Ionicons 
-                  name="thumbs-up" 
-                  size={20} 
-                  color={votes.userVote === 'up' ? 'white' : '#10b981'} 
-                />
+                {votingInProgress && votes.userVote !== 'up' ? (
+                  <ActivityIndicator size="small" color="#10b981" />
+                ) : (
+                  <Ionicons 
+                    name="thumbs-up" 
+                    size={20} 
+                    color={votes.userVote === 'up' ? 'white' : '#10b981'} 
+                  />
+                )}
                 <Text style={[
                   styles.voteText,
                   votes.userVote === 'up' && styles.voteTextActive
                 ]}>
-                  Upgrade ({votes.upvotes})
+                  Upgrade ({votesLoading ? '...' : votes.upvotes})
                 </Text>
               </TouchableOpacity>
               
@@ -352,20 +469,26 @@ export const PlayerDetailScreen: React.FC = () => {
                 style={[
                   styles.voteButton, 
                   styles.downvoteButton,
-                  votes.userVote === 'down' && styles.voteButtonActive
+                  votes.userVote === 'down' && styles.voteButtonActive,
+                  (votesLoading || votingInProgress) && styles.voteButtonDisabled
                 ]}
                 onPress={() => handleVote('down')}
+                disabled={votesLoading || votingInProgress}
               >
-                <Ionicons 
-                  name="thumbs-down" 
-                  size={20} 
-                  color={votes.userVote === 'down' ? 'white' : '#ef4444'} 
-                />
+                {votingInProgress && votes.userVote !== 'down' ? (
+                  <ActivityIndicator size="small" color="#ef4444" />
+                ) : (
+                  <Ionicons 
+                    name="thumbs-down" 
+                    size={20} 
+                    color={votes.userVote === 'down' ? 'white' : '#ef4444'} 
+                  />
+                )}
                 <Text style={[
                   styles.voteText,
                   votes.userVote === 'down' && styles.voteTextActive
                 ]}>
-                  Downgrade ({votes.downvotes})
+                  Downgrade ({votesLoading ? '...' : votes.downvotes})
                 </Text>
               </TouchableOpacity>
             </View>
@@ -389,35 +512,53 @@ export const PlayerDetailScreen: React.FC = () => {
           {showComments && (
             <View style={styles.commentsSection}>
               {/* Add Comment */}
-              <View style={styles.addCommentContainer}>
-                <TextInput
-                  style={styles.commentInput}
-                  placeholder="Share your thoughts..."
-                  placeholderTextColor={theme.colors.text.secondary}
-                  value={newComment}
-                  onChangeText={setNewComment}
-                  multiline
-                  maxLength={500}
-                />
-                <TouchableOpacity 
-                  style={[
-                    styles.postButton,
-                    !newComment.trim() && styles.postButtonDisabled
-                  ]}
-                  onPress={handleAddComment}
-                  disabled={!newComment.trim()}
-                >
-                  <Text style={[
-                    styles.postButtonText,
-                    !newComment.trim() && styles.postButtonTextDisabled
-                  ]}>
-                    Post
+              {user ? (
+                <View style={styles.addCommentContainer}>
+                  <TextInput
+                    style={styles.commentInput}
+                    placeholder="Share your thoughts..."
+                    placeholderTextColor={theme.colors.text.secondary}
+                    value={newComment}
+                    onChangeText={setNewComment}
+                    multiline
+                    maxLength={500}
+                    editable={!postingComment}
+                  />
+                  <TouchableOpacity 
+                    style={[
+                      styles.postButton,
+                      (!newComment.trim() || postingComment) && styles.postButtonDisabled
+                    ]}
+                    onPress={handleAddComment}
+                    disabled={!newComment.trim() || postingComment}
+                  >
+                    {postingComment ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : (
+                      <Text style={[
+                        styles.postButtonText,
+                        (!newComment.trim() || postingComment) && styles.postButtonTextDisabled
+                      ]}>
+                        Post
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.loginPromptContainer}>
+                  <Text style={styles.loginPromptText}>
+                    Sign in to share your thoughts on this player
                   </Text>
-                </TouchableOpacity>
-              </View>
+                </View>
+              )}
               
               {/* Comments List */}
-              {comments.length === 0 ? (
+              {loadingComments ? (
+                <View style={styles.loadingCommentsContainer}>
+                  <ActivityIndicator size="small" color={theme.colors.primary.main} />
+                  <Text style={styles.loadingCommentsText}>Loading comments...</Text>
+                </View>
+              ) : comments.length === 0 ? (
                 <View style={styles.noCommentsContainer}>
                   <Text style={styles.noCommentsText}>
                     No comments yet. Be the first to share your thoughts!
@@ -427,11 +568,28 @@ export const PlayerDetailScreen: React.FC = () => {
                 <View style={styles.commentsList}>
                   {comments.map((comment) => (
                     <View key={comment.id} style={styles.commentItem}>
-                      <Text style={styles.commentUsername}>{comment.username}</Text>
+                      <View style={styles.commentHeader}>
+                        <TouchableOpacity onPress={() => handleUserPress(comment.userId)}>
+                          <Image
+                            source={
+                              comment.profilePicUrl
+                                ? { uri: comment.profilePicUrl }
+                                : require('../../assets/default_profile.jpg')
+                            }
+                            style={styles.commentAvatar}
+                            defaultSource={require('../../assets/default_profile.jpg')}
+                          />
+                        </TouchableOpacity>
+                        <View style={styles.commentUserInfo}>
+                          <TouchableOpacity onPress={() => handleUserPress(comment.userId)}>
+                            <Text style={styles.commentUsername}>{comment.username}</Text>
+                          </TouchableOpacity>
+                          <Text style={styles.commentTime}>
+                            {comment.timestamp ? new Date(comment.timestamp).toLocaleDateString() : 'Unknown'}
+                          </Text>
+                        </View>
+                      </View>
                       <Text style={styles.commentText}>{comment.text}</Text>
-                      <Text style={styles.commentTime}>
-                        {comment.timestamp ? new Date(comment.timestamp).toLocaleDateString() : 'Unknown'}
-                      </Text>
                     </View>
                   ))}
                 </View>
@@ -1071,6 +1229,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary.main,
     borderColor: theme.colors.primary.main,
   },
+
+  voteButtonDisabled: {
+    opacity: 0.6,
+  },
   
   voteText: {
     fontSize: 14,
@@ -1188,6 +1350,52 @@ const styles = StyleSheet.create({
   
   commentTime: {
     fontSize: 12,
+    color: theme.colors.text.secondary,
+  },
+
+  commentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+
+  commentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 12,
+  },
+
+  commentUserInfo: {
+    flex: 1,
+  },
+
+  loginPromptContainer: {
+    backgroundColor: theme.colors.background.light,
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border.primary,
+  },
+
+  loginPromptText: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+  },
+
+  loadingCommentsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 8,
+  },
+
+  loadingCommentsText: {
+    fontSize: 14,
     color: theme.colors.text.secondary,
   },
   

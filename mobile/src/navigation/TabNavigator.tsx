@@ -13,10 +13,13 @@
 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Platform } from 'react-native';
+import { Platform, Image, View } from 'react-native';
 
 // Icons for tabs - we'll use text icons for now, can upgrade to vector icons later
 import { Ionicons } from '@expo/vector-icons';
+
+// Auth context for user profile data
+import { useAuth } from '../contexts/AuthContext';
 
 // Import screen components (we'll create these next)
 import { HomeScreen } from '../screens/HomeScreen';
@@ -40,6 +43,51 @@ export type TabParamList = {
 
 // Create the Tab Navigator instance
 const Tab = createBottomTabNavigator<TabParamList>();
+
+/**
+ * Custom Profile Tab Icon Component
+ * Shows user's profile picture with border instead of generic icon
+ */
+const ProfileTabIcon: React.FC<{ color: string; size: number }> = ({ color, size }) => {
+  const { user, userProfile } = useAuth();
+  
+  // Determine profile picture source
+  const getProfilePicSource = () => {
+    // Priority: 1. Firestore profilePic, 2. Firebase Auth photoURL, 3. Default image
+    if (userProfile?.profilePic && userProfile.profilePic.trim() !== '') {
+      return { uri: userProfile.profilePic };
+    }
+    if (user?.photoURL && user.photoURL.trim() !== '') {
+      return { uri: user.photoURL };
+    }
+    return require('../../assets/default_profile.jpg');
+  };
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: 2,
+        borderColor: color,
+        overflow: 'hidden',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      <Image
+        source={getProfilePicSource()}
+        style={{
+          width: size - 4,
+          height: size - 4,
+          borderRadius: (size - 4) / 2,
+        }}
+        defaultSource={require('../../assets/default_profile.jpg')}
+      />
+    </View>
+  );
+};
 
 /**
  * TabNavigator Component
@@ -115,7 +163,7 @@ export const TabNavigator: React.FC = () => {
         options={{
           tabBarLabel: 'Portfolio',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trending-up-outline" size={size} color={color} />
+            <Ionicons name="briefcase-outline" size={size} color={color} />
           ),
         }}
       />
@@ -143,7 +191,7 @@ export const TabNavigator: React.FC = () => {
         options={{
           tabBarLabel: 'Profile',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <ProfileTabIcon color={color} size={size} />
           ),
         }}
       />

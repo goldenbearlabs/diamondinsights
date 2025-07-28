@@ -201,9 +201,17 @@ export const HomeScreen: React.FC = () => {
                   </View>
                   
                   <View style={styles.confidenceBadge}>
-                    <Text style={styles.confidenceText}>
-                      📈 {String(pred.confidence_percentage)}% Confidence
-                    </Text>
+                    <View style={styles.confidenceContent}>
+                      <View style={styles.confidenceRow}>
+                        <Ionicons name="analytics-outline" size={12} color={theme.colors.chart.up} />
+                        <Text style={styles.confidencePercentage}>
+                          {String(pred.confidence_percentage)}%
+                        </Text>
+                      </View>
+                      <Text style={styles.confidenceLabel}>
+                        Confidence
+                      </Text>
+                    </View>
                   </View>
                 </TouchableOpacity>
               );
@@ -594,9 +602,27 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.sm,
     alignSelf: 'center',
   },
-  
-  confidenceText: {
+
+  confidenceContent: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 2,
+  },
+
+  confidenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  confidencePercentage: {
     fontSize: 10,
+    color: theme.colors.chart.up, // Teal color from website
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+
+  confidenceLabel: {
+    fontSize: 8,
     color: theme.colors.chart.up, // Teal color from website
     fontWeight: theme.typography.fontWeight.medium,
   },

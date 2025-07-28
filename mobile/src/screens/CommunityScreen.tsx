@@ -46,8 +46,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  addDoc,
-  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { apiClient, type TrendingCard, apiConfig } from '../services/api';
@@ -617,14 +615,36 @@ export const CommunityScreen: React.FC = () => {
     setSendingMessage(true);
 
     try {
-      await addDoc(collection(db, currentTab.collection), {
-        userId: user.uid,
+      // Get Firebase ID token for authentication
+      const token = await user.getIdToken();
+      
+      // Map tab keys to API endpoints (same as website)
+      const room = activeTab === 'investing' ? 'investing' : activeTab;
+      const endpoint = `${apiConfig.baseURL}/api/chat/${room}`;
+      
+      // Prepare message payload
+      const payload = {
         text: newMessageText.trim(),
-        parentId: isReplying && replyTarget ? replyTarget.id : null,
-        timestamp: serverTimestamp(),
-        likedBy: [],
+        userId: user.uid,
+        ...(isReplying && replyTarget ? { parentId: replyTarget.id } : {})
+      };
+
+      // Send message via API
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send message');
+      }
+
+      // Clear form on success
       setNewMessageText('');
       setReplyTarget(null);
       setIsReplying(false);
