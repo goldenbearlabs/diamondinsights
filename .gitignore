@@ -16,26 +16,63 @@
 # next.js
 /.next/
 /out/
+/build/
 
-# production
-/build
+# Firebase
+.firebase/
+.firebaserc
+firebase-debug.log
+firestore-debug.log
+
+# Expo
+.expo/
+.expo-shared/
+web-build/
+
+# React Native
+android/
+ios/
+*.keystore
+*.jks
+*.hprof
+
+# Xcode
+*.xcworkspace
+*.xcodeproj
+*.xcuserstate
+*.xcuserdata
+*.pbxuser
+
+# Gradle
+.gradle/
+build/
+*.iml
+local.properties
 
 # misc
 .DS_Store
 *.pem
 
-# debug
+# debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (optional: remove * to commit specific ones)
 .env*
+.env.local
+.env.*.local
 
 # vercel
-.vercel
+.vercel/
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# metro bundler cache
+.expo/.metro-cache/
+
+# OS
+Thumbs.db
