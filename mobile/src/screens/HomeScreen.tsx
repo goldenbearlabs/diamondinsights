@@ -24,10 +24,14 @@ import {
   Dimensions,
   Linking,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 // Import our custom components and design system
 import { theme } from '../styles/theme';
 import { useFeaturedPlayers } from '../hooks/useApi';
+import { useAuth } from '../contexts/AuthContext';
+import type { RootStackParamList } from '../navigation/AppNavigator';
 
 // Import icons for How It Works section
 import { Ionicons } from '@expo/vector-icons';
@@ -45,7 +49,12 @@ const { width: screenWidth } = Dimensions.get('window');
  * - Player cards with focus/blur effects
  * - Responsive layout for mobile screens
  */
+type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
+
 export const HomeScreen: React.FC = () => {
+  const navigation = useNavigation<HomeScreenNavigationProp>();
+  const { user } = useAuth();
+  
   // Fetch the exact same featured players as website
   const { 
     data: featuredPlayers, 
@@ -72,13 +81,15 @@ export const HomeScreen: React.FC = () => {
   };
 
   const handleGetStarted = () => {
-    console.log('Navigate to signup');
-    // TODO: Navigate to signup
+    navigation.navigate('Signup');
+  };
+
+  const handleViewPortfolio = () => {
+    navigation.navigate('Main', { screen: 'Portfolio' });
   };
 
   const handleViewPredictions = () => {
-    console.log('Navigate to predictions');
-    // TODO: Navigate to predictions tab
+    navigation.navigate('Main', { screen: 'Predictions' });
   };
 
   /**
@@ -115,9 +126,15 @@ export const HomeScreen: React.FC = () => {
               Get ahead of roster updates with machine learning-powered predictions
             </Text>
             <View style={styles.heroCta}>
-              <TouchableOpacity style={styles.ctaPrimary} onPress={handleGetStarted}>
-                <Text style={styles.ctaPrimaryText}>Get Started Free</Text>
-              </TouchableOpacity>
+              {!user ? (
+                <TouchableOpacity style={styles.ctaPrimary} onPress={handleGetStarted}>
+                  <Text style={styles.ctaPrimaryText}>Get Started Free</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.ctaPrimary} onPress={handleViewPortfolio}>
+                  <Text style={styles.ctaPrimaryText}>View Portfolio</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={styles.ctaSecondary} onPress={handleViewPredictions}>
                 <Text style={styles.ctaSecondaryText}>View Predictions</Text>
               </TouchableOpacity>

@@ -38,6 +38,7 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import { theme } from '../styles/theme';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth, useAuthStatus } from '../contexts/AuthContext';
+import { isOfficialAccount } from '../utils/accounts';
 import { 
   collection,
   query,
@@ -135,10 +136,12 @@ const MessageItem = React.memo<{
   cardNames: Record<string, string>;
   onStartReply: (message: Message) => void;
   onToggleLike: (messageId: string, currentlyLiked: boolean) => void;
+  onDeleteMessage: (messageId: string) => void;
   onUserPress: (userId: string) => void;
   formatTime: (timestamp: number) => string;
   navigation: any;
-}>(({ message, activeTab, cardThumbs, cardNames, onStartReply, onToggleLike, onUserPress, formatTime, navigation }) => {
+  user?: any;
+}>(({ message, activeTab, cardThumbs, cardNames, onStartReply, onToggleLike, onDeleteMessage, onUserPress, formatTime, navigation, user }) => {
   const [collapsed, setCollapsed] = useState(true);
 
   return (
@@ -163,11 +166,26 @@ const MessageItem = React.memo<{
         </TouchableOpacity>
         <View style={styles.messageInfo}>
           <TouchableOpacity onPress={() => onUserPress(message.userId)}>
-            <Text style={styles.username}>{message.username}</Text>
+            <View style={styles.usernameContainer}>
+              <Text style={[
+                styles.username,
+                isOfficialAccount(message.username) && styles.officialUsername
+              ]}>
+                {message.username}
+              </Text>
+              {isOfficialAccount(message.username) && (
+                <Ionicons 
+                  name="checkmark-circle" 
+                  size={16} 
+                  color={theme.colors.primary.main} 
+                  style={styles.verifiedIcon}
+                />
+              )}
+            </View>
           </TouchableOpacity>
           <Text style={styles.timestamp}>{formatTime(message.timestamp)}</Text>
         </View>
-        {activeTab === 'live' && message.playerId && (
+        {activeTab === 'live' && message.playerId && !message.parentId && (
           <TouchableOpacity 
             style={styles.playerTag}
             onPress={() => navigation.navigate('PlayerDetail', {
@@ -221,6 +239,21 @@ const MessageItem = React.memo<{
             />
             <Text style={styles.replyText}>Reply</Text>
           </TouchableOpacity>
+          
+          {/* Delete Button - only show for user's own messages */}
+          {user && message.userId === user.uid && (
+            <TouchableOpacity 
+              style={styles.deleteButton}
+              onPress={() => onDeleteMessage(message.id)}
+            >
+              <Ionicons 
+                name="trash-outline" 
+                size={16} 
+                color="#ef4444" 
+              />
+              <Text style={styles.deleteText}>Delete</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
       
@@ -256,9 +289,11 @@ const MessageItem = React.memo<{
               cardNames={cardNames}
               onStartReply={onStartReply}
               onToggleLike={onToggleLike}
+              onDeleteMessage={onDeleteMessage}
               onUserPress={onUserPress}
               formatTime={formatTime}
               navigation={navigation}
+              user={user}
             />
           ))}
         </View>
@@ -658,6 +693,72 @@ export const CommunityScreen: React.FC = () => {
   };
 
   /**
+   * Handle deleting a message
+   */
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!isAuthenticated || !user) {
+      Alert.alert('Error', 'You must be logged in to delete messages');
+      return;
+    }
+
+    // Confirm deletion
+    Alert.alert(
+      'Delete Message',
+      'Are you sure you want to delete this message? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => performDeleteMessage(messageId)
+        }
+      ]
+    );
+  };
+
+  const performDeleteMessage = async (messageId: string) => {
+    try {
+      const token = await user!.getIdToken();
+      const currentTabData = COMMUNITY_TABS.find(tab => tab.key === activeTab);
+      const room = currentTabData?.collection.replace('chat_', '') || activeTab;
+      
+      const response = await fetch(`${apiConfig.baseURL}/api/chat/${room}/messages/${messageId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      // Remove message from local state
+      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
+      
+      // Also remove from message tree
+      setMessageTree(prevTree => removeMessageFromTree(prevTree, messageId));
+      
+    } catch (error) {
+      console.error('Delete message error:', error);
+      Alert.alert('Error', 'Failed to delete message. Please try again.');
+    }
+  };
+
+  // Helper function to remove message from tree structure
+  const removeMessageFromTree = (tree: MessageTree[], messageId: string): MessageTree[] => {
+    return tree.filter(message => {
+      if (message.id === messageId) {
+        return false; // Remove this message
+      }
+      // Recursively filter replies
+      message.replies = removeMessageFromTree(message.replies, messageId);
+      return true;
+    });
+  };
+
+  /**
    * Toggle like on message using API endpoint (matches web implementation)
    */
   const handleToggleLike = async (messageId: string, currentlyLiked: boolean) => {
@@ -745,6 +846,13 @@ export const CommunityScreen: React.FC = () => {
     handleToggleLike(messageId, currentlyLiked);
   }, [user, activeTab]);
 
+  /**
+   * Memoized delete handler to prevent unnecessary re-renders
+   */
+  const handleDeleteMessageMemo = useCallback((messageId: string) => {
+    handleDeleteMessage(messageId);
+  }, [user, isAuthenticated, activeTab]);
+
 
   /**
    * Render message item (wrapper for FlatList compatibility)
@@ -757,9 +865,11 @@ export const CommunityScreen: React.FC = () => {
       cardNames={cardNames}
       onStartReply={handleStartReplyMemo}
       onToggleLike={handleToggleLikeMemo}
+      onDeleteMessage={handleDeleteMessageMemo}
       onUserPress={handleUserPress}
       formatTime={formatTime}
       navigation={navigation}
+      user={user}
     />
   );
 
@@ -934,7 +1044,22 @@ export const CommunityScreen: React.FC = () => {
                       style={styles.searchResultAvatar}
                       defaultSource={require('../../assets/default_profile.jpg')}
                     />
-                    <Text style={styles.searchResultUsername}>{user.username}</Text>
+                    <View style={styles.searchUsernameContainer}>
+                      <Text style={[
+                        styles.searchResultUsername,
+                        isOfficialAccount(user.username) && styles.officialSearchUsername
+                      ]}>
+                        {user.username}
+                      </Text>
+                      {isOfficialAccount(user.username) && (
+                        <Ionicons 
+                          name="checkmark-circle" 
+                          size={16} 
+                          color={theme.colors.primary.main} 
+                          style={styles.searchVerifiedIcon}
+                        />
+                      )}
+                    </View>
                   </TouchableOpacity>
                 ))
               ) : userSearch.length > 0 ? (
@@ -960,7 +1085,13 @@ export const CommunityScreen: React.FC = () => {
           <View style={styles.inputContainer}>
             {isGuest ? (
               <View style={styles.loginPrompt}>
-                <Text style={styles.loginPromptText}>Sign in to join the chat</Text>
+                <Text style={styles.loginPromptText}>Sign in to join the conversation</Text>
+                <TouchableOpacity 
+                  style={styles.signInButtonContainer}
+                  onPress={() => navigation.navigate('Login')}
+                >
+                  <Text style={styles.signInButton}>Sign In</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <>
@@ -1198,6 +1329,21 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
+  searchUsernameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  officialSearchUsername: {
+    color: theme.colors.primary.main,
+    fontWeight: 'bold',
+  },
+
+  searchVerifiedIcon: {
+    marginLeft: 2,
+  },
+
   // Main Content
   mainContainer: {
     flex: 1,
@@ -1249,6 +1395,21 @@ const styles = StyleSheet.create({
     color: theme.colors.text.primary,
   },
 
+  usernameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  officialUsername: {
+    color: theme.colors.primary.main,
+    fontWeight: 'bold',
+  },
+
+  verifiedIcon: {
+    marginLeft: 2,
+  },
+
   timestamp: {
     fontSize: 12,
     color: theme.colors.text.secondary,
@@ -1258,10 +1419,12 @@ const styles = StyleSheet.create({
   playerTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.primary.main,
+    backgroundColor: theme.colors.background.dark,
+    borderLeftWidth: 2,
+    borderLeftColor: theme.colors.primary.main,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 6,
   },
 
   playerThumb: {
@@ -1273,7 +1436,7 @@ const styles = StyleSheet.create({
 
   playerName: {
     fontSize: 10,
-    color: 'white',
+    color: theme.colors.text.primary,
     fontWeight: '500',
   },
 
@@ -1321,6 +1484,19 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontSize: 12,
     color: theme.colors.text.secondary,
+    fontWeight: '500',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  deleteText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: '#ef4444',
     fontWeight: '500',
   },
 
@@ -1389,6 +1565,19 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+
+  signInButtonContainer: {
+    backgroundColor: theme.colors.primary.main,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+
+  signInButton: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: theme.typography.fontWeight.semibold,
   },
 
   // Trending
@@ -1480,9 +1669,9 @@ const styles = StyleSheet.create({
   },
 
   inputAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     marginRight: 12,
   },
 
@@ -1514,14 +1703,20 @@ const styles = StyleSheet.create({
   },
 
   loginPrompt: {
-    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border.primary,
+    backgroundColor: theme.colors.background.medium,
   },
 
   loginPromptText: {
     fontSize: 16,
     color: theme.colors.text.secondary,
+    marginRight: 12,
   },
 
   // States

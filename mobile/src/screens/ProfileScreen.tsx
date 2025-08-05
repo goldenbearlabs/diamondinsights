@@ -38,6 +38,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth, useAuthStatus } from '../contexts/AuthContext';
+import { isOfficialAccount } from '../utils/accounts';
 import { apiClient, apiConfig } from '../services/api';
 import { storage, auth, db } from '../services/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
@@ -97,6 +98,9 @@ export const ProfileScreen: React.FC = () => {
   // Toast notification state
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  
+  // Tooltip state
+  const [showPortfolioTooltip, setShowPortfolioTooltip] = useState(false);
   
   // Edit profile modal state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -742,9 +746,22 @@ Thank you!`;
             />
           </View>
           
-          <Text style={styles.displayName}>
-            {userProfile?.displayName || user?.displayName || 'User'}
-          </Text>
+          <View style={styles.profileDisplayNameContainer}>
+            <Text style={[
+              styles.displayName,
+              isOfficialAccount(userProfile?.displayName || user?.displayName || '') && styles.officialDisplayName
+            ]}>
+              {userProfile?.displayName || user?.displayName || 'User'}
+            </Text>
+            {isOfficialAccount(userProfile?.displayName || user?.displayName || '') && (
+              <Ionicons 
+                name="checkmark-circle" 
+                size={20} 
+                color={theme.colors.primary.main} 
+                style={styles.profileDisplayVerifiedIcon}
+              />
+            )}
+          </View>
           <Text style={styles.email}>
             {userProfile?.email || user?.email || 'No email'}
           </Text>
@@ -752,6 +769,7 @@ Thank you!`;
             Member since {userProfile?.createdAt ? 
               new Date(userProfile.createdAt.toDate()).toLocaleDateString('en-US', { 
                 month: 'long', 
+                day: 'numeric',
                 year: 'numeric' 
               }) : 'Recently'
             }
@@ -817,15 +835,54 @@ Thank you!`;
           </View>
           
           <View style={styles.settingItem}>
-            <Text style={styles.settingLabel}>Public Portfolio</Text>
+            <View style={styles.settingLabelContainer}>
+              <Text style={styles.settingLabel}>Public Portfolio</Text>
+              <TouchableOpacity 
+                onPress={() => setShowPortfolioTooltip(!showPortfolioTooltip)}
+                style={styles.infoIconButton}
+              >
+                <Ionicons 
+                  name="information-circle-outline" 
+                  size={18} 
+                  color={theme.colors.primary.main} 
+                />
+              </TouchableOpacity>
+            </View>
             <Switch
               value={settings.publicPortfolio}
               onValueChange={(value) => updateSetting('publicPortfolio', value)}
             />
           </View>
           
+          {/* Public Portfolio Tooltip */}
+          {showPortfolioTooltip && (
+            <View style={styles.tooltipContainer}>
+              <View style={styles.tooltip}>
+                <Text style={styles.tooltipText}>
+                  Public investments are viewable by anyone visiting your profile. Private investments are only visible to you.
+                </Text>
+                <TouchableOpacity 
+                  onPress={() => setShowPortfolioTooltip(false)}
+                  style={styles.tooltipCloseButton}
+                >
+                  <Text style={styles.tooltipCloseText}>Got it</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+          
           <TouchableOpacity 
             style={[styles.actionButton, { marginTop: 16 }]} 
+            onPress={() => navigation.navigate('About')}
+          >
+            <View style={styles.buttonContent}>
+              <Ionicons name="information-circle-outline" size={20} color={theme.colors.text.primary} />
+              <Text style={styles.actionButtonText}>About</Text>
+            </View>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionButton} 
             onPress={handleContactSupport}
           >
             <View style={styles.buttonContent}>
@@ -1193,6 +1250,22 @@ const styles = StyleSheet.create({
     color: theme.colors.text.primary,
     marginBottom: 4,
   },
+
+  profileDisplayNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+
+  officialDisplayName: {
+    color: theme.colors.primary.main,
+  },
+
+  profileDisplayVerifiedIcon: {
+    marginLeft: 4,
+  },
   
   email: {
     fontSize: 16,
@@ -1484,5 +1557,58 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.text.secondary,
     fontWeight: '400',
+  },
+
+  // Public Portfolio tooltip styles
+  settingLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  infoIconButton: {
+    padding: 2,
+  },
+
+  tooltipContainer: {
+    marginTop: 8,
+    marginHorizontal: -4,
+  },
+
+  tooltip: {
+    backgroundColor: theme.colors.surface.elevated,
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.primary.main,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  tooltipText: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+
+  tooltipCloseButton: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.primary.main,
+    borderRadius: 6,
+  },
+
+  tooltipCloseText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

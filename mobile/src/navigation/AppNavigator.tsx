@@ -23,6 +23,7 @@ import { UserProfileScreen } from '../screens/UserProfileScreen';
 import { UserInvestmentScreen } from '../screens/UserInvestmentScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { SignupScreen } from '../screens/SignupScreen';
+import { AboutScreen } from '../screens/AboutScreen';
 import { NavigatorScreenParams } from '@react-navigation/native';
 
 /**
@@ -45,6 +46,7 @@ export type RootStackParamList = {
   // Future screens can be added here
   Login: undefined;
   Signup: undefined;
+  About: undefined;
 };
 
 // Create the Stack Navigator instance
@@ -130,6 +132,15 @@ export const AppNavigator: React.FC = () => {
         <Stack.Screen 
           name="Signup" 
           component={SignupScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        
+        {/* About Screen */}
+        <Stack.Screen 
+          name="About" 
+          component={AboutScreen}
           options={{
             headerShown: false,
           }}

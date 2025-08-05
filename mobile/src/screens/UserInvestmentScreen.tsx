@@ -412,17 +412,17 @@ export const UserInvestmentScreen: React.FC = () => {
 
                       <View style={styles.investmentRow}>
                         <View style={styles.investmentDetail}>
-                          <Text style={styles.detailLabel}>Your OVR</Text>
+                          <Text style={styles.detailLabel}>Your Pred. OVR</Text>
                           <Text style={styles.detailValue}>{investment.userProjectedOvr}</Text>
                         </View>
                         
                         <View style={styles.investmentDetail}>
-                          <Text style={styles.detailLabel}>AI QS</Text>
+                          <Text style={styles.detailLabel}>AI Pred. QS</Text>
                           <Text style={styles.detailValue}>{aiQsValue}</Text>
                         </View>
                         
                         <View style={styles.investmentDetail}>
-                          <Text style={styles.detailLabel}>Your QS</Text>
+                          <Text style={styles.detailLabel}>Your Pred. QS</Text>
                           <Text style={styles.detailValue}>{myQsValue}</Text>
                         </View>
                       </View>
@@ -430,7 +430,7 @@ export const UserInvestmentScreen: React.FC = () => {
                       {/* Profit/Loss */}
                       <View style={styles.profitRow}>
                         <View style={styles.profitDetail}>
-                          <Text style={styles.profitLabel}>AI Potential</Text>
+                          <Text style={styles.profitLabel}>AI Potential Profit</Text>
                           <Text style={[
                             styles.profitValue,
                             { color: aiProfit >= 0 ? '#10b981' : '#ef4444' }
@@ -440,7 +440,7 @@ export const UserInvestmentScreen: React.FC = () => {
                         </View>
                         
                         <View style={styles.profitDetail}>
-                          <Text style={styles.profitLabel}>Your Potential</Text>
+                          <Text style={styles.profitLabel}>Your Potential Profit</Text>
                           <Text style={[
                             styles.profitValue,
                             { color: myProfit >= 0 ? '#10b981' : '#ef4444' }

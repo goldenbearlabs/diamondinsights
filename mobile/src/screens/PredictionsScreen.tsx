@@ -11,7 +11,7 @@
  * 5. Performance optimization for large datasets
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -67,17 +67,20 @@ interface PredictionCard {
   predicted_profit_pct: number;
 }
 
+// Loading messages that rotate every 1.5 seconds
+const LOADING_MESSAGES = [
+  "Loading predictions...",
+  "Analyzing player data...",
+  "Getting latest predictions...",
+  "Processing AI insights...",
+  "Fetching market data...",
+  "Calculating confidence scores...",
+  "Almost ready..."
+];
+
 export const PredictionsScreen: React.FC = () => {
   const navigation = useNavigation<PredictionsScreenNavigationProp>();
   
-  // Real API data integration
-  const { 
-    data: predictions, 
-    isLoading, 
-    error, 
-    refresh 
-  } = usePlayerCards();
-
   // UI state
   const [searchText, setSearchText] = useState('');
   const [selectedRarity, setSelectedRarity] = useState<'all' | 'diamond' | 'gold' | 'silver' | 'bronze' | 'common'>('all');
@@ -85,55 +88,90 @@ export const PredictionsScreen: React.FC = () => {
   const [sortBy, setSortBy] = useState<'confidence' | 'profit' | 'upgrade' | 'downgrade'>('confidence');
   const [refreshing, setRefreshing] = useState(false);
   
+  // Loading message rotation state
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+
+  
   // Dropdown state
   const [dropdownOpen, setDropdownOpen] = useState<'rarity' | 'type' | 'sort' | null>(null);
 
-  /**
-   * LEARNING NOTE: Data Filtering
-   * Mobile apps need efficient filtering for good performance
-   */
-  const filteredPredictions = useMemo(() => {
-    if (!predictions) return [];
-    
-    return predictions.filter(prediction => {
-      const matchesSearch = prediction.name?.toLowerCase().includes(searchText.toLowerCase()) ?? false;
-      const matchesRarity = selectedRarity === 'all' || prediction.rarity?.toLowerCase() === selectedRarity;
-      const matchesType = selectedType === 'all' || 
-        (selectedType === 'hitters' && prediction.is_hitter) ||
-        (selectedType === 'pitchers' && !prediction.is_hitter);
-      
-      return matchesSearch && matchesRarity && matchesType;
-    });
-  }, [predictions, searchText, selectedRarity, selectedType]);
+  // Load all player cards upfront (simple approach)
+  const { 
+    data: allCards, 
+    isLoading, 
+    error, 
+    refresh 
+  } = usePlayerCards();
 
-  /**
-   * LEARNING NOTE: Data Sorting
-   * Sort filtered data based on selected criteria
-   */
-  const sortedPredictions = useMemo(() => {
-    return [...filteredPredictions].sort((a, b) => {
+  // Rotate loading messages every 1.5 seconds while loading
+  useEffect(() => {
+    if (!isLoading) {
+      // Reset to first message when not loading
+      setLoadingMessageIndex(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setLoadingMessageIndex(prevIndex => 
+        (prevIndex + 1) % LOADING_MESSAGES.length
+      );
+    }, 1500); // Change message every 1.5 seconds
+
+    // Cleanup interval when component unmounts or loading stops
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
+  // Client-side filtering and searching (instant after initial load)
+  const predictions = useMemo(() => {
+    if (!allCards) return [];
+    
+    let filtered = allCards;
+    
+    // Apply search filter
+    if (searchText.trim()) {
+      const searchLower = searchText.toLowerCase().trim();
+      filtered = filtered.filter(card => 
+        (card.name || '').toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Apply rarity filter
+    if (selectedRarity !== 'all') {
+      filtered = filtered.filter(card => 
+        (card.rarity || '').toLowerCase() === selectedRarity.toLowerCase()
+      );
+    }
+    
+    // Apply type filter
+    if (selectedType !== 'all') {
+      if (selectedType === 'hitters') {
+        filtered = filtered.filter(card => card.is_hitter);
+      } else if (selectedType === 'pitchers') {
+        filtered = filtered.filter(card => !card.is_hitter);
+      }
+    }
+    
+    // Apply sorting
+    const sorted = [...filtered].sort((a, b) => {
       switch (sortBy) {
         case 'confidence':
-          const aConf = typeof a.confidence_percentage === 'number' ? a.confidence_percentage : 0;
-          const bConf = typeof b.confidence_percentage === 'number' ? b.confidence_percentage : 0;
-          return bConf - aConf;
+          return (b.confidence_percentage || 0) - (a.confidence_percentage || 0);
         case 'profit':
-          const aProfit = typeof a.predicted_profit === 'number' ? a.predicted_profit : 0;
-          const bProfit = typeof b.predicted_profit === 'number' ? b.predicted_profit : 0;
-          return bProfit - aProfit;
+          return (b.predicted_profit || 0) - (a.predicted_profit || 0);
         case 'upgrade':
-          const aUpgrade = typeof a.delta_rank_pred === 'number' ? a.delta_rank_pred : 0;
-          const bUpgrade = typeof b.delta_rank_pred === 'number' ? b.delta_rank_pred : 0;
-          return bUpgrade - aUpgrade; // High to low (biggest upgrades first)
+          return (b.delta_rank_pred || 0) - (a.delta_rank_pred || 0);
         case 'downgrade':
-          const aDowngrade = typeof a.delta_rank_pred === 'number' ? a.delta_rank_pred : 0;
-          const bDowngrade = typeof b.delta_rank_pred === 'number' ? b.delta_rank_pred : 0;
-          return aDowngrade - bDowngrade; // Low to high (biggest downgrades first)
+          return (a.delta_rank_pred || 0) - (b.delta_rank_pred || 0); // Most negative first
         default:
-          return 0;
+          return (b.confidence_percentage || 0) - (a.confidence_percentage || 0);
       }
     });
-  }, [filteredPredictions, sortBy]);
+    
+    return sorted;
+  }, [allCards, searchText, selectedRarity, selectedType, sortBy]);
+
+  // Show skeleton loading during initial load
+  const showSkeleton = isLoading && !allCards;
 
   /**
    * LEARNING NOTE: Pull-to-Refresh
@@ -150,6 +188,7 @@ export const PredictionsScreen: React.FC = () => {
     }
   };
 
+
   /**
    * LEARNING NOTE: Navigation Handlers
    * Navigate to PlayerDetail screen with player data
@@ -160,6 +199,7 @@ export const PredictionsScreen: React.FC = () => {
       playerName: playerName,
     });
   };
+
 
   /**
    * LEARNING NOTE: Card Component
@@ -250,13 +290,37 @@ export const PredictionsScreen: React.FC = () => {
     <PredictionCard item={item} />
   );
 
-  // Loading state
-  if (isLoading) {
+
+  // Loading state for initial load only
+  if (showSkeleton) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>AI Predictions</Text>
+          <Text style={styles.subtitle}>Latest player rating predictions</Text>
+        </View>
+
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputContainer}>
+            <Ionicons name="search" size={20} color={theme.colors.text.secondary} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search players..."
+              placeholderTextColor={theme.colors.text.secondary}
+              value={searchText}
+              onChangeText={setSearchText}
+              autoCapitalize="words"
+              autoCorrect={false}
+            />
+          </View>
+        </View>
+
+        {/* Skeleton Loading */}
+        <View style={styles.skeletonContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary.main} />
-          <Text style={styles.loadingText}>Loading predictions...</Text>
+          <Text style={styles.loadingText}>{LOADING_MESSAGES[loadingMessageIndex]}</Text>
         </View>
       </SafeAreaView>
     );
@@ -431,13 +495,26 @@ export const PredictionsScreen: React.FC = () => {
       {/* Results Count */}
       <View style={styles.resultsContainer}>
         <Text style={styles.resultsText}>
-          {sortedPredictions.length} predictions found
+          {predictions.length} predictions
+          {searchText.trim() && ` found for "${searchText.trim()}"`}
+          {(selectedRarity !== 'all' || selectedType !== 'all' || sortBy !== 'confidence') && (
+            ` (filtered)`
+          )}
         </Text>
+        {(selectedRarity !== 'all' || selectedType !== 'all' || sortBy !== 'confidence') && (
+          <Text style={styles.filterStatusText}>
+            {selectedRarity !== 'all' && `Rarity: ${selectedRarity}`}
+            {selectedRarity !== 'all' && selectedType !== 'all' && ' • '}
+            {selectedType !== 'all' && `Type: ${selectedType}`}
+            {(selectedRarity !== 'all' || selectedType !== 'all') && sortBy !== 'confidence' && ' • '}
+            {sortBy !== 'confidence' && `Sort: ${sortBy}`}
+          </Text>
+        )}
       </View>
 
       {/* Predictions List */}
       <FlatList
-        data={sortedPredictions}
+        data={predictions}
         renderItem={renderPredictionItem}
         keyExtractor={(item) => item.id}
         style={styles.list}
@@ -451,6 +528,20 @@ export const PredictionsScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        // Performance optimizations
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={20}
+        windowSize={10}
+        initialNumToRender={15}
+        ListEmptyComponent={() => 
+          !isLoading ? (
+            <View style={styles.endContainer}>
+              <Text style={styles.endText}>
+                {searchText.trim() ? `No players found for "${searchText.trim()}"` : 'No predictions available'}
+              </Text>
+            </View>
+          ) : null
+        }
       />
     </SafeAreaView>
   );
@@ -783,5 +874,31 @@ const styles = StyleSheet.create({
   profitPercent: {
     fontSize: 14,
     fontWeight: '400',
+  },
+
+  endContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+
+  endText: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    fontStyle: 'italic',
+  },
+
+  // Skeleton loading styles
+  skeletonContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background.dark,
+  },
+
+  filterStatusText: {
+    fontSize: 11,
+    color: theme.colors.text.secondary,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
 });

@@ -11,7 +11,7 @@
  * 5. TypeScript generics for reusable hooks
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { apiClient } from '../services/api';
 
 /**
@@ -332,6 +332,14 @@ export const useUserInvestments = (options?: UseApiOptions) => {
 };
 
 /**
+ * Hook for fetching user investments with player data (optimized)
+ * This reduces API calls and payload size significantly for portfolio loading
+ */
+export const useUserInvestmentsWithPlayers = (options?: UseApiOptions) => {
+  return useApi(() => apiClient.getUserInvestmentsWithPlayers(), options);
+};
+
+/**
  * Hook for fetching public portfolio for a specific user
  */
 export const usePublicPortfolio = (userId: string, options?: UseApiOptions) => {
@@ -357,6 +365,7 @@ export const useUserProfile = (userId: string, options?: UseApiOptions) => {
     ...options,
   });
 };
+
 
 /**
  * INVESTMENT ACTION HOOKS

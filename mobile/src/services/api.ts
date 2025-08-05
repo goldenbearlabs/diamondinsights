@@ -62,6 +62,24 @@ export interface Investment {
   createdAt: string;
 }
 
+// Enhanced investment with player data (from optimized endpoint)
+export interface InvestmentWithPlayer extends Investment {
+  playerCard: {
+    id: string;
+    name: string;
+    team: string;
+    position: string;
+    ovr: number;
+    predicted_rank: number;
+    predicted_rank_low: number;
+    predicted_rank_high: number;
+    confidence_percentage: number;
+    qs_pred: number;
+    baked_img: string | null;
+    delta_rank_pred: number;
+  };
+}
+
 // Portfolio summary matching website calculations
 export interface PortfolioSummary {
   cost: number;           // Total investment cost
@@ -245,6 +263,9 @@ class ApiClient {
     return this.request<PlayerCard[]>('/api/cards/live');
   }
 
+
+
+
   /**
    * Get specific player data (matches /api/cards/[cardId])
    */
@@ -297,6 +318,15 @@ class ApiClient {
     // Ensure we have an auth token before making the request
     await this.ensureAuthenticated();
     return this.request<Investment[]>('/api/investments');
+  }
+
+  /**
+   * Get user's investments with player data (optimized endpoint)
+   * Reduces API calls and payload size significantly
+   */
+  async getUserInvestmentsWithPlayers(): Promise<InvestmentWithPlayer[]> {
+    await this.ensureAuthenticated();
+    return this.request<InvestmentWithPlayer[]>('/api/investments/with-players');
   }
 
   /**

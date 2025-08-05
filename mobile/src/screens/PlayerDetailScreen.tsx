@@ -35,6 +35,7 @@ import { usePlayer } from '../hooks/useApi';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../contexts/AuthContext';
 import { apiConfig } from '../services/api';
+import { isOfficialAccount } from '../utils/accounts';
 
 // Type definitions
 type PlayerDetailRouteProp = RouteProp<RootStackParamList, 'PlayerDetail'>;
@@ -177,6 +178,12 @@ export const PlayerDetailScreen: React.FC = () => {
   const [showComments, setShowComments] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
+  
+  // Reply state
+  const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [postingReply, setPostingReply] = useState(false);
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const [votesLoading, setVotesLoading] = useState(false);
   const [votingInProgress, setVotingInProgress] = useState(false);
   
@@ -328,6 +335,113 @@ export const PlayerDetailScreen: React.FC = () => {
       setPostingComment(false);
     }
   }, [newComment, user, playerId, loadComments, postingComment]);
+
+  /**
+   * Handle deleting a comment
+   */
+  const handleDeleteComment = useCallback(async (commentId: string) => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to delete comments');
+      return;
+    }
+
+    // Confirm deletion
+    Alert.alert(
+      'Delete Comment',
+      'Are you sure you want to delete this comment? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => performDeleteComment(commentId)
+        }
+      ]
+    );
+  }, [user]);
+
+  const performDeleteComment = async (commentId: string) => {
+    try {
+      const token = await user!.getIdToken();
+      
+      const response = await fetch(`${apiConfig.baseURL}/api/cards/${playerId}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      // Remove comment from local state
+      setComments(prevComments => prevComments.filter(comment => comment.id !== commentId));
+      
+    } catch (error) {
+      console.error('Delete comment error:', error);
+      Alert.alert('Error', 'Failed to delete comment. Please try again.');
+    }
+  };
+
+  /**
+   * Handle starting a reply to a comment
+   */
+  const handleStartReply = useCallback((comment: Comment) => {
+    setReplyingTo(comment);
+    setReplyText(`@${comment.username} `);
+  }, []);
+
+  /**
+   * Handle canceling a reply
+   */
+  const handleCancelReply = useCallback(() => {
+    setReplyingTo(null);
+    setReplyText('');
+  }, []);
+
+  /**
+   * Handle posting a reply
+   */
+  const handlePostReply = useCallback(async (parentId: string) => {
+    if (!replyText.trim() || !user || postingReply) return;
+    
+    setPostingReply(true);
+    
+    try {
+      // Get Firebase ID token for authentication
+      const token = await user.getIdToken();
+      
+      // Send reply to API with parentId
+      const response = await fetch(`${apiConfig.baseURL}/api/cards/${playerId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          text: replyText.trim(),
+          parentId: parentId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to post reply');
+      }
+      
+      // Clear reply state and reload comments to show the new reply
+      setReplyingTo(null);
+      setReplyText('');
+      await loadComments();
+    } catch (error) {
+      console.error('Error posting reply:', error);
+      Alert.alert('Error', 'Failed to post reply. Please try again.');
+    } finally {
+      setPostingReply(false);
+    }
+  }, [replyText, user, playerId, loadComments, postingReply]);
   
   // Handle user profile navigation
   const handleUserPress = useCallback((userId: string) => {
@@ -566,32 +680,220 @@ export const PlayerDetailScreen: React.FC = () => {
                 </View>
               ) : (
                 <View style={styles.commentsList}>
-                  {comments.map((comment) => (
-                    <View key={comment.id} style={styles.commentItem}>
-                      <View style={styles.commentHeader}>
-                        <TouchableOpacity onPress={() => handleUserPress(comment.userId)}>
-                          <Image
-                            source={
-                              comment.profilePicUrl
-                                ? { uri: comment.profilePicUrl }
-                                : require('../../assets/default_profile.jpg')
-                            }
-                            style={styles.commentAvatar}
-                            defaultSource={require('../../assets/default_profile.jpg')}
-                          />
-                        </TouchableOpacity>
-                        <View style={styles.commentUserInfo}>
-                          <TouchableOpacity onPress={() => handleUserPress(comment.userId)}>
-                            <Text style={styles.commentUsername}>{comment.username}</Text>
-                          </TouchableOpacity>
-                          <Text style={styles.commentTime}>
-                            {comment.timestamp ? new Date(comment.timestamp).toLocaleDateString() : 'Unknown'}
-                          </Text>
+                  {comments
+                    .filter(comment => !comment.parentId) // Only top-level comments
+                    .map((comment) => {
+                      const replies = comments.filter(reply => reply.parentId === comment.id);
+                      const isThreadExpanded = expandedThreads.has(comment.id);
+                      
+                      return (
+                        <View key={comment.id}>
+                          {/* Top-level comment */}
+                          <View style={styles.commentItem}>
+                            <View style={styles.commentHeader}>
+                              <TouchableOpacity onPress={() => handleUserPress(comment.userId)}>
+                                <Image
+                                  source={
+                                    comment.profilePicUrl
+                                      ? { uri: comment.profilePicUrl }
+                                      : require('../../assets/default_profile.jpg')
+                                  }
+                                  style={styles.commentAvatar}
+                                  defaultSource={require('../../assets/default_profile.jpg')}
+                                />
+                              </TouchableOpacity>
+                              <View style={styles.commentUserInfo}>
+                                <TouchableOpacity onPress={() => handleUserPress(comment.userId)}>
+                                  <View style={styles.commentUsernameContainer}>
+                                    <Text style={[
+                                      styles.commentUsername,
+                                      isOfficialAccount(comment.username) && styles.officialCommentUsername
+                                    ]}>
+                                      {comment.username}
+                                    </Text>
+                                    {isOfficialAccount(comment.username) && (
+                                      <Ionicons 
+                                        name="checkmark-circle" 
+                                        size={14} 
+                                        color={theme.colors.primary.main} 
+                                        style={styles.commentVerifiedIcon}
+                                      />
+                                    )}
+                                  </View>
+                                </TouchableOpacity>
+                                <Text style={styles.commentTime}>
+                                  {comment.timestamp ? new Date(comment.timestamp).toLocaleDateString() : 'Unknown'}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text style={styles.commentText}>{comment.text}</Text>
+                            
+                            {/* Comment Actions */}
+                            <View style={styles.commentActions}>
+                              {/* Reply button */}
+                              {user && (
+                                <TouchableOpacity 
+                                  style={styles.commentReplyButton}
+                                  onPress={() => handleStartReply(comment)}
+                                >
+                                  <Ionicons 
+                                    name="chatbubble-outline" 
+                                    size={14} 
+                                    color={theme.colors.text.secondary} 
+                                  />
+                                  <Text style={styles.commentReplyText}>Reply</Text>
+                                </TouchableOpacity>
+                              )}
+                              
+                              {/* Delete button - only show for user's own comments */}
+                              {user && comment.userId === user.uid && (
+                                <TouchableOpacity 
+                                  style={styles.commentDeleteButton}
+                                  onPress={() => handleDeleteComment(comment.id)}
+                                >
+                                  <Ionicons 
+                                    name="trash-outline" 
+                                    size={14} 
+                                    color="#ef4444" 
+                                  />
+                                  <Text style={styles.commentDeleteText}>Delete</Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                            
+                            {/* Reply Input - show if this comment is being replied to */}
+                            {replyingTo && replyingTo.id === comment.id && (
+                              <View style={styles.replyInputContainer}>
+                                <TextInput
+                                  style={styles.replyInput}
+                                  value={replyText}
+                                  onChangeText={setReplyText}
+                                  placeholder={`Reply to ${comment.username}...`}
+                                  multiline={true}
+                                  maxLength={500}
+                                  editable={!postingReply}
+                                />
+                                <View style={styles.replyActions}>
+                                  <TouchableOpacity 
+                                    style={styles.replyCancel}
+                                    onPress={handleCancelReply}
+                                  >
+                                    <Text style={styles.replyCancelText}>Cancel</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity 
+                                    style={[
+                                      styles.replyPost,
+                                      (!replyText.trim() || postingReply) && styles.replyPostDisabled
+                                    ]}
+                                    onPress={() => handlePostReply(comment.id)}
+                                    disabled={!replyText.trim() || postingReply}
+                                  >
+                                    {postingReply ? (
+                                      <ActivityIndicator size="small" color="white" />
+                                    ) : (
+                                      <Text style={styles.replyPostText}>Post Reply</Text>
+                                    )}
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+                          
+                          {/* Replies Toggle and Thread */}
+                          {replies.length > 0 && (
+                            <View style={styles.repliesContainer}>
+                              <TouchableOpacity 
+                                style={styles.repliesToggle}
+                                onPress={() => {
+                                  const newExpanded = new Set(expandedThreads);
+                                  if (isThreadExpanded) {
+                                    newExpanded.delete(comment.id);
+                                  } else {
+                                    newExpanded.add(comment.id);
+                                  }
+                                  setExpandedThreads(newExpanded);
+                                }}
+                              >
+                                <Ionicons 
+                                  name={isThreadExpanded ? "chevron-up" : "chevron-down"} 
+                                  size={16} 
+                                  color={theme.colors.primary.main} 
+                                />
+                                <Text style={styles.repliesToggleText}>
+                                  {isThreadExpanded ? 'Hide' : 'Show'} {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+                                </Text>
+                              </TouchableOpacity>
+                              
+                              {/* Replies List */}
+                              {isThreadExpanded && (
+                                <View style={styles.repliesList}>
+                                  {replies.map((reply) => (
+                                    <View key={reply.id} style={styles.replyItem}>
+                                      <View style={styles.commentHeader}>
+                                        <TouchableOpacity onPress={() => handleUserPress(reply.userId)}>
+                                          <Image
+                                            source={
+                                              reply.profilePicUrl
+                                                ? { uri: reply.profilePicUrl }
+                                                : require('../../assets/default_profile.jpg')
+                                            }
+                                            style={styles.replyAvatar}
+                                            defaultSource={require('../../assets/default_profile.jpg')}
+                                          />
+                                        </TouchableOpacity>
+                                        <View style={styles.commentUserInfo}>
+                                          <TouchableOpacity onPress={() => handleUserPress(reply.userId)}>
+                                            <View style={styles.commentUsernameContainer}>
+                                              <Text style={[
+                                                styles.commentUsername,
+                                                isOfficialAccount(reply.username) && styles.officialCommentUsername
+                                              ]}>
+                                                {reply.username}
+                                              </Text>
+                                              {isOfficialAccount(reply.username) && (
+                                                <Ionicons 
+                                                  name="checkmark-circle" 
+                                                  size={14} 
+                                                  color={theme.colors.primary.main} 
+                                                  style={styles.commentVerifiedIcon}
+                                                />
+                                              )}
+                                            </View>
+                                          </TouchableOpacity>
+                                          <Text style={styles.commentTime}>
+                                            {reply.timestamp ? new Date(reply.timestamp).toLocaleDateString() : 'Unknown'}
+                                          </Text>
+                                        </View>
+                                      </View>
+                                      <Text style={styles.commentText}>{reply.text}</Text>
+                                      
+                                      {/* Reply Actions */}
+                                      <View style={styles.commentActions}>
+                                        {/* Delete button - only show for user's own replies */}
+                                        {user && reply.userId === user.uid && (
+                                          <TouchableOpacity 
+                                            style={styles.commentDeleteButton}
+                                            onPress={() => handleDeleteComment(reply.id)}
+                                          >
+                                            <Ionicons 
+                                              name="trash-outline" 
+                                              size={14} 
+                                              color="#ef4444" 
+                                            />
+                                            <Text style={styles.commentDeleteText}>Delete</Text>
+                                          </TouchableOpacity>
+                                        )}
+                                      </View>
+                                    </View>
+                                  ))}
+                                </View>
+                              )}
+                            </View>
+                          )}
                         </View>
-                      </View>
-                      <Text style={styles.commentText}>{comment.text}</Text>
-                    </View>
-                  ))}
+                      );
+                    })
+                  }
                 </View>
               )}
             </View>
@@ -1341,6 +1643,22 @@ const styles = StyleSheet.create({
     color: theme.colors.text.primary,
     marginBottom: 4,
   },
+
+  commentUsernameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+
+  officialCommentUsername: {
+    color: theme.colors.primary.main,
+    fontWeight: 'bold',
+  },
+
+  commentVerifiedIcon: {
+    marginLeft: 2,
+  },
   
   commentText: {
     fontSize: 14,
@@ -1368,6 +1686,147 @@ const styles = StyleSheet.create({
 
   commentUserInfo: {
     flex: 1,
+  },
+  
+  commentDeleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  
+  commentDeleteText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: '#ef4444',
+    fontWeight: '500',
+  },
+
+  commentActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+    gap: 12,
+  },
+
+  commentReplyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+
+  commentReplyText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: theme.colors.text.secondary,
+    fontWeight: '500',
+  },
+
+  replyInputContainer: {
+    backgroundColor: theme.colors.background.light,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border.primary,
+  },
+
+  replyInput: {
+    backgroundColor: theme.colors.background.dark,
+    borderRadius: 6,
+    padding: 12,
+    color: theme.colors.text.primary,
+    fontSize: 14,
+    minHeight: 60,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: theme.colors.border.primary,
+  },
+
+  replyActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 8,
+  },
+
+  replyCancel: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+
+  replyCancelText: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    fontWeight: '500',
+  },
+
+  replyPost: {
+    backgroundColor: theme.colors.primary.main,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+
+  replyPostDisabled: {
+    backgroundColor: theme.colors.text.secondary,
+    opacity: 0.5,
+  },
+
+  replyPostText: {
+    fontSize: 14,
+    color: 'white',
+    fontWeight: '600',
+  },
+
+  repliesContainer: {
+    marginLeft: 16,
+    marginTop: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: theme.colors.border.primary,
+    paddingLeft: 12,
+  },
+
+  repliesToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 6,
+  },
+
+  repliesToggleText: {
+    fontSize: 13,
+    color: theme.colors.primary.main,
+    fontWeight: '500',
+  },
+
+  repliesList: {
+    marginTop: 8,
+  },
+
+  replyItem: {
+    backgroundColor: theme.colors.background.light,
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border.primary,
+  },
+
+  replyAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.colors.background.dark,
+    marginRight: 8,
   },
 
   loginPromptContainer: {

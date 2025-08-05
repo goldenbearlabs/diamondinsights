@@ -30,6 +30,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiClient, Investment, apiConfig } from '../services/api';
+import { isOfficialAccount } from '../utils/accounts';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
@@ -188,6 +189,7 @@ export const UserProfileScreen: React.FC = () => {
       const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
       return `Joined ${date.toLocaleDateString('en-US', { 
         month: 'long', 
+        day: 'numeric',
         year: 'numeric' 
       })}`;
     } catch {
@@ -277,7 +279,22 @@ export const UserProfileScreen: React.FC = () => {
             style={styles.profileImage}
             defaultSource={require('../../assets/default_profile.jpg')}
           />
-          <Text style={styles.username}>{profile.username}</Text>
+          <View style={styles.profileUsernameContainer}>
+            <Text style={[
+              styles.username,
+              isOfficialAccount(profile.username) && styles.officialUsername
+            ]}>
+              {profile.username}
+            </Text>
+            {isOfficialAccount(profile.username) && (
+              <Ionicons 
+                name="checkmark-circle" 
+                size={20} 
+                color={theme.colors.primary.main} 
+                style={styles.profileVerifiedIcon}
+              />
+            )}
+          </View>
           <Text style={styles.joinDate}>{formatJoinDate(profile.createdAt)}</Text>
         </View>
 
@@ -402,6 +419,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: theme.colors.text.primary,
     marginBottom: 4,
+  },
+
+  profileUsernameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+
+  officialUsername: {
+    color: theme.colors.primary.main,
+  },
+
+  profileVerifiedIcon: {
+    marginLeft: 4,
   },
 
   joinDate: {

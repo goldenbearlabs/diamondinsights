@@ -31,10 +31,11 @@ import { StackNavigationProp } from '@react-navigation/stack';
 
 // Import design system, API hooks, and authentication
 import { theme } from '../styles/theme';
-import { useUserInvestments, useInvestmentActions, usePlayerCards } from '../hooks/useApi';
-import { qsValue, Investment, apiClient } from '../services/api';
+import { useUserInvestmentsWithPlayers, useInvestmentActions, usePlayerCards } from '../hooks/useApi';
+import { qsValue, Investment, InvestmentWithPlayer, apiClient } from '../services/api';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth, useAuthStatus } from '../contexts/AuthContext';
+import { Skeleton, SummaryCardSkeleton, InvestmentCardSkeleton } from '../components/SkeletonLoader';
 
 // Navigation type
 type PortfolioScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Main'>;
@@ -65,10 +66,10 @@ const SORT_LABELS: Record<SortOption, string> = {
   [SortOption.OVR_ASC]: 'Player OVR ↑',
   [SortOption.PRICE_DESC]: 'Avg Buy Price ↓',
   [SortOption.PRICE_ASC]: 'Avg Buy Price ↑',
-  [SortOption.YOUR_POTENTIAL_DESC]: 'Your Potential ↓',
-  [SortOption.YOUR_POTENTIAL_ASC]: 'Your Potential ↑',
-  [SortOption.AI_POTENTIAL_DESC]: 'AI Potential ↓',
-  [SortOption.AI_POTENTIAL_ASC]: 'AI Potential ↑',
+  [SortOption.YOUR_POTENTIAL_DESC]: 'Your Potential Profit ↓',
+  [SortOption.YOUR_POTENTIAL_ASC]: 'Your Potential Profit ↑',
+  [SortOption.AI_POTENTIAL_DESC]: 'AI Potential Profit ↓',
+  [SortOption.AI_POTENTIAL_ASC]: 'AI Potential Profit ↑',
 };
 
 /**
@@ -89,20 +90,55 @@ export const PortfolioScreen: React.FC = () => {
   const { user } = useAuth();
   const { loading: authLoading, isAuthenticated, isGuest } = useAuthStatus();
 
-  // Investment data and actions (only fetch if authenticated)
+  // Use optimized endpoint that combines investments with player data
   const { 
-    data: hookInvestments, 
+    data: investmentsWithPlayers, 
     isLoading: investmentsLoading, 
     error: investmentsError, 
     refresh: refreshInvestments 
-  } = useUserInvestments({ immediate: isAuthenticated });
+  } = useUserInvestmentsWithPlayers({ immediate: isAuthenticated });
 
-  // Use hook data directly (no optimistic updates)
-  const investments = hookInvestments;
-  
+  // Extract investments and player cards from optimized response
+  const investments = investmentsWithPlayers?.map(iwp => ({
+    id: iwp.id,
+    playerUUID: iwp.playerUUID,
+    playerName: iwp.playerName,
+    quantity: iwp.quantity,
+    avgBuyPrice: iwp.avgBuyPrice,
+    userProjectedOvr: iwp.userProjectedOvr,
+    createdAt: iwp.createdAt,
+  }));
+
+  const playerCards = investmentsWithPlayers?.map(iwp => iwp.playerCard);
+
+  // Debug logging
+  if (investmentsWithPlayers) {
+    console.log('Received investments with players:', investmentsWithPlayers.length);
+    investmentsWithPlayers.forEach((iwp, index) => {
+      console.log(`Investment ${index}:`, {
+        id: iwp.id,
+        playerUUID: iwp.playerUUID,
+        playerName: iwp.playerName,
+        playerCardName: iwp.playerCard?.name,
+        hasPlayerCard: !!iwp.playerCard,
+        // AI Data debugging
+        aiData: {
+          ovr: iwp.playerCard?.ovr,
+          predicted_rank: iwp.playerCard?.predicted_rank,
+          qs_pred: iwp.playerCard?.qs_pred,
+          confidence_percentage: iwp.playerCard?.confidence_percentage,
+          delta_rank_pred: iwp.playerCard?.delta_rank_pred
+        }
+      });
+    });
+  }
+
+  // Since data is combined, cards are never loading separately
+  const cardsLoading = false;
+
+  // Still need all player cards for the add investment search functionality
   const { 
-    data: playerCards, 
-    isLoading: cardsLoading 
+    data: allPlayerCards
   } = usePlayerCards();
   
   const { 
@@ -146,13 +182,13 @@ export const PortfolioScreen: React.FC = () => {
    * Player search filtering for add form
    */
   const searchResults = useMemo(() => {
-    if (!playerCards || !searchQuery.trim()) return [];
-    return playerCards
+    if (!allPlayerCards || !searchQuery.trim()) return [];
+    return allPlayerCards
       .filter(player => 
         player.name?.toLowerCase().includes(searchQuery.toLowerCase())
       )
       .slice(0, 5);
-  }, [playerCards, searchQuery]);
+  }, [allPlayerCards, searchQuery]);
 
   /**
    * Form validation for add investment
@@ -160,25 +196,28 @@ export const PortfolioScreen: React.FC = () => {
   const canAdd = Boolean(selectedPlayer && quantity && avgPrice && projectedOvr);
 
   /**
-   * Portfolio summary calculations
+   * Portfolio summary calculations - optimized with combined data
    */
   const portfolioSummary: PortfolioSummary = useMemo(() => {
-    if (!investments || !playerCards) {
+    if (!investmentsWithPlayers) {
       return { cost: 0, aiValue: 0, aiProfit: 0, myValue: 0, myProfit: 0 };
     }
 
-    return investments.reduce((summary, investment) => {
-      const playerCard = playerCards.find(card => card.id === investment.playerUUID);
-      if (!playerCard) return summary;
-
-      const cost = investment.quantity * investment.avgBuyPrice;
-      const aiQsValue = Number(playerCard.qs_pred) || 0;
-      const aiValue = investment.quantity * aiQsValue;
-      const aiProfit = aiValue - cost;
+    return investmentsWithPlayers.reduce((summary, investmentWithPlayer) => {
+      const investment = investmentWithPlayer;
+      const playerCard = investmentWithPlayer.playerCard;
       
+      const cost = investment.quantity * investment.avgBuyPrice;
+      
+      // Calculate user projections
       const myQsValue = qsValue(investment.userProjectedOvr);
       const myValue = investment.quantity * myQsValue;
       const myProfit = myValue - cost;
+
+      // AI calculations with player card data
+      const aiQsValue = Number(playerCard.qs_pred) || 0;
+      const aiValue = investment.quantity * aiQsValue;
+      const aiProfit = aiValue - cost;
 
       return {
         cost: summary.cost + cost,
@@ -188,7 +227,7 @@ export const PortfolioScreen: React.FC = () => {
         myProfit: summary.myProfit + myProfit,
       };
     }, { cost: 0, aiValue: 0, aiProfit: 0, myValue: 0, myProfit: 0 });
-  }, [investments, playerCards]);
+  }, [investmentsWithPlayers]);
 
   /**
    * Pull-to-refresh handler
@@ -424,14 +463,14 @@ export const PortfolioScreen: React.FC = () => {
   };
 
   /**
-   * Sort investments based on selected option
+   * Sort investments based on selected option - optimized for combined data
    */
-  const sortInvestments = useCallback((investments: Investment[], sortOption: SortOption) => {
-    if (!investments || !playerCards) return investments;
+  const sortInvestments = useCallback((investmentsWithPlayers: InvestmentWithPlayer[], sortOption: SortOption) => {
+    if (!investmentsWithPlayers) return [];
 
-    const sorted = [...investments].sort((a, b) => {
-      const playerCardA = playerCards.find(card => card.id === a.playerUUID);
-      const playerCardB = playerCards.find(card => card.id === b.playerUUID);
+    const sorted = [...investmentsWithPlayers].sort((a, b) => {
+      const playerCardA = a.playerCard;
+      const playerCardB = b.playerCard;
 
       switch (sortOption) {
         case SortOption.CREATION_DATE:
@@ -494,14 +533,14 @@ export const PortfolioScreen: React.FC = () => {
     });
 
     return sorted;
-  }, [playerCards]);
+  }, []);
 
   /**
-   * Apply sorting to investments
+   * Apply sorting to investments with player data
    */
-  const sortedInvestments = useMemo(() => {
-    return sortInvestments(investments || [], sortOption);
-  }, [investments, sortOption, sortInvestments]);
+  const sortedInvestmentsWithPlayers = useMemo(() => {
+    return sortInvestments(investmentsWithPlayers || [], sortOption);
+  }, [investmentsWithPlayers, sortOption, sortInvestments]);
 
   // Authentication loading state
   if (authLoading) {
@@ -544,14 +583,58 @@ export const PortfolioScreen: React.FC = () => {
     );
   }
 
-  // Loading state
-  if (investmentsLoading || cardsLoading) {
+  // Loading state - show skeleton when investments are loading
+  if (investmentsLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary.main} />
-          <Text style={styles.loadingText}>Loading portfolio...</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Portfolio</Text>
+          <Text style={styles.subtitle}>Your investment tracker</Text>
+          
+          <View style={styles.portfolioStatusContainer}>
+            <View style={styles.portfolioStatus}>
+              <Text style={styles.portfolioStatusText}>Private Portfolio</Text>
+            </View>
+          </View>
         </View>
+
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {/* Portfolio Summary Skeleton */}
+          <View style={styles.summaryContainer}>
+            <View style={styles.summaryRow}>
+              <SummaryCardSkeleton />
+              <SummaryCardSkeleton />
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <SummaryCardSkeleton />
+              <SummaryCardSkeleton />
+            </View>
+            
+            <SummaryCardSkeleton />
+          </View>
+
+          {/* Add Investment Button Skeleton */}
+          <View style={styles.actionContainer}>
+            <Skeleton width="100%" height={48} borderRadius={8} />
+          </View>
+
+          {/* Investments List Skeleton */}
+          <View style={styles.investmentsList}>
+            <View style={styles.investmentsHeader}>
+              <Skeleton width={150} height={20} />
+              <Skeleton width={100} height={32} borderRadius={8} />
+            </View>
+            
+            {/* Show 3 skeleton investment cards */}
+            <InvestmentCardSkeleton />
+            <InvestmentCardSkeleton />
+            <InvestmentCardSkeleton />
+          </View>
+
+          <View style={styles.bottomPadding} />
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -618,7 +701,14 @@ export const PortfolioScreen: React.FC = () => {
             </View>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>AI Value</Text>
-              <Text style={styles.summaryValue}>{formatStubs(portfolioSummary.aiValue)}</Text>
+              {cardsLoading ? (
+                <View style={styles.loadingValueContainer}>
+                  <ActivityIndicator size="small" color={theme.colors.primary.main} />
+                  <Text style={styles.loadingValueText}>Loading...</Text>
+                </View>
+              ) : (
+                <Text style={styles.summaryValue}>{formatStubs(portfolioSummary.aiValue)}</Text>
+              )}
             </View>
           </View>
           
@@ -637,15 +727,22 @@ export const PortfolioScreen: React.FC = () => {
             </View>
             <View style={[
               styles.summaryCard,
-              portfolioSummary.aiProfit >= 0 ? styles.positiveCard : styles.negativeCard
+              !cardsLoading && (portfolioSummary.aiProfit >= 0 ? styles.positiveCard : styles.negativeCard)
             ]}>
               <Text style={styles.summaryLabel}>AI P/L</Text>
-              <Text style={[
-                styles.summaryValue,
-                { color: portfolioSummary.aiProfit >= 0 ? '#10b981' : '#ef4444' }
-              ]}>
-                {formatStubs(portfolioSummary.aiProfit)}
-              </Text>
+              {cardsLoading ? (
+                <View style={styles.loadingValueContainer}>
+                  <ActivityIndicator size="small" color={theme.colors.primary.main} />
+                  <Text style={styles.loadingValueText}>Loading...</Text>
+                </View>
+              ) : (
+                <Text style={[
+                  styles.summaryValue,
+                  { color: portfolioSummary.aiProfit >= 0 ? '#10b981' : '#ef4444' }
+                ]}>
+                  {formatStubs(portfolioSummary.aiProfit)}
+                </Text>
+              )}
             </View>
           </View>
           
@@ -772,7 +869,7 @@ export const PortfolioScreen: React.FC = () => {
         <View style={styles.investmentsList}>
           <View style={styles.investmentsHeader}>
             <Text style={styles.sectionTitle}>
-              Your Investments ({investments?.length || 0})
+              Your Investments ({investmentsWithPlayers?.length || 0})
             </Text>
             <View style={styles.sortContainer}>
               <TouchableOpacity 
@@ -836,21 +933,24 @@ export const PortfolioScreen: React.FC = () => {
             </View>
           </View>
           
-          {!sortedInvestments || sortedInvestments.length === 0 ? (
+          {!sortedInvestmentsWithPlayers || sortedInvestmentsWithPlayers.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="briefcase-outline" size={48} color={theme.colors.text.secondary} />
               <Text style={styles.emptyStateText}>No investments yet</Text>
               <Text style={styles.emptyStateSubtext}>Add your first investment above</Text>
             </View>
           ) : (
-            sortedInvestments.map((investment) => {
-              const playerCard = playerCards?.find(card => card.id === investment.playerUUID);
+            sortedInvestmentsWithPlayers.map((investmentWithPlayer) => {
+              const investment = investmentWithPlayer;
+              const playerCard = investmentWithPlayer.playerCard;
+              
               const currentOvr = Number(playerCard?.ovr) || 0;
               const predictedOvr = Number(playerCard?.predicted_rank) || 0;
               const aiQsValue = Number(playerCard?.qs_pred) || 0;
               const myQsValue = qsValue(investment.userProjectedOvr);
               const isEditing = editingId === investment.id;
               const isSaving = savingId === investment.id;
+              const playerDataLoading = false; // We have all the data we're going to get
 
               return (
                 <View key={investment.id} style={styles.investmentCard}>
@@ -870,11 +970,18 @@ export const PortfolioScreen: React.FC = () => {
                       </View>
                       <View style={styles.playerInfo}>
                         <Text style={styles.playerName}>
-                          {investment.playerName || playerCard?.name || 'Unknown Player'}
+                          {playerCard?.name || investment.playerName || 'Unknown Player'}
                         </Text>
-                        <Text style={styles.playerMeta}>
-                          OVR: {currentOvr} • Predicted: {predictedOvr.toFixed(1)}
-                        </Text>
+                        {playerDataLoading ? (
+                          <View style={styles.playerMetaLoading}>
+                            <ActivityIndicator size="small" color={theme.colors.text.secondary} />
+                            <Text style={styles.playerMetaLoadingText}>Loading player data...</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.playerMeta}>
+                            OVR: {currentOvr} • Predicted: {predictedOvr.toFixed(1)}
+                          </Text>
+                        )}
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -921,7 +1028,7 @@ export const PortfolioScreen: React.FC = () => {
 
                     <View style={styles.investmentRow}>
                       <View style={styles.investmentDetail}>
-                        <Text style={styles.detailLabel}>Your OVR</Text>
+                        <Text style={styles.detailLabel}>Your Pred. OVR</Text>
                         {isEditing ? (
                           <TextInput
                             style={styles.editInput}
@@ -935,12 +1042,16 @@ export const PortfolioScreen: React.FC = () => {
                       </View>
                       
                       <View style={styles.investmentDetail}>
-                        <Text style={styles.detailLabel}>AI QS</Text>
-                        <Text style={styles.detailValue}>{aiQsValue}</Text>
+                        <Text style={styles.detailLabel}>AI Pred. QS</Text>
+                        {playerDataLoading ? (
+                          <ActivityIndicator size="small" color={theme.colors.text.secondary} />
+                        ) : (
+                          <Text style={styles.detailValue}>{aiQsValue}</Text>
+                        )}
                       </View>
                       
                       <View style={styles.investmentDetail}>
-                        <Text style={styles.detailLabel}>Your QS</Text>
+                        <Text style={styles.detailLabel}>Your Pred. QS</Text>
                         <Text style={styles.detailValue}>{myQsValue}</Text>
                       </View>
                     </View>
@@ -948,17 +1059,23 @@ export const PortfolioScreen: React.FC = () => {
                     {/* Profit/Loss */}
                     <View style={styles.profitRow}>
                       <View style={styles.profitDetail}>
-                        <Text style={styles.profitLabel}>AI Potential</Text>
-                        <Text style={[
-                          styles.profitValue,
-                          { color: (investment.quantity * aiQsValue - investment.quantity * investment.avgBuyPrice) >= 0 ? '#10b981' : '#ef4444' }
-                        ]}>
-                          {formatStubs(investment.quantity * aiQsValue - investment.quantity * investment.avgBuyPrice)}
-                        </Text>
+                        <Text style={styles.profitLabel}>AI Potential Profit</Text>
+                        {playerDataLoading ? (
+                          <View style={styles.profitLoadingContainer}>
+                            <ActivityIndicator size="small" color={theme.colors.text.secondary} />
+                          </View>
+                        ) : (
+                          <Text style={[
+                            styles.profitValue,
+                            { color: (investment.quantity * aiQsValue - investment.quantity * investment.avgBuyPrice) >= 0 ? '#10b981' : '#ef4444' }
+                          ]}>
+                            {formatStubs(investment.quantity * aiQsValue - investment.quantity * investment.avgBuyPrice)}
+                          </Text>
+                        )}
                       </View>
                       
                       <View style={styles.profitDetail}>
-                        <Text style={styles.profitLabel}>Your Potential</Text>
+                        <Text style={styles.profitLabel}>Your Potential Profit</Text>
                         <Text style={[
                           styles.profitValue,
                           { color: (investment.quantity * myQsValue - investment.quantity * investment.avgBuyPrice) >= 0 ? '#10b981' : '#ef4444' }
@@ -1674,5 +1791,38 @@ const styles = StyleSheet.create({
   
   bottomPadding: {
     height: 20,
+  },
+
+  // Progressive loading styles
+  loadingValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+
+  loadingValueText: {
+    fontSize: 12,
+    color: theme.colors.text.secondary,
+    fontWeight: '500',
+  },
+
+  playerMetaLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+
+  playerMetaLoadingText: {
+    fontSize: 12,
+    color: theme.colors.text.secondary,
+    fontStyle: 'italic',
+  },
+
+  profitLoadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 20,
   },
 });
