@@ -1,0 +1,678 @@
+.wrap {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem 1rem 2rem;
+  }
+  
+  .headerContainer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 1.5rem;
+  }
+  
+  .title {
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: linear-gradient(90deg, #1a6dff, #00c6ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .headerControls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .refreshButton {
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(18, 99, 221, 0.3);
+  }
+  
+  .refreshButton:hover:not(:disabled) {
+    background: #0a5cdb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(18, 99, 221, 0.4);
+  }
+  
+  .refreshButton:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+  
+  .status {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+  }
+  
+  .filtersContainer {
+    background: var(--bg-medium);
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  .filtersHeader {
+    padding: 1rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+  }
+  
+  .filtersTitle {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .collapseIcon {
+    font-size: 1.2rem;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .filters {
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+  }
+  
+  .filters.collapsed {
+    display: none;
+  }
+  
+  .filterGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.2rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .filterGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  
+  .filterGroup label {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  
+  .filterGroup input,
+  .filterGroup select {
+    background: var(--bg-light);
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--border-radius);
+    padding: 0.7rem;
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+  }
+  
+  .rangeInputs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .rangeInputs input {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .rangeInputs span {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+  
+  .filterActions {
+    display: flex;
+    gap: 0.8rem;
+  }
+  
+  .applyButton {
+    background: linear-gradient(135deg, var(--accent-primary), #0a4cb5);
+    color: white;
+    border: none;
+    padding: 0.7rem 1.5rem;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex: 1;
+  }
+  
+  .applyButton:hover {
+    background: linear-gradient(135deg, #0a4cb5, var(--accent-primary));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(10, 76, 181, 0.3);
+  }
+  
+  .resetButton {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 0.7rem 1.5rem;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex: 1;
+  }
+  
+  .resetButton:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+  }
+  
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 1.5rem 0;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  
+  .pagination {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--bg-medium);
+    border-radius: 30px;
+    padding: 0.3rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .pagination button {
+    background: transparent;
+    color: var(--text-primary);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+  
+  .pagination button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .pagination button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .pagination span {
+    font-weight: 500;
+    color: var(--text-primary);
+    padding: 0 0.8rem;
+    font-size: 0.9rem;
+  }
+  
+  .resultInfo {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+  }
+
+  .tableContainer {
+    margin-top: 0.5rem;
+    background: var(--bg-medium);
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .tableWrap {
+    min-width: 100%;
+    width: max-content;
+  }
+  
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+    min-width: 600px;
+  }
+  
+  .table thead th {
+    text-align: left;
+    padding: 1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.04);
+    position: sticky;
+    left: 0;
+    white-space: nowrap;
+  }
+  
+  .sortHeader {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    position: relative;
+  }
+  
+  .sortHeader:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.08);
+  }
+  
+  .sortArrow {
+    color: var(--accent-primary);
+    margin-left: 4px;
+  }
+  
+  .table tbody tr {
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  
+  .table tbody tr:last-child {
+    border-bottom: none;
+  }
+  
+  .table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+  
+  .table tbody td {
+    padding: 0.9rem 1rem;
+  }
+  
+  .nameCell {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: sticky;
+    left: 0;
+    background: inherit;
+    min-width: 200px;
+    z-index: 2; 
+  }
+
+  .table tbody tr:hover .nameCell {
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  }
+  
+  .itemInfo {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .itemName {
+    font-weight: 500;
+    margin-bottom: 0.2rem;
+  }
+  
+  .mobileMeta {
+    display: flex;
+    gap: 0.6rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    flex-wrap: wrap;
+  }
+  
+  .mobileRarity {
+    text-transform: capitalize;
+    color: var(--accent-primary);
+    font-weight: 500;
+  }
+  
+  .thumb {
+    height: 8rem;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-light);
+  }
+  
+  .priceCell {
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  
+  .spreadCell, .profitCell {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  
+  .spreadCell {
+    color: var(--positive);
+  }
+  
+  .trendCell {
+    min-width: 120px;
+  }
+  
+  .trendGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.3rem;
+  }
+  
+  .trendGrid > div {
+    display: flex;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+  }
+  
+  .profitPerMinCell {
+    font-weight: 600;
+    color: var(--positive);
+    white-space: nowrap;
+  }
+  
+  .pos {
+    color: var(--positive);
+    font-weight: 600;
+  }
+  
+  .neg {
+    color: var(--negative);
+    font-weight: 600;
+  }
+  
+  .zero {
+    color: var(--text-secondary);
+  }
+  
+  .empty {
+    padding: 3rem 2rem;
+    text-align: center;
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .paginationBottom {
+    display: none;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--bg-medium);
+    border-radius: 30px;
+    padding: 0.3rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 1.5rem 0;
+  }
+
+  .paginationBottom button {
+    background: transparent;
+    color: var(--text-primary);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+
+  .paginationBottom button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .paginationBottom button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .paginationBottom span {
+    font-weight: 500;
+    color: var(--text-primary);
+    padding: 0 0.8rem;
+    font-size: 0.9rem;
+  }
+  
+  .infoSection {
+    background: var(--bg-medium);
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 1.8rem;
+    margin-top: 2.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  .infoTitle {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .infoContent {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+  }
+  
+  .infoColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .infoColumn h3 {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem;
+  }
+  
+  .infoList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  
+  .infoList li {
+    display: flex;
+    gap: 0.5rem;
+    line-height: 1.5;
+  }
+  
+  /* Responsive styles */
+  @media (max-width: 1100px) {
+    .filters {
+      padding: 1.2rem;
+    }
+    
+    .filterGrid {
+      gap: 1rem;
+    }
+  }
+  
+  @media (max-width: 900px) {
+    .headerContainer {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .filterGrid {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+    
+    .thumb {
+      height: 5rem;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .wrap {
+      padding: 1rem;
+    }
+
+    .tableContainer {
+        border-radius: 12px;
+    }
+    
+    .pagination {
+      width: 100%;
+      justify-content: center;
+    }
+    
+    .resultInfo {
+      width: 100%;
+      text-align: center;
+    }
+    
+    .topbar {
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    
+    .tableWrap {
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    
+    .table {
+        min-width: 600px; /* Maintain minimum width */
+        font-size: 0.85rem;
+    }
+    
+    .table thead th {
+        padding: 0.9rem 0.8rem;
+    }
+    
+    .table tbody td {
+      padding: 0.8rem 0.7rem;
+    }
+    
+    .trendGrid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.3rem;
+      }
+
+      .trendGrid > div {
+        font-size: 0.8rem;
+      }
+    
+    .paginationBottom {
+      display: flex;
+    }
+    
+    .infoTitle {
+      font-size: 1.2rem;
+    }
+    .nameCell {
+        min-width: 180px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .wrap {
+      padding: 0.8rem;
+    }
+    
+    .title {
+      font-size: 1.6rem;
+    }
+    
+    .filters {
+      padding: 1rem;
+    }
+    
+    .filterGrid {
+      grid-template-columns: 1fr;
+    }
+    
+    .filterActions {
+      flex-direction: column;
+    }
+    
+    .thumb {
+      height: 5rem;
+    }
+    
+    .infoSection {
+      padding: 1.3rem;
+    }
+    
+    .infoContent {
+      grid-template-columns: 1fr;
+    }
+    .table {
+        min-width: 550px; /* Slightly smaller min-width for very small screens */
+        font-size: 0.82rem;
+    }
+    .table thead th {
+        padding: 0.8rem 0.6rem;
+    }
+    
+    .table tbody td {
+        padding: 0.7rem 0.6rem;
+    }
+    .nameCell {
+        min-width: 160px;
+      }
+
+      .trendGrid > div {
+        font-size: 0.8rem;
+      }
+  }
+
+  .tableContainer::-webkit-scrollbar {
+    height: 6px;
+  }
+  
+  .tableContainer::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  .tableContainer::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+  }
+  
+  .tableContainer::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }

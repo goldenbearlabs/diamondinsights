@@ -1,7 +1,6 @@
 {
-  "/api/investments/[id]/route": "app/api/investments/[id]/route.js",
-  "/api/cards/[cardId]/route": "app/api/cards/[cardId]/route.js",
-  "/api/investments/route": "app/api/investments/route.js",
+  "/api/cards/live/route": "app/api/cards/live/route.js",
   "/api/cards/[cardId]/predictions/route": "app/api/cards/[cardId]/predictions/route.js",
-  "/api/cards/live/route": "app/api/cards/live/route.js"
+  "/api/cards/[cardId]/route": "app/api/cards/[cardId]/route.js",
+  "/page": "app/page.js"
 }

@@ -1,13 +1,14 @@
 // src/app/login/page.tsx
-// User authentication login page with email/username support and comprehensive error handling
-// Features: Firebase authentication, username-to-email lookup, password visibility toggle, form validation
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/firebaseClient';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import {
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+} from 'firebase/auth';
 import {
   FaEye,
   FaEyeSlash,
@@ -17,221 +18,310 @@ import {
   FaBolt,
 } from 'react-icons/fa';
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
-import { FirebaseError } from 'firebase/app'
+import { FirebaseError } from 'firebase/app';
 
 import styles from './page.module.css';
 
-/**
- * Login page component - handles user authentication with Firebase
- * Supports both email and username login with automatic email resolution
- * Features comprehensive error handling and user-friendly feedback
- */
 export default function LoginPage() {
   const router = useRouter();
   const db = getFirestore();
 
   // Form input states
-  const [identifier, setIdentifier] = useState('');  // Email or username input
-  const [password, setPassword]     = useState('');  // Password input
-  
-  // UI control states
-  const [showPw, setShowPw]         = useState(false);  // Password visibility toggle
-  const [remember, setRemember]     = useState(false);  // Remember me checkbox
-  
-  // Application states
-  const [loading, setLoading]       = useState(false);  // Form submission loading
-  const [error, setError]           = useState('');     // Error message display
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
 
-  // Handle form submission with comprehensive validation and authentication
+  // UI control states
+  const [showPw, setShowPw] = useState(false);
+  const [remember, setRemember] = useState(false);
+
+  // Application states
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [resetEmailSent, setResetEmailSent] = useState<string | null>(null); // Track reset email status
+  const [showResetForm, setShowResetForm] = useState(false); // Toggle reset password form
+
+  // Handle login form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    // Client-side form validation
     if (!identifier.trim()) {
-      return setError('Email is required');
+      setError('Email or username is required');
+      setLoading(false);
+      return;
     }
-    
-    // Email format validation and username-to-email resolution
+
+    if (!password) {
+      setError('Password is required');
+      setLoading(false);
+      return;
+    }
+
+    // Resolve username to email if needed
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     let emailToUse = identifier.trim();
-    
+
     if (!emailRegex.test(identifier)) {
-      // If not an email format, treat as username and lookup email in Firestore
       try {
-        const q = query(
-          collection(db, 'users'),
-          where('username', '==', identifier.trim())
-        );
+        const q = query(collection(db, 'users'), where('username', '==', identifier.trim()));
         const snap = await getDocs(q);
         if (snap.empty) {
-          return setError('No account found with that username');
+          setError('No account found with that username');
+          setLoading(false);
+          return;
         }
         const userDoc = snap.docs[0].data() as { email?: string };
         if (!userDoc.email) {
-          return setError('This user does not have a sign-in email');
+          setError('This user does not have an email associated.');
+          setLoading(false);
+          return;
         }
-        emailToUse = userDoc.email;  // Use resolved email for authentication
-      } catch (err: unknown) {
-        console.error(err);
-        return setError('Error with the server try again with your email or wait a little bit.')
+        emailToUse = userDoc.email;
+      } catch (err) {
+        console.error('Username lookup error:', err);
+        setError('Error resolving username. Please try with your email.');
+        setLoading(false);
+        return;
       }
     }
-    
-    if (!password) {
-      return setError('Password is required');
-    }
-
-    setLoading(true);
 
     try {
-      // Attempt Firebase authentication with resolved email
-      const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password)
-      // Redirect to user's account page on successful login
-      router.push(`/account/${userCredential.user.uid}`)
+      const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password);
+      router.push(`/account/${userCredential.user.uid}`);
     } catch (err: unknown) {
-      console.error('Login error', err)
-    
-      // Comprehensive error handling with user-friendly messages
+      console.error('Login error', err);
       if (err instanceof FirebaseError) {
-        // Map Firebase authentication error codes to readable messages
         switch (err.code) {
           case 'auth/user-not-found':
-            setError('No account found with this email')
-            break
+            setError('No account found with this email');
+            break;
           case 'auth/wrong-password':
-            setError('Incorrect password')
-            break
+            setError('Incorrect password');
+            break;
           case 'auth/invalid-email':
-            setError('Invalid email address')
-            break
+            setError('Invalid email address');
+            break;
           case 'auth/invalid-credential':
-            setError('Invalid email address or password')
-            break
+            setError('Invalid email or password');
+            break;
           case 'auth/too-many-requests':
-            setError('Too many failed attempts. Try again later.')
-            break
+            setError('Too many attempts. Try again later.');
+            break;
           default:
-            setError(err.message || 'Something went wrong')
+            setError(err.message || 'Something went wrong');
         }
-      } else if (err instanceof Error) {
-        // Handle any other JavaScript errors
-        setError(err.message)
       } else {
-        setError('Something went wrong')
+        setError('Something went wrong');
       }
-    
-      setLoading(false)  // Re-enable form after error
+    } finally {
+      setLoading(false);
     }
-  }
+  };
+
+  // Handle password reset request
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = (e.target as typeof e.target & { email: { value: string } }).email.value.trim();
+
+    if (!email) {
+      alert('Please enter your email address.');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      alert('Please enter a valid email address.');
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email, {
+        url: 'https://www.diamondinsights.app/reset-password'
+      });
+      setResetEmailSent(email);
+      setIdentifier(email); // Pre-fill login field
+      setShowResetForm(false); // Go back to login
+    } catch (err: unknown) {
+      let message = 'Failed to send reset email.';
+      if (err instanceof FirebaseError) {
+        switch (err.code) {
+          case 'auth/user-not-found':
+            message = 'No account found with this email.';
+            break;
+          case 'auth/invalid-email':
+            message = 'Invalid email address.';
+            break;
+          case 'auth/missing-android-pkg-name':
+          case 'auth/missing-continue-uri':
+          case 'auth/missing-ios-bundle-id':
+          case 'auth/invalid-continue-uri':
+          case 'auth/unauthorized-continue-uri':
+            message = 'Password reset is temporarily unavailable. Contact support.';
+            break;
+          default:
+            message = err.message || message;
+        }
+      }
+      alert(message);
+    }
+  };
 
   return (
     <main className={styles.authContainer}>
-      {/* Brand marketing panel with platform features and value proposition */}
+      {/* Brand marketing panel */}
       <aside className={styles.brandPanel}>
-        <div className={styles.brandOverlay}/>
+        <div className={styles.brandOverlay} />
         <div className={styles.brandContent}>
-          {/* DiamondInsights logo and branding */}
           <div className={styles.logo}>
-            <div className={styles.logoIcon}><FaBaseballBall/></div>
+            <div className={styles.logoIcon}>
+              <FaBaseballBall />
+            </div>
             <div className={styles.logoText}>
               <span className={styles.logoPart1}>Diamond</span>
               <span className={styles.logoPart2}>Insights</span>
             </div>
           </div>
-          {/* Welcome message and platform positioning */}
           <h1 className={styles.brandHeading}>
             Welcome Back to the <span>#1</span> MLB The Show Prediction Platform
           </h1>
-          {/* Key platform features to encourage login */}
           <ul className={styles.brandFeatures}>
-            <li><FaChartLine className={styles.featureIcon}/> AI-powered roster predictions</li>
-            <li><FaUsers      className={styles.featureIcon}/> Join 2,000+ investors</li>
-            <li><FaBolt       className={styles.featureIcon}/> Real-time updates & alerts</li>
+            <li>
+              <FaChartLine className={styles.featureIcon} /> AI-powered roster predictions
+            </li>
+            <li>
+              <FaUsers className={styles.featureIcon} /> Join 2,000+ investors
+            </li>
+            <li>
+              <FaBolt className={styles.featureIcon} /> Real-time updates & alerts
+            </li>
           </ul>
         </div>
       </aside>
 
-      {/* Login form panel with user input fields and validation */}
+      {/* Login / Reset Form Panel */}
       <section className={styles.formPanel}>
-        <header className={styles.authHeader}>
-          <h2>Welcome Back</h2>
-          <p>Sign in to access your predictions & tools</p>
-        </header>
+        {!showResetForm ? (
+          // Login Form
+          <>
+            <header className={styles.authHeader}>
+              <h2>Welcome Back</h2>
+              <p>Sign in to access your predictions & tools</p>
+            </header>
 
-        <form onSubmit={handleSubmit} className={styles.authForm}>
-          {/* Error message display for authentication failures */}
-          {error && <div className={styles.authError}>{error}</div>}
+            {resetEmailSent && (
+              <div className={styles.authSuccess}>
+                Password reset email sent to <strong>{resetEmailSent}</strong>. Check your inbox!
+              </div>
+            )}
 
-          {/* Email or username input field with flexible authentication */}
-          <div className={styles.formGroup}>
-            <label htmlFor="identifier">Email or Username</label>
-            <input
-              id="identifier"
-              type="text"
-              className={styles.formInput}
-              value={identifier}
-              onChange={e => { setError(''); setIdentifier(e.target.value); }}
-              disabled={loading}
-              required
-            />
-          </div>
+            <form onSubmit={handleSubmit} className={styles.authForm}>
+              {error && <div className={styles.authError}>{error}</div>}
 
-          {/* Password input field with visibility toggle for user convenience */}
-          <div className={styles.formGroup}>
-            <label htmlFor="password">Password</label>
-            <div className={styles.passwordContainer}>
-              <input
-                id="password"
-                type={showPw ? 'text' : 'password'}
-                className={styles.formInput}
-                value={password}
-                onChange={e => { setError(''); setPassword(e.target.value); }}
-                disabled={loading}
-                required
-              />
-              {/* Show/hide password toggle button for better UX */}
+              <div className={styles.formGroup}>
+                <label htmlFor="identifier">Email or Username</label>
+                <input
+                  id="identifier"
+                  type="text"
+                  className={styles.formInput}
+                  value={identifier}
+                  onChange={(e) => {
+                    setError('');
+                    setIdentifier(e.target.value);
+                  }}
+                  disabled={loading}
+                  required
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label htmlFor="password">Password</label>
+                <div className={styles.passwordContainer}>
+                  <input
+                    id="password"
+                    type={showPw ? 'text' : 'password'}
+                    className={styles.formInput}
+                    value={password}
+                    onChange={(e) => {
+                      setError('');
+                      setPassword(e.target.value);
+                    }}
+                    disabled={loading}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className={styles.togglePassword}
+                    onClick={() => setShowPw((v) => !v)}
+                    disabled={loading}
+                  >
+                    {showPw ? <FaEye /> : <FaEyeSlash />}
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.formOptions}>
+                <label className={styles.rememberMe}>
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                    disabled={loading}
+                  />
+                  Remember me
+                </label>
+                <button
+                  type="button"
+                  className={styles.forgotPassword}
+                  onClick={() => setShowResetForm(true)}
+                >
+                  Forgot password?
+                </button>
+              </div>
+
+              <button type="submit" className={styles.submitBtn} disabled={loading}>
+                {loading ? 'Logging In…' : 'Log In'}
+              </button>
+            </form>
+
+            <p className={styles.loginLink}>
+              Don&apos;t have an account? <Link href="/signup">Sign Up</Link>
+            </p>
+          </>
+        ) : (
+          // Password Reset Form
+          <div className={styles.resetForm}>
+            <header className={styles.authHeader}>
+              <h2>Reset Your Password</h2>
+              <p>We'll send a link to reset your password</p>
+            </header>
+
+            <form onSubmit={handleResetPassword} className={styles.authForm}>
+              <div className={styles.formGroup}>
+                <label htmlFor="reset-email">Email Address</label>
+                <input
+                  id="reset-email"
+                  name="email"
+                  type="email"
+                  className={styles.formInput}
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+
+              <button type="submit" className={styles.submitBtn}>
+                Send Reset Link
+              </button>
+
               <button
                 type="button"
-                className={styles.togglePassword}
-                onClick={() => setShowPw(v => !v)}
-                disabled={loading}
+                className={styles.textButton}
+                onClick={() => setShowResetForm(false)}
               >
-                {showPw ? <FaEye/> : <FaEyeSlash/>}
+                Back to Login
               </button>
-            </div>
+            </form>
           </div>
-
-          {/* Form options: remember me and forgot password link */}
-          <div className={styles.formOptions}>
-            <label className={styles.rememberMe}>
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={e => setRemember(e.target.checked)}
-                disabled={loading}
-              />
-              Remember me
-            </label>
-            <Link href="/reset-password" className={styles.forgotPassword}>
-              Forgot password?
-            </Link>
-          </div>
-
-          {/* Submit button with loading state feedback */}
-          <button
-            type="submit"
-            className={styles.submitBtn}
-            disabled={loading}
-          >
-            {loading ? 'Logging In…' : 'Log In'}
-          </button>
-        </form>
-
-        {/* Navigation link to signup page for new users */}
-        <p className={styles.loginLink}>
-          Don&apos;t have an account? <Link href="/signup">Sign Up</Link>
-        </p>
+        )}
       </section>
     </main>
   );

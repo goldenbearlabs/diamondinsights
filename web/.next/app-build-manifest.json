@@ -1,29 +1,31 @@
 {
   "pages": {
-    "/api/cards/[cardId]/route": [
+    "/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/cards/[cardId]/route.js"
+      "static/css/app/layout.css",
+      "static/chunks/app/layout.js"
     ],
-    "/api/cards/[cardId]/predictions/route": [
+    "/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/cards/[cardId]/predictions/route.js"
+      "static/css/app/page.css",
+      "static/chunks/app/page.js"
     ],
     "/api/cards/live/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/cards/live/route.js"
     ],
-    "/api/investments/route": [
+    "/api/cards/[cardId]/predictions/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/investments/route.js"
+      "static/chunks/app/api/cards/[cardId]/predictions/route.js"
     ],
-    "/api/investments/[id]/route": [
+    "/api/cards/[cardId]/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/investments/[id]/route.js"
+      "static/chunks/app/api/cards/[cardId]/route.js"
     ]
   }
 }

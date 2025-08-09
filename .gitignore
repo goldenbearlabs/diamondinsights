@@ -1,8 +1,10 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# ----------------------
 # Dependencies
+# ----------------------
 node_modules/
-/.pnp
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -14,25 +16,37 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# ----------------------
 # Testing
-/coverage
+# ----------------------
+coverage/
 
+# ----------------------
 # Next.js (web app)
+# ----------------------
 web/.next/
 web/out/
 web/build/
 
+# ----------------------
 # Production builds
+# ----------------------
 */build/
 */.next/
 */dist/
 
-# Environment files
-.env*
-
-# OS generated files
-.DS_Store
+# ----------------------
+# Environment files & secrets
+# ----------------------
+.env
+.env.*
+!.env.example
 *.pem
+
+# ----------------------
+# OS generated files
+# ----------------------
+.DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
@@ -40,33 +54,59 @@ web/build/
 ehthumbs.db
 Thumbs.db
 
-# IDE files
+# ----------------------
+# IDE/editor
+# ----------------------
 .vscode/
 .idea/
 *.swp
 *.swo
 
+# ----------------------
 # Vercel
+# ----------------------
 .vercel
 
+# ----------------------
 # TypeScript
+# ----------------------
 *.tsbuildinfo
 next-env.d.ts
 
-# Mobile specific (React Native)
+# ----------------------
+# Mobile (React Native)
+# ----------------------
 mobile/ios/build/
+mobile/ios/Pods/
 mobile/android/build/
 mobile/android/app/build/
 *.apk
+*.aab
 *.ipa
 
+# ----------------------
 # Expo
+# ----------------------
 mobile/.expo/
+mobile/.expo-shared/
 mobile/dist/
 mobile/web-build/
 
-# Metro
+# ----------------------
+# Metro bundler cache
+# ----------------------
 .metro-health-check*
+.expo/
+.expo-shared/
 
+# ----------------------
+# Firebase local files
+# ----------------------
+firebase-debug.log
+.firebaserc
+firebase-debug.*
+
+# ----------------------
 # Local development
+# ----------------------
 .claude/

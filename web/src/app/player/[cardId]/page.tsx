@@ -979,7 +979,7 @@ export default function CardPage() {
                       })
                     : [
                         ['IP','IP'], ['ERA','ER'], ['WHIP','WHIP'],
-                        ['K/9','K/9'], ['BB/9','BB/9'], ['H/9','H/9'], ['HR/9','HR/9']
+                        ['K/9','K'], ['BB/9','BB'], ['H/9','H'], ['HR/9','HR']
                       ].map(([lbl, fld]) => {
                         const prefix = period === 'season' ? 'season' : period;
                         // build your field names
@@ -990,8 +990,6 @@ export default function CardPage() {
                         return (
                           <tr key={lbl}>
                             <td>{lbl}</td>
-                  
-                            {/* Overall column */}
                             <td>
                               {lbl === 'ERA'
                                 ? rate(`${prefix}_ovr_ER`, ipKey, 2)
@@ -1001,7 +999,6 @@ export default function CardPage() {
                               }
                             </td>
                   
-                            {/* RISP column */}
                             <td>
                               {lbl === 'ERA'
                                 ? rate(`${prefix}_risp_ER`, `${prefix}_risp_IP`, 2)
