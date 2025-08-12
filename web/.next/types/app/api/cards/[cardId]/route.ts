@@ -1,4 +1,4 @@
-// File: /Users/lukewismer/Desktop/diamondinsights/web/src/app/api/cards/[cardId]/route.ts
+// File: /Users/ethancarter/Desktop/diamondinsights/web/src/app/api/cards/[cardId]/route.ts
 import * as entry from '../../../../../../src/app/api/cards/[cardId]/route.js'
 import type { NextRequest } from 'next/server.js'
 

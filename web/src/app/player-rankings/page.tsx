@@ -268,7 +268,7 @@ export default function PlayerRankingsPage() {
           <button className={`btn btn-secondary ${styles.refreshBtn}`} onClick={() => fetchData(true)} disabled={loading}>
             {loading ? 'Refreshing…' : 'Force Refresh'}
           </button>
-          {lastUpdated && <span className={styles.meta}>Last updated: {new Date(lastUpdated).toLocaleTimeString()}</span>}
+          {lastUpdated && <span className={styles.meta}>Last updated: {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
         </div>
       </div>
 

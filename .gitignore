@@ -27,6 +27,7 @@ coverage/
 web/.next/
 web/out/
 web/build/
+web/.expo/
 
 # ----------------------
 # Production builds
@@ -34,6 +35,7 @@ web/build/
 */build/
 */.next/
 */dist/
+.next/
 
 # ----------------------
 # Environment files & secrets

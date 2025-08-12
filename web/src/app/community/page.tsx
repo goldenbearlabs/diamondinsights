@@ -29,7 +29,8 @@ import {
   FaFire,
   FaSync,
   FaBars,
-  FaTimes
+  FaTimes,
+  FaTrash
 } from 'react-icons/fa'
 
 // Message structure for display in the UI with user and interaction data
@@ -45,6 +46,8 @@ interface Message {
   playerName?: string
   likes: number
   liked: boolean          // Whether current user has liked this message
+  editedAt?: number
+  editHistory?: {text: string; editedAt: number}[]
 }
 
 // User search result structure for user lookup functionality
@@ -145,6 +148,11 @@ export default function CommunityPage() {
   // User search functionality state
   const [userSearch, setUserSearch] = useState('')
   const [userMatches, setUserMatches] = useState<UserSearchResult[]>([])
+  
+  // Edit message functionality state
+  const [editingMessage, setEditingMessage] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+  const [showEditHistory, setShowEditHistory] = useState<Record<string, boolean>>({})
   const [userSearchOpen, setUserSearchOpen] = useState(false)
 
   // DOM references for auto-scrolling and click outside detection
@@ -280,6 +288,8 @@ export default function CommunityPage() {
           playerId:    data.playerId,
           likes:       (data.likedBy || []).length,
           liked:       user ? (data.likedBy || []).includes(user.uid) : false,
+          editedAt:    data.editedAt,
+          editHistory: data.editHistory,
           // username & profilePicUrl will be merged in below
         }
       }) as Array<Omit<Message, 'username' | 'profilePicUrl'>>
@@ -417,6 +427,107 @@ export default function CommunityPage() {
         ? {...m, liked: toggled, likes: m.likes + (toggled ? 1 : -1) }
         : m
     ))
+  }
+
+  // Start editing a message
+  const startEditing = (message: Message) => {
+    setEditingMessage(message.id)
+    setEditText(message.text)
+  }
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingMessage(null)
+    setEditText('')
+  }
+
+  // Edit message function
+  const editMessage = async (messageId: string) => {
+    if (!user) return
+    if (!editText.trim()) return
+    
+    try {
+      const token = await user.getIdToken()
+      const endpoint = `/api/chat/${activeTab === 'invest' ? 'investing' : activeTab}/messages/${messageId}`
+      
+      const response = await fetch(endpoint, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text: editText })
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        alert(error.error || 'Failed to edit message')
+        return
+      }
+      
+      // Reset edit state
+      setEditingMessage(null)
+      setEditText('')
+      
+      // Messages will be updated via real-time listener
+      
+    } catch (error) {
+      console.error('Edit message error:', error)
+      alert('Failed to edit message. Please try again.')
+    }
+  }
+
+  // Delete message function
+  const deleteMessage = async (messageId: string) => {
+    if (!user) return
+    
+    // Confirmation dialog
+    if (!window.confirm('Are you sure you want to delete this message? This action cannot be undone.')) {
+      return
+    }
+    
+    try {
+      const token = await user.getIdToken()
+      const endpoint = `/api/chat/${activeTab === 'invest' ? 'investing' : activeTab}/messages/${messageId}`
+      
+      const response = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        alert(error.error || 'Failed to delete message')
+        return
+      }
+      
+      // Messages will be updated via real-time listener
+      
+    } catch (error) {
+      console.error('Delete message error:', error)
+      alert('Failed to delete message. Please try again.')
+    }
+  }
+
+  // Helper function to render text with @mentions highlighted
+  const renderMessageText = (text: string) => {
+    const mentionRegex = /@(\w+)/g
+    const parts = text.split(mentionRegex)
+    
+    return parts.map((part, index) => {
+      // Every odd index is a username from the regex capture group
+      if (index % 2 === 1) {
+        return (
+          <span key={index} className={styles.mention}>
+            @{part}
+          </span>
+        )
+      }
+      return part
+    })
   }
 
   // Handle Enter key to send message (Shift+Enter for new line)
@@ -654,6 +765,22 @@ export default function CommunityPage() {
                           userLoggedIn={!!user}
                           onReply={setReplyTo}
                           onLike={toggleLike}
+                          editingMessage={editingMessage}
+                          editText={editText}
+                          setEditText={setEditText}
+                          onStartEdit={startEditing}
+                          onCancelEdit={cancelEditing}
+                          onSaveEdit={editMessage}
+                          showEditHistory={showEditHistory}
+                          onToggleEditHistory={(messageId: string) =>
+                            setShowEditHistory(prev => ({
+                              ...prev,
+                              [messageId]: !prev[messageId]
+                            }))
+                          }
+                          renderMessageText={renderMessageText}
+                          currentUserId={user?.uid || null}
+                          onDelete={deleteMessage}
                         />
                       ))}
                       <div ref={messagesEndRef}/>
@@ -746,7 +873,9 @@ function MessageTime({ timestamp }: { timestamp: number }) {
  * Handles replies, likes, player card links (for live comments), and collapse/expand functionality
  */
 function MessageItem({
-  msg, depth, isLive, thumb, cardName, userLoggedIn, onReply, onLike
+  msg, depth, isLive, thumb, cardName, userLoggedIn, onReply, onLike,
+  editingMessage, editText, setEditText, onStartEdit, onCancelEdit, onSaveEdit,
+  showEditHistory, onToggleEditHistory, renderMessageText, currentUserId, onDelete
 }: {
   msg: MessageTree,
   depth: number,      // Nesting level for threaded replies
@@ -755,7 +884,18 @@ function MessageItem({
   cardName: string,   // Player name (live comments only)
   userLoggedIn: boolean,
   onReply: (id: string) => void,
-  onLike: (id: string) => void
+  onLike: (id: string) => void,
+  editingMessage: string | null,
+  editText: string,
+  setEditText: (text: string) => void,
+  onStartEdit: (message: Message) => void,
+  onCancelEdit: () => void,
+  onSaveEdit: (messageId: string) => void,
+  showEditHistory: Record<string, boolean>,
+  onToggleEditHistory: (messageId: string) => void,
+  renderMessageText: (text: string) => React.ReactNode,
+  currentUserId: string | null,
+  onDelete: (messageId: string) => void
 }) {
   const [showTime, setShowTime]   = useState(true)
   const [collapsed, setCollapsed] = useState(true)
@@ -792,7 +932,70 @@ function MessageItem({
         </div>
 
         <div className={styles.messageContent}>
-          <p className={styles.text}>{msg.text}</p>
+          {editingMessage === msg.id ? (
+            <div className={styles.editForm}>
+              <textarea
+                value={editText}
+                onChange={e => setEditText(e.target.value)}
+                className={styles.editTextarea}
+                autoFocus
+              />
+              <div className={styles.editActions}>
+                <button
+                  onClick={() => onSaveEdit(msg.id)}
+                  disabled={!editText.trim()}
+                  className={styles.saveButton}
+                >
+                  Save
+                </button>
+                <button
+                  onClick={onCancelEdit}
+                  className={styles.cancelButton}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className={styles.text}>
+                {renderMessageText(msg.text)}
+                {msg.editedAt && (
+                  <span className={styles.editedIndicator}>
+                    (edited at {new Date(msg.editedAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })})
+                    {msg.editHistory && msg.editHistory.length > 0 && (
+                      <>
+                        {' • '}
+                        <button
+                          className={styles.showHistoryButton}
+                          onClick={() => onToggleEditHistory(msg.id)}
+                        >
+                          {showEditHistory[msg.id] ? 'Hide' : 'Show'} edit history
+                        </button>
+                      </>
+                    )}
+                  </span>
+                )}
+              </p>
+              {msg.editHistory && msg.editHistory.length > 0 && showEditHistory[msg.id] && (
+                <div className={styles.editHistoryContainer}>
+                  <div className={styles.editHistory}>
+                    <h4 className={styles.editHistoryTitle}>Edit History:</h4>
+                    {msg.editHistory.map((edit, index) => (
+                      <div key={index} className={styles.editHistoryItem}>
+                        <div className={styles.editHistoryMeta}>
+                          Version {index + 1} - {new Date(edit.editedAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+                        </div>
+                        <div className={styles.editHistoryText}>
+                          {renderMessageText(edit.text)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
           {!isLive && userLoggedIn && (
             <div className={styles.messageActions}>
               <button
@@ -807,6 +1010,23 @@ function MessageItem({
               >
                 <FaHeart className={ msg.liked ? styles.liked : '' }/> {msg.likes}
               </button>
+              {currentUserId === msg.userId && (
+                <>
+                  <button
+                    className={styles.actionBtn}
+                    onClick={() => onStartEdit(msg)}
+                    disabled={editingMessage === msg.id}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className={styles.deleteButton}
+                    onClick={() => onDelete(msg.id)}
+                  >
+                    <FaTrash /> Delete
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -833,6 +1053,17 @@ function MessageItem({
                   userLoggedIn={userLoggedIn}
                   onReply={onReply}
                   onLike={onLike}
+                  editingMessage={editingMessage}
+                  editText={editText}
+                  setEditText={setEditText}
+                  onStartEdit={onStartEdit}
+                  onCancelEdit={onCancelEdit}
+                  onSaveEdit={onSaveEdit}
+                  showEditHistory={showEditHistory}
+                  onToggleEditHistory={onToggleEditHistory}
+                  renderMessageText={renderMessageText}
+                  currentUserId={currentUserId}
+                  onDelete={onDelete}
                 />
               ))}
             </ul>

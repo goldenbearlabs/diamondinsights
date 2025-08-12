@@ -13,6 +13,8 @@ interface ChatMessageData {
   likedBy: string[]
   playerId?: string
   playerName?: string
+  editedAt?: number
+  editHistory?: {text: string; editedAt: number}[]
 }
 
 interface UserData {
@@ -103,7 +105,9 @@ export async function GET(
     likes:          m.likedBy.length,
     liked:          me ? m.likedBy.includes(me) : false,
     playerId:       m.playerId,
-    playerName:     m.playerName
+    playerName:     m.playerName,
+    editedAt:       m.editedAt,
+    editHistory:    m.editHistory
   }))
 
   return NextResponse.json(msgs)

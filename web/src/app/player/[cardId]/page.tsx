@@ -6,7 +6,7 @@ import styles from './page.module.css'
 import Link from 'next/link'
 import { auth } from '@/lib/firebaseClient'                           // ← import your firebase client
 import { onAuthStateChanged, type User } from 'firebase/auth'
-import { FaArrowLeft } from 'react-icons/fa'
+import { FaArrowLeft, FaTrash } from 'react-icons/fa'
 import { FaSpinner } from 'react-icons/fa'
 
 type SortBy = 'recent'|'liked'|'replies'
@@ -20,6 +20,8 @@ interface Comment {
   text:          string
   timestamp:     number | null
   likes:         string[]
+  editedAt?:     number
+  editHistory?:  { text: string; editedAt: number }[]
 }
 
 interface Card {
@@ -85,6 +87,9 @@ export default function CardPage() {
     userVote: null
   })
   const [votesLoading, setVotesLoading] = useState(true)
+  const [editingComment, setEditingComment] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+  const [showEditHistory, setShowEditHistory] = useState<Record<string, boolean>>({})
   useEffect(() => onAuthStateChanged(auth, u => setUser(u)), [])
 
   // fixed destructuring
@@ -284,6 +289,51 @@ export default function CardPage() {
       console.error('Delete comment error:', error)
       alert('Failed to delete comment. Please try again.')
     }
+  }
+
+  const editComment = async (cid: string) => {
+    if (!user) return router.push('/login')
+    if (!editText.trim()) return
+    
+    try {
+      const token = await user.getIdToken()
+      const response = await fetch(`/api/cards/${card!.id}/comments/${cid}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text: editText })
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        alert(error.error || 'Failed to edit comment')
+        return
+      }
+      
+      // Refetch all comments to show updated comment
+      const res = await fetch(`/api/cards/${card!.id}/comments`)
+      setComments(await res.json())
+      
+      // Reset edit state
+      setEditingComment(null)
+      setEditText('')
+      
+    } catch (error) {
+      console.error('Edit comment error:', error)
+      alert('Failed to edit comment. Please try again.')
+    }
+  }
+
+  const startEditing = (comment: Comment) => {
+    setEditingComment(comment.id)
+    setEditText(comment.text)
+  }
+
+  const cancelEditing = () => {
+    setEditingComment(null)
+    setEditText('')
   }
 
   const handleVote = async (voteType: 'up' | 'down') => {
@@ -580,15 +630,83 @@ export default function CardPage() {
                         {c.username}
                       </button>
                       <span className={styles.commentTime}>
-                        {new Date(c.timestamp!).toLocaleString()}
+                        {new Date(c.timestamp!).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
                       </span>
                     </div>
 
-                    <p className={styles.commentText}>{renderCommentText(c.text)}</p>
+                    {editingComment === c.id ? (
+                      <div className={styles.editForm}>
+                        <textarea
+                          value={editText}
+                          onChange={e => setEditText(e.target.value)}
+                          className={styles.editTextarea}
+                          autoFocus
+                        />
+                        <div className={styles.editActions}>
+                          <button
+                            onClick={() => editComment(c.id)}
+                            disabled={!editText.trim()}
+                            className={styles.saveButton}
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={cancelEditing}
+                            className={styles.cancelButton}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className={styles.commentText}>
+                          {renderCommentText(c.text)}
+                          {c.editedAt && (
+                            <span className={styles.editedIndicator}>
+                              (edited {new Date(c.editedAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })})
+                              {c.editHistory && c.editHistory.length > 0 && (
+                                <>
+                                  {' • '}
+                                  <button
+                                    className={styles.showHistoryButton}
+                                    onClick={() =>
+                                      setShowEditHistory(prev => ({
+                                        ...prev,
+                                        [c.id]: !prev[c.id]
+                                      }))
+                                    }
+                                  >
+                                    {showEditHistory[c.id] ? 'Hide' : 'Show'} edit history
+                                  </button>
+                                </>
+                              )}
+                            </span>
+                          )}
+                        </p>
+                        {c.editHistory && c.editHistory.length > 0 && showEditHistory[c.id] && (
+                          <div className={styles.editHistoryContainer}>
+                            <div className={styles.editHistory}>
+                              <h4 className={styles.editHistoryTitle}>Edit History:</h4>
+                              {c.editHistory.map((edit, index) => (
+                                <div key={index} className={styles.editHistoryItem}>
+                                  <div className={styles.editHistoryMeta}>
+                                    Version {index + 1} - {new Date(edit.editedAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+                                  </div>
+                                  <div className={styles.editHistoryText}>
+                                    {renderCommentText(edit.text)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
 
                     <div className={styles.commentActions}>
                       <button
-                        className={styles.likeButton}
+                        className={`${styles.likeButton} ${c.likes.includes(user?.uid ?? '') ? styles.liked : ''}`}
                         onClick={() => toggleLike(c.id)}
                       >
                         {c.likes.includes(user?.uid ?? '') ? '♥' : '♡'} {c.likes.length}
@@ -602,12 +720,21 @@ export default function CardPage() {
                         </button>
                       )}
                       {user && c.userId === user.uid && (
-                        <button
-                          className={styles.deleteButton}
-                          onClick={() => deleteComment(c.id)}
-                        >
-                          Delete
-                        </button>
+                        <>
+                          <button
+                            className={styles.editButton}
+                            onClick={() => startEditing(c)}
+                            disabled={editingComment === c.id}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className={styles.deleteButton}
+                            onClick={() => deleteComment(c.id)}
+                          >
+                            <FaTrash /> Delete
+                          </button>
+                        </>
                       )}
                     </div>
 
@@ -668,15 +795,83 @@ export default function CardPage() {
                                     {r.username}
                                   </button>
                                   <span className={styles.commentTime}>
-                                    {new Date(r.timestamp!).toLocaleString()}
+                                    {new Date(r.timestamp!).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
                                   </span>
                                 </div>
 
-                                <p className={styles.commentText}>{renderCommentText(r.text)}</p>
+                                {editingComment === r.id ? (
+                                  <div className={styles.editForm}>
+                                    <textarea
+                                      value={editText}
+                                      onChange={e => setEditText(e.target.value)}
+                                      className={styles.editTextarea}
+                                      autoFocus
+                                    />
+                                    <div className={styles.editActions}>
+                                      <button
+                                        onClick={() => editComment(r.id)}
+                                        disabled={!editText.trim()}
+                                        className={styles.saveButton}
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={cancelEditing}
+                                        className={styles.cancelButton}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <p className={styles.commentText}>
+                                      {renderCommentText(r.text)}
+                                      {r.editedAt && (
+                                        <span className={styles.editedIndicator}>
+                                          (edited {new Date(r.editedAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })})
+                                          {r.editHistory && r.editHistory.length > 0 && (
+                                            <>
+                                              {' • '}
+                                              <button
+                                                className={styles.showHistoryButton}
+                                                onClick={() =>
+                                                  setShowEditHistory(prev => ({
+                                                    ...prev,
+                                                    [r.id]: !prev[r.id]
+                                                  }))
+                                                }
+                                              >
+                                                {showEditHistory[r.id] ? 'Hide' : 'Show'} edit history
+                                              </button>
+                                            </>
+                                          )}
+                                        </span>
+                                      )}
+                                    </p>
+                                    {r.editHistory && r.editHistory.length > 0 && showEditHistory[r.id] && (
+                                      <div className={styles.editHistoryContainer}>
+                                        <div className={styles.editHistory}>
+                                          <h4 className={styles.editHistoryTitle}>Edit History:</h4>
+                                          {r.editHistory.map((edit, index) => (
+                                            <div key={index} className={styles.editHistoryItem}>
+                                              <div className={styles.editHistoryMeta}>
+                                                Version {index + 1} - {new Date(edit.editedAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+                                              </div>
+                                              <div className={styles.editHistoryText}>
+                                                {renderCommentText(edit.text)}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
 
                                 <div className={styles.commentActions}>
                                   <button
-                                    className={styles.likeButton}
+                                    className={`${styles.likeButton} ${r.likes.includes(user?.uid ?? '') ? styles.liked : ''}`}
                                     onClick={() => toggleLike(r.id)}
                                   >
                                     {r.likes.includes(user?.uid ?? '')
@@ -692,12 +887,21 @@ export default function CardPage() {
                                     </button>
                                   )}
                                   {user && r.userId === user.uid && (
-                                    <button
-                                      className={styles.deleteButton}
-                                      onClick={() => deleteComment(r.id)}
-                                    >
-                                      Delete
-                                    </button>
+                                    <>
+                                      <button
+                                        className={styles.editButton}
+                                        onClick={() => startEditing(r)}
+                                        disabled={editingComment === r.id}
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        className={styles.deleteButton}
+                                        onClick={() => deleteComment(r.id)}
+                                      >
+                                        <FaTrash /> Delete
+                                      </button>
+                                    </>
                                   )}
                                 </div>
 
@@ -750,11 +954,25 @@ export default function CardPage() {
               <div key={groupTitle} className={styles.attributesGroup}>
                 <h3 className={styles.groupTitle}>{groupTitle}</h3>
                 {attrs.map(([label, key]) => {
-                  const currentVal   = Number(card[key] ?? 0)
-                  const predictedVal = Number(card[`${key}_new_pred`] ?? currentVal)
+                  const currentVal = Number(card[key] ?? 0)
+                  
+                  // Special handling for hits_per_bf (H/9) - matches mobile app logic
+                  let predictedVal: number
+                  let delta: number
+                  
+                  if (key === 'hits_per_bf') {
+                    // For H/9, look for h_per_bf_new_pred which contains the delta, not absolute value
+                    const deltaValue = Number(card['h_per_bf_new_pred'] ?? 0)
+                    delta = deltaValue
+                    predictedVal = currentVal + delta
+                  } else {
+                    // Standard handling for other attributes
+                    predictedVal = Number(card[`${key}_new_pred`] ?? currentVal)
+                    delta = predictedVal - currentVal
+                  }
+                  
                   const currentPct   = (currentVal   / 125) * 100
                   const predictedPct = (predictedVal / 125) * 100
-                  const delta        = predictedVal - currentVal
                   const isUpgrade    = delta > 0
 
                   return (

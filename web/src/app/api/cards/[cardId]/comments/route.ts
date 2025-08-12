@@ -12,6 +12,8 @@ interface CommentData {
   parentId: string | null
   likes: string[]
   timestamp: number
+  editedAt?: number
+  editHistory?: {text: string; editedAt: number}[]
 }
 
 if (!admin.apps.length) admin.initializeApp()
@@ -66,7 +68,9 @@ export async function GET(
       text:       data.text,
       parentId:   data.parentId,
       timestamp:  data.timestamp,
-      likes:      data.likes || []
+      likes:      data.likes || [],
+      editedAt:   data.editedAt,
+      editHistory: data.editHistory
     }
   })
 
@@ -92,6 +96,8 @@ export async function GET(
     text:          c.text,
     timestamp:     c.timestamp,
     likes:         c.likes,
+    editedAt:      c.editedAt,
+    editHistory:    c.editHistory,
     username:      userMap[c.userId]?.username      || 'Unknown',
     profilePicUrl: userMap[c.userId]?.profilePic    || '/default_profile.jpg',
   }))
