@@ -3,6 +3,22 @@
 import { useEffect, useState } from 'react'
 import styles from './page.module.css'
 
+// Stubs currency icon component
+const StubsIcon = ({ className = "" }: { className?: string }) => (
+  <img 
+    src="/assets/stubs.webp" 
+    alt="Stubs" 
+    className={`inline-block ${className}`}
+    style={{ 
+      width: '0.8em', 
+      height: '0.8em', 
+      verticalAlign: 'baseline',
+      marginRight: '0.1em',
+      marginTop: '-0.1em'
+    }}
+  />
+)
+
 type Item = {
   id: number | string | null
   name: string | null
@@ -271,18 +287,38 @@ export default function FlippingPage() {
             <div className={styles.filterGroup}>
               <label>Sell Price Range</label>
               <div className={styles.rangeInputs}>
-                <input type="number" value={minSell} onChange={e => { setMinSell(e.target.value); setPage(1) }} placeholder="Min" />
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                    <StubsIcon />
+                  </span>
+                  <input type="number" value={minSell} onChange={e => { setMinSell(e.target.value); setPage(1) }} placeholder="Min" style={{ paddingLeft: '24px' }} />
+                </div>
                 <span>to</span>
-                <input type="number" value={maxSell} onChange={e => { setMaxSell(e.target.value); setPage(1) }} placeholder="Max" />
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                    <StubsIcon />
+                  </span>
+                  <input type="number" value={maxSell} onChange={e => { setMaxSell(e.target.value); setPage(1) }} placeholder="Max" style={{ paddingLeft: '24px' }} />
+                </div>
               </div>
             </div>
             
             <div className={styles.filterGroup}>
               <label>Buy Price Range</label>
               <div className={styles.rangeInputs}>
-                <input type="number" value={minBuy} onChange={e => { setMinBuy(e.target.value); setPage(1) }} placeholder="Min" />
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                    <StubsIcon />
+                  </span>
+                  <input type="number" value={minBuy} onChange={e => { setMinBuy(e.target.value); setPage(1) }} placeholder="Min" style={{ paddingLeft: '24px' }} />
+                </div>
                 <span>to</span>
-                <input type="number" value={maxBuy} onChange={e => { setMaxBuy(e.target.value); setPage(1) }} placeholder="Max" />
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                    <StubsIcon />
+                  </span>
+                  <input type="number" value={maxBuy} onChange={e => { setMaxBuy(e.target.value); setPage(1) }} placeholder="Max" style={{ paddingLeft: '24px' }} />
+                </div>
               </div>
             </div>
           </div>
@@ -354,18 +390,18 @@ export default function FlippingPage() {
                       )}
                     </div>
                   </td>
-                  <td className={styles.priceCell}>{fmt((r as any)._buy)}</td>
-                  <td className={styles.priceCell}>{fmt((r as any)._sell)}</td>
+                  <td className={styles.priceCell}><StubsIcon />{fmt((r as any)._buy)}</td>
+                  <td className={styles.priceCell}><StubsIcon />{fmt((r as any)._sell)}</td>
                   
                   {!isMobile && (
                     <td className={styles.spreadCell}>
-                      {fmt((r as any)._spread)}
+                      <StubsIcon />{fmt((r as any)._spread)}
                     </td>
                   )}
                   
                   {!isMobile && (
                     <td className={styles.profitCell}>
-                      {fmt(r.net_profit, { digits: 0 })}
+                      <StubsIcon />{fmt(r.net_profit, { digits: 0 })}
                     </td>
                   )}
                   
@@ -395,7 +431,7 @@ export default function FlippingPage() {
                   {!isMobile && <td>{fmt(r.volume_5m ?? null)}</td>}
                   
                   <td className={styles.profitPerMinCell}>
-                    {fmt((r as any).profit_per_min ?? null, { digits: 2 })}
+                    <StubsIcon />{fmt((r as any).profit_per_min ?? null, { digits: 2 })}
                   </td>
                 </tr>
               ))}

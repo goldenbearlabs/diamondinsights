@@ -6,6 +6,22 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import styles from './page.module.css'
 import { FaSpinner } from 'react-icons/fa'
 
+// Stubs currency icon component
+const StubsIcon = ({ className = "" }: { className?: string }) => (
+  <img 
+    src="/assets/stubs.webp" 
+    alt="Stubs" 
+    className={`inline-block ${className}`}
+    style={{ 
+      width: '0.8em', 
+      height: '0.8em', 
+      verticalAlign: 'baseline',
+      marginRight: '0.1em',
+      marginTop: '-0.1em'
+    }}
+  />
+)
+
 interface Card {
   id: string
   name: string
@@ -50,6 +66,17 @@ const DEFAULT_KEYS = [
   'qs_pred',
   'predicted_profit',
   'predicted_profit_pct',
+]
+
+// Currency columns that need stubs icons
+const CURRENCY_COLUMNS = [
+  'market_price',
+  'qs_pred_low',
+  'qs_pred',
+  'qs_pred_high',
+  'predicted_profit_low',
+  'predicted_profit',
+  'predicted_profit_high'
 ]
 
 // define your column groups
@@ -571,6 +598,8 @@ export default function PredictionsPage() {
                           <a href={`/player/${c.id}`} className={styles.playerNameLink}>
                             {cell ?? '-'}
                           </a>
+                        ) : CURRENCY_COLUMNS.includes(col) && cell !== '-' && cell != null ? (
+                          <><StubsIcon />{cell}</>
                         ) : (
                           cell ?? '-'
                         )}

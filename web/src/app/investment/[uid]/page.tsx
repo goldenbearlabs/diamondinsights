@@ -12,6 +12,22 @@ import { doc, getDoc }               from 'firebase/firestore'
 import { db }                        from '@/lib/firebaseClient'
 import { FaSpinner } from 'react-icons/fa'
 
+// Stubs currency icon component
+const StubsIcon = ({ className = "" }: { className?: string }) => (
+  <img 
+    src="/assets/stubs.webp" 
+    alt="Stubs" 
+    className={`inline-block ${className}`}
+    style={{ 
+      width: '0.8em', 
+      height: '0.8em', 
+      verticalAlign: 'baseline',
+      marginRight: '0.1em',
+      marginTop: '-0.1em'
+    }}
+  />
+)
+
 // Investment record structure stored in user's subcollection
 interface Investment {
   id: string
@@ -407,7 +423,7 @@ export default function InvestmentPage() {
           </div>
           <div className={styles.summaryDetails}>
             <span className={styles.label}>Total Invested</span>
-            <span className={styles.value}>${summary.cost.toLocaleString()}</span>
+            <span className={styles.value}><StubsIcon />{summary.cost.toLocaleString()}</span>
           </div>
         </div>
         
@@ -419,7 +435,7 @@ export default function InvestmentPage() {
           </div>
           <div className={styles.summaryDetails}>
             <span className={styles.label}>AI Value</span>
-            <span className={styles.value}>${summary.aiValue.toLocaleString()}</span>
+            <span className={styles.value}><StubsIcon />{summary.aiValue.toLocaleString()}</span>
           </div>
         </div>
         
@@ -437,7 +453,7 @@ export default function InvestmentPage() {
           </div>
           <div className={styles.summaryDetails}>
             <span className={styles.label}>AI P/L</span>
-            <span className={styles.value}>${summary.aiProfit.toLocaleString()}</span>
+            <span className={styles.value}><StubsIcon />{summary.aiProfit.toLocaleString()}</span>
           </div>
         </div>
         
@@ -449,7 +465,7 @@ export default function InvestmentPage() {
           </div>
           <div className={styles.summaryDetails}>
             <span className={styles.label}>Your Value</span>
-            <span className={styles.value}>${summary.myValue.toLocaleString()}</span>
+            <span className={styles.value}><StubsIcon />{summary.myValue.toLocaleString()}</span>
           </div>
         </div>
         
@@ -467,7 +483,7 @@ export default function InvestmentPage() {
           </div>
           <div className={styles.summaryDetails}>
             <span className={styles.label}>Your P/L</span>
-            <span className={styles.value}>${summary.myProfit.toLocaleString()}</span>
+            <span className={styles.value}><StubsIcon />{summary.myProfit.toLocaleString()}</span>
           </div>
         </div>
       </div>
@@ -521,7 +537,7 @@ export default function InvestmentPage() {
               <div className={styles.formGroup}>
                 <label>Avg Buy Price</label>
                 <div className={styles.inputWithPrefix}>
-                  <span className={styles.inputPrefix}>$</span>
+                  <span className={styles.inputPrefix}><StubsIcon /></span>
                   <input
                     type="number"
                     value={avg}
@@ -619,7 +635,7 @@ export default function InvestmentPage() {
                             <div className={styles.detailCell}>
                               <div>
                                 <span className={styles.detailLabel}>Market:</span>
-                                <span>${c ? Number(c.market_price).toLocaleString() : '–'}</span>
+                                <span>{c ? <><StubsIcon />{Number(c.market_price).toLocaleString()}</> : '–'}</span>
                               </div>
                               <div>
                                 <span className={styles.detailLabel}>Confidence:</span>
@@ -646,15 +662,15 @@ export default function InvestmentPage() {
                           <td>
                             <div className={styles.investmentCell}>
                               <div className={styles.investmentValue}>
-                                ${i.avgBuyPrice.toLocaleString()}
+                                <StubsIcon />{i.avgBuyPrice.toLocaleString()}
                               </div>
                               <div className={styles.investmentTotal}>
-                                Total: ${(i.quantity * i.avgBuyPrice).toLocaleString()}
+                                Total: <StubsIcon />{(i.quantity * i.avgBuyPrice).toLocaleString()}
                               </div>
                               {editingId === i.id && (
                                 <div className={styles.investmentEdit}>
                                   <div className={styles.inputWithPrefix}>
-                                    <span className={styles.inputPrefix}>$</span>
+                                    <span className={styles.inputPrefix}><StubsIcon /></span>
                                     <input
                                       type="number"
                                       value={unitPrice}
@@ -698,15 +714,15 @@ export default function InvestmentPage() {
                               <div className={styles.valueComparison}>
                                 <div>
                                   <span className={styles.valueLabel}>AI:</span>
-                                  <span>{aiQs}</span>
+                                  <span><StubsIcon />{aiQs}</span>
                                 </div>
                                 <div>
                                   <span className={styles.valueLabel}>You:</span>
-                                  <span>{myQs}</span>
+                                  <span><StubsIcon />{myQs}</span>
                                 </div>
                               </div>
                               <div className={styles.valuePotential}>
-                                Potential: ${(i.quantity * myQs).toLocaleString()}
+                                Potential: <StubsIcon />{(i.quantity * myQs).toLocaleString()}
                               </div>
                             </div>
                           </td>

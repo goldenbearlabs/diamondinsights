@@ -6,6 +6,22 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import styles from './page.module.css'
 import { auth, db } from '@/lib/firebaseClient'
+
+// Stubs currency icon component
+const StubsIcon = ({ className = "" }: { className?: string }) => (
+  <img 
+    src="/assets/stubs.webp" 
+    alt="Stubs" 
+    className={`inline-block ${className}`}
+    style={{ 
+      width: '0.8em', 
+      height: '0.8em', 
+      verticalAlign: 'baseline',
+      marginRight: '0.1em',
+      marginTop: '-0.1em'
+    }}
+  />
+)
 import {
   onAuthStateChanged,
   User as FirebaseUser
@@ -294,7 +310,7 @@ export default function AccountPage() {
             <div className={styles.statItem}>
               <h5>Total Invested</h5>
               <p className={styles.value}>
-                ${stats.totalInvested.toLocaleString()}
+                <StubsIcon />{stats.totalInvested.toLocaleString()}
               </p>
             </div>
             {/* Message count statistic */}
