@@ -73,9 +73,16 @@ export async function GET(
 
   // 4) price/fallback
   const rawPrice = (market as Record<string,unknown>).buy
-  const price = typeof rawPrice === 'number'
+  let price = typeof rawPrice === 'number'
     ? rawPrice
-    : Number(rawPrice) || qs_actual
+    : (rawPrice != null && !isNaN(Number(rawPrice)))
+      ? Number(rawPrice)
+      : qs_actual
+
+  // If market price is 0, fallback to Quick Sell Actual
+  if (price === 0) {
+    price = qs_actual
+  }
 
   // 5) profit & %
   const profit      = qs_pred       - price

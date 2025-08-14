@@ -583,6 +583,18 @@
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.infoText {
+  padding: 12px 16px 16px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  background: rgba(30, 30, 30, 0.4);
+  border-radius: 8px;
+  margin: 0 16px 16px;
+  border-left: 3px solid var(--accent-primary);
+  font-style: italic;
+}
+
 /* Trending Cards Grid */
 .trendingGrid {
   display: grid;
@@ -1283,5 +1295,87 @@
 
   .editHistoryText {
     font-size: 0.75rem;
+  }
+}
+
+/* Coming Soon Styles */
+.comingSoonContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 40px;
+  max-width: 600px;
+  margin: 0 auto;
+  height: 100%;
+}
+
+.comingSoonIcon {
+  color: var(--accent-primary);
+  margin-bottom: 24px;
+  opacity: 0.8;
+}
+
+.comingSoonTitle {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 16px;
+}
+
+.comingSoonDescription {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  margin: 0 0 32px;
+  line-height: 1.6;
+}
+
+.featureList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 32px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.featureItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(40, 40, 40, 0.5);
+  border-radius: 8px;
+  border-left: 3px solid var(--accent-secondary);
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.featureIcon {
+  color: var(--accent-secondary);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.comingSoonFooter {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* Mobile responsiveness for coming soon */
+@media (max-width: 768px) {
+  .comingSoonContainer {
+    padding: 40px 20px;
+  }
+  
+  .comingSoonTitle {
+    font-size: 1.6rem;
+  }
+  
+  .comingSoonDescription {
+    font-size: 1rem;
   }
 }
