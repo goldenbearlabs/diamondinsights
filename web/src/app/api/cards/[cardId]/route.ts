@@ -72,16 +72,24 @@ export async function GET(
   const qs_pred_high = qsValue(Math.round(predictedRankHigh))
 
   // 4) price/fallback
-  const rawPrice = (market as Record<string,unknown>).buy
-  let price = typeof rawPrice === 'number'
-    ? rawPrice
-    : (rawPrice != null && !isNaN(Number(rawPrice)))
-      ? Number(rawPrice)
+  const rawBuyPrice = (market as Record<string,unknown>).buy
+  const rawSellPrice = (market as Record<string,unknown>).sell
+  
+  let price = typeof rawBuyPrice === 'number'
+    ? rawBuyPrice
+    : (rawBuyPrice != null && !isNaN(Number(rawBuyPrice)))
+      ? Number(rawBuyPrice)
       : qs_actual
 
-  // If market price is 0, fallback to Quick Sell Actual
+  // If buy price is 0, fallback to sell price, then Quick Sell Actual as final fallback
   if (price === 0) {
-    price = qs_actual
+    const sellPrice = typeof rawSellPrice === 'number'
+      ? rawSellPrice
+      : (rawSellPrice != null && !isNaN(Number(rawSellPrice)))
+        ? Number(rawSellPrice)
+        : 0
+    
+    price = sellPrice > 0 ? sellPrice : qs_actual
   }
 
   // 5) profit & %

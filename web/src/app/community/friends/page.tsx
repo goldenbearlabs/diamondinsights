@@ -1,9 +1,10 @@
 // src/app/community/friends/page.tsx
-// Friends page - coming soon functionality for social features
-// Features: placeholder for future friends system, user search for consistency
+// Friends page - full friends functionality with tabs and real data
+// Features: friends list, friend requests management, user search
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import styles from '../page.module.css'
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth'
 
@@ -14,7 +15,13 @@ import {
   FaTimes,
   FaUserPlus,
   FaHeart,
-  FaComments
+  FaComments,
+  FaCheck,
+  FaClock,
+  FaUserCheck,
+  FaSpinner,
+  FaSync,
+  FaSearch
 } from 'react-icons/fa'
 
 // User search result structure for user lookup functionality
@@ -24,9 +31,36 @@ interface UserSearchResult {
   profilePic: string
 }
 
+// Friend data interfaces from our APIs
+interface FriendData {
+  userId: string
+  username: string
+  profilePic: string
+  friendsSince: number
+  isOnline?: boolean
+}
+
+interface FriendRequestData {
+  requestId: string
+  userId: string
+  username: string
+  profilePic: string
+  message?: string
+  timestamp: number
+  direction: 'incoming' | 'outgoing'
+}
+
+interface RecommendedUser {
+  userId: string
+  username: string
+  profilePic: string
+  joinedDate: number
+  friendsCount?: number
+}
+
 /**
- * Friends page component - placeholder for future social features
- * Features coming soon message with professional styling
+ * Friends page component - full friends functionality
+ * Features: friends list, friend requests, user search
  */
 export default function FriendsPage() {
   const auth = getAuth()
@@ -35,7 +69,19 @@ export default function FriendsPage() {
   const [user, setUser] = useState<User | null>(null)
   
   // Tab and navigation state
+  const [activeTab, setActiveTab] = useState<'friends' | 'requests' | 'search'>('friends')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+
+  // Friends data state
+  const [friends, setFriends] = useState<FriendData[]>([])
+  const [friendRequests, setFriendRequests] = useState<{
+    incoming: FriendRequestData[]
+    outgoing: FriendRequestData[]
+  }>({ incoming: [], outgoing: [] })
+  const [recommendedUsers, setRecommendedUsers] = useState<RecommendedUser[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false)
+  const [processingRequests, setProcessingRequests] = useState<Set<string>>(new Set())
 
   // User search functionality state
   const [userSearch, setUserSearch] = useState('')
@@ -43,12 +89,121 @@ export default function FriendsPage() {
   const [userSearchOpen, setUserSearchOpen] = useState(false)
 
   // DOM references for click outside detection
-  const userSearchRef  = useRef<HTMLDivElement>(null)
+  const userSearchRef = useRef<HTMLDivElement>(null)
 
   // Set up authentication state listener
   useEffect(() => {
-    return onAuthStateChanged(auth, u => setUser(u))
+    return onAuthStateChanged(auth, u => {
+      setUser(u)
+      if (u) {
+        loadFriendsData(u)
+        loadRecommendedUsers(u)
+      } else {
+        setLoading(false)
+      }
+    })
   }, [auth])
+
+  // Load friends and friend requests data
+  const loadFriendsData = async (currentUser: User) => {
+    if (!currentUser) return
+
+    try {
+      const token = await currentUser.getIdToken()
+      
+      // Load friends list and friend requests in parallel
+      const [friendsResponse, requestsResponse] = await Promise.all([
+        fetch(`/api/friends/list/${currentUser.uid}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch('/api/friends/requests', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      ])
+
+      if (friendsResponse.ok) {
+        const friendsData = await friendsResponse.json()
+        setFriends(friendsData.friends || [])
+      }
+
+      if (requestsResponse.ok) {
+        const requestsData = await requestsResponse.json()
+        setFriendRequests({
+          incoming: requestsData.incoming || [],
+          outgoing: requestsData.outgoing || []
+        })
+      }
+    } catch (error) {
+      console.error('Error loading friends data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Load recommended users
+  const loadRecommendedUsers = async (currentUser: User) => {
+    if (!currentUser) return
+
+    setLoadingRecommendations(true)
+    try {
+      const token = await currentUser.getIdToken()
+      const response = await fetch('/api/users/recommendations', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setRecommendedUsers(data.recommendations || [])
+      }
+    } catch (error) {
+      console.error('Error loading recommended users:', error)
+    } finally {
+      setLoadingRecommendations(false)
+    }
+  }
+
+  // Refresh recommended users
+  const refreshRecommendations = () => {
+    if (user) {
+      loadRecommendedUsers(user)
+    }
+  }
+
+  // Handle accepting/declining friend requests
+  const handleFriendRequest = async (requestId: string, action: 'accept' | 'decline') => {
+    if (!user) return
+
+    setProcessingRequests(prev => new Set(prev).add(requestId))
+
+    try {
+      const token = await user.getIdToken()
+      const response = await fetch('/api/friends/respond', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ requestId, action })
+      })
+
+      if (response.ok) {
+        // Refresh friends data to get updated lists
+        await loadFriendsData(user)
+      } else {
+        const error = await response.json()
+        alert(error.error || `Failed to ${action} friend request`)
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing friend request:`, error)
+      alert(`Failed to ${action} friend request`)
+    } finally {
+      setProcessingRequests(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(requestId)
+        return newSet
+      })
+    }
+  }
 
   // User search functionality with debounced API calls
   useEffect(() => {
@@ -132,13 +287,16 @@ export default function FriendsPage() {
 
           {/* User search functionality with dropdown results */}
           <div className={styles.userSearchContainer} ref={userSearchRef}>
-            <input
-              type="text"
-              className={styles.userSearchInput}
-              placeholder="Search users..."
-              value={userSearch}
-              onChange={e => setUserSearch(e.target.value)}
-            />
+            <div className={styles.searchInputWrapper}>
+              <FaSearch className={styles.searchIcon} />
+              <input
+                type="text"
+                className={styles.userSearchInput}
+                placeholder="Search users..."
+                value={userSearch}
+                onChange={e => setUserSearch(e.target.value)}
+              />
+            </div>
             {/* Search results dropdown */}
             {userSearchOpen && userMatches.length > 0 && (
               <div className={styles.userSearchResults}>
@@ -153,7 +311,7 @@ export default function FriendsPage() {
                     }}
                   >
                     <img
-                      src={user.profilePic || '/placeholder-user.png'}
+                      src={user.profilePic || '/default_profile.jpg'}
                       alt={user.username}
                       className={styles.userResultAvatar}
                     />
@@ -171,11 +329,27 @@ export default function FriendsPage() {
           </div>
 
           <nav className={styles.tabs}>
-            {/* Friends Info */}
-            <div className={styles.sectionHeader}>Social Features</div>
-            <div className={styles.infoText}>
-              Connect with other traders, share insights, and build your community network. Coming soon!
-            </div>
+            <button
+              className={`${styles.tab} ${activeTab === 'friends' ? styles.active : ''}`}
+              onClick={() => setActiveTab('friends')}
+            >
+              <span className={styles.tabIcon}><FaUsers /></span>
+              <span className={styles.tabLabel}>My Friends ({friends.length})</span>
+            </button>
+            <button
+              className={`${styles.tab} ${activeTab === 'requests' ? styles.active : ''}`}
+              onClick={() => setActiveTab('requests')}
+            >
+              <span className={styles.tabIcon}><FaUserPlus /></span>
+              <span className={styles.tabLabel}>Requests ({friendRequests.incoming.length + friendRequests.outgoing.length})</span>
+            </button>
+            <button
+              className={`${styles.tab} ${activeTab === 'search' ? styles.active : ''}`}
+              onClick={() => setActiveTab('search')}
+            >
+              <span className={styles.tabIcon}><FaUserPlus /></span>
+              <span className={styles.tabLabel}>Find Friends</span>
+            </button>
           </nav>
           
           <div className={styles.userInfo}>
@@ -219,36 +393,244 @@ export default function FriendsPage() {
           </header>
 
           <div className={styles.messagesContainer}>
-            <div className={styles.comingSoonContainer}>
-              <div className={styles.comingSoonIcon}>
-                <FaUsers size={64} />
+            {loading ? (
+              <div className={styles.loadingContainer}>
+                <FaSpinner className={styles.spinner} />
+                <p>Loading friends...</p>
               </div>
-              <h2 className={styles.comingSoonTitle}>Friends Feature Coming Soon!</h2>
-              <p className={styles.comingSoonDescription}>
-                We're working on exciting social features that will let you:
-              </p>
-              <div className={styles.featureList}>
-                <div className={styles.featureItem}>
-                  <FaUserPlus className={styles.featureIcon} />
-                  <span>Add and manage friends</span>
-                </div>
-                <div className={styles.featureItem}>
-                  <FaComments className={styles.featureIcon} />
-                  <span>Private messaging</span>
-                </div>
-                <div className={styles.featureItem}>
-                  <FaHeart className={styles.featureIcon} />
-                  <span>Share favorite players</span>
-                </div>
-                <div className={styles.featureItem}>
-                  <FaUsers className={styles.featureIcon} />
-                  <span>Create trading groups</span>
-                </div>
+            ) : !user ? (
+              <div className={styles.loginPromptContainer}>
+                <FaUsers size={48} />
+                <h3>Please log in to view your friends</h3>
+                <Link href="/login" className="btn btn-primary">
+                  Log In
+                </Link>
               </div>
-              <p className={styles.comingSoonFooter}>
-                Stay tuned for updates! In the meantime, you can connect with other traders in our chat rooms.
-              </p>
-            </div>
+            ) : (
+              <>
+                {/* Friends List Tab */}
+                {activeTab === 'friends' && (
+                  <div className={styles.friendsListContainer}>
+                    <div className={styles.tabHeader}>
+                      <h3>My Friends ({friends.length})</h3>
+                    </div>
+                    {friends.length === 0 ? (
+                      <div className={styles.emptyState}>
+                        <FaUsers size={48} />
+                        <h4>No friends yet</h4>
+                        <p>Start connecting with other traders by searching for users or accepting friend requests!</p>
+                      </div>
+                    ) : (
+                      <div className={styles.friendsList}>
+                        {friends.map(friend => (
+                          <div key={friend.userId} className={styles.friendItem}>
+                            <Link href={`/account/${friend.userId}`} className={styles.friendLink}>
+                              <img
+                                src={friend.profilePic || '/default_profile.jpg'}
+                                alt={friend.username}
+                                className={styles.friendAvatar}
+                                onError={e => {
+                                  (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg'
+                                }}
+                              />
+                              <div className={styles.friendInfo}>
+                                <div className={styles.friendName}>{friend.username}</div>
+                                <div className={styles.friendMeta}>
+                                  Friends since {new Date(friend.friendsSince).toLocaleDateString()}
+                                </div>
+                              </div>
+                              {friend.isOnline && (
+                                <div className={styles.onlineIndicator} title="Online">
+                                  <div className={styles.onlineDot}></div>
+                                </div>
+                              )}
+                            </Link>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Friend Requests Tab */}
+                {activeTab === 'requests' && (
+                  <div className={styles.requestsContainer}>
+                    <div className={styles.tabHeader}>
+                      <h3>Friend Requests</h3>
+                    </div>
+                    
+                    {/* Incoming Requests */}
+                    {friendRequests.incoming.length > 0 && (
+                      <div className={styles.requestSection}>
+                        <h4>Incoming Requests ({friendRequests.incoming.length})</h4>
+                        <div className={styles.requestsList}>
+                          {friendRequests.incoming.map(request => (
+                            <div key={request.requestId} className={styles.requestItem}>
+                              <Link href={`/account/${request.userId}`} className={styles.requestUserLink}>
+                                <img
+                                  src={request.profilePic || '/default_profile.jpg'}
+                                  alt={request.username}
+                                  className={styles.requestAvatar}
+                                  onError={e => {
+                                    (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg'
+                                  }}
+                                />
+                                <div className={styles.requestInfo}>
+                                  <div className={styles.requestName}>{request.username}</div>
+                                  <div className={styles.requestTime}>
+                                    {new Date(request.timestamp).toLocaleDateString()}
+                                  </div>
+                                  {request.message && (
+                                    <div className={styles.requestMessage}>"{request.message}"</div>
+                                  )}
+                                </div>
+                              </Link>
+                              <div className={styles.requestActions}>
+                                <button
+                                  className="btn btn-primary btn-sm"
+                                  onClick={() => handleFriendRequest(request.requestId, 'accept')}
+                                  disabled={processingRequests.has(request.requestId)}
+                                >
+                                  {processingRequests.has(request.requestId) ? (
+                                    <FaSpinner className={styles.spinner} />
+                                  ) : (
+                                    <FaCheck />
+                                  )}
+                                  Accept
+                                </button>
+                                <button
+                                  className="btn btn-secondary btn-sm"
+                                  onClick={() => handleFriendRequest(request.requestId, 'decline')}
+                                  disabled={processingRequests.has(request.requestId)}
+                                >
+                                  <FaTimes />
+                                  Decline
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Outgoing Requests */}
+                    {friendRequests.outgoing.length > 0 && (
+                      <div className={styles.requestSection}>
+                        <h4>Sent Requests ({friendRequests.outgoing.length})</h4>
+                        <div className={styles.requestsList}>
+                          {friendRequests.outgoing.map(request => (
+                            <div key={request.requestId} className={styles.requestItem}>
+                              <Link href={`/account/${request.userId}`} className={styles.requestUserLink}>
+                                <img
+                                  src={request.profilePic || '/default_profile.jpg'}
+                                  alt={request.username}
+                                  className={styles.requestAvatar}
+                                  onError={e => {
+                                    (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg'
+                                  }}
+                                />
+                                <div className={styles.requestInfo}>
+                                  <div className={styles.requestName}>{request.username}</div>
+                                  <div className={styles.requestTime}>
+                                    Sent {new Date(request.timestamp).toLocaleDateString()}
+                                  </div>
+                                </div>
+                              </Link>
+                              <div className={styles.requestStatus}>
+                                <FaClock />
+                                Pending
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* No Requests */}
+                    {friendRequests.incoming.length === 0 && friendRequests.outgoing.length === 0 && (
+                      <div className={styles.emptyState}>
+                        <FaUserPlus size={48} />
+                        <h4>No pending requests</h4>
+                        <p>You don't have any pending friend requests at the moment.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Find Friends Tab */}
+                {activeTab === 'search' && (
+                  <div className={styles.searchContainer}>
+                    <div className={styles.tabHeader}>
+                      <h3>Find Friends</h3>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={refreshRecommendations}
+                        disabled={loadingRecommendations}
+                        style={{ marginLeft: 'auto' }}
+                      >
+                        {loadingRecommendations ? (
+                          <FaSpinner className={styles.spinner} />
+                        ) : (
+                          <FaSync />
+                        )}
+                        Refresh
+                      </button>
+                    </div>
+                    
+                    {/* Recommended Users Section */}
+                    <div className={styles.recommendationsSection}>
+                      <h4>Suggested Users</h4>
+                      {loadingRecommendations ? (
+                        <div className={styles.loadingRecommendations}>
+                          <FaSpinner className={styles.spinner} />
+                          <p>Loading recommendations...</p>
+                        </div>
+                      ) : recommendedUsers.length > 0 ? (
+                        <div className={styles.recommendationsList}>
+                          {recommendedUsers.map(user => (
+                            <div key={user.userId} className={styles.recommendationItem}>
+                              <img
+                                src={user.profilePic || '/default_profile.jpg'}
+                                alt={user.username}
+                                className={styles.recommendationAvatar}
+                                onError={e => {
+                                  (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg'
+                                }}
+                              />
+                              <div className={styles.recommendationInfo}>
+                                <Link href={`/account/${user.userId}`} className={styles.recommendationName}>
+                                  {user.username}
+                                </Link>
+                                <div className={styles.recommendationMeta}>
+                                  {user.friendsCount || 0} friends
+                                </div>
+                              </div>
+                              <Link
+                                href={`/account/${user.userId}`}
+                                className="btn btn-primary btn-sm"
+                              >
+                                <FaUserPlus style={{ marginRight: '4px' }} />
+                                Add
+                              </Link>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className={styles.emptyRecommendations}>
+                          <FaUsers size={32} />
+                          <p>No recommendations available at the moment.</p>
+                          <button className="btn btn-secondary" onClick={refreshRecommendations}>
+                            <FaSync style={{ marginRight: '8px' }} />
+                            Try Again
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </section>
       </div>

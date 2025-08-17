@@ -56,13 +56,8 @@ export default function TrendingPage() {
   const [trendingCards, setTrendingCards] = useState<TrendingCard[]>([])
   const [trendingLoading, setTrendingLoading] = useState(false)
 
-  // User search functionality state
-  const [userSearch, setUserSearch] = useState('')
-  const [userMatches, setUserMatches] = useState<UserSearchResult[]>([])
-  const [userSearchOpen, setUserSearchOpen] = useState(false)
 
   // DOM references for click outside detection
-  const userSearchRef  = useRef<HTMLDivElement>(null)
 
   // Set up authentication state listener
   useEffect(() => {
@@ -91,43 +86,7 @@ export default function TrendingPage() {
     fetchTrendingCards()
   }, [])
 
-  // User search functionality with debounced API calls
-  useEffect(() => {
-    const searchUsers = async () => {
-      const val = userSearch.trim()
-      if (val.length < 2) {
-        setUserMatches([])
-        setUserSearchOpen(false)
-        return
-      }
 
-      try {
-        const res = await fetch(`/api/users/search?q=${encodeURIComponent(val)}`)
-        const data = await res.json()
-        setUserMatches(data)
-        setUserSearchOpen(true)
-      } catch {
-        setUserMatches([])
-      }
-    }
-
-    // Debounce search to avoid excessive API calls
-    const timeoutId = setTimeout(searchUsers, 300)
-    return () => clearTimeout(timeoutId)
-  }, [userSearch])
-
-  // Close user search dropdown when clicking outside
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (userSearchRef.current && !userSearchRef.current.contains(e.target as Node)) {
-        setUserSearchOpen(false)
-      }
-    }
-    if (userSearchOpen) {
-      document.addEventListener('click', onClick)
-      return () => document.removeEventListener('click', onClick)
-    }
-  }, [userSearchOpen])
 
   // Close mobile sidebar when clicking outside (mobile UX)
   useEffect(() => {
@@ -180,45 +139,6 @@ export default function TrendingPage() {
             <h2 className={styles.head}>Trending Cards</h2>
           </div>
 
-          {/* User search functionality with dropdown results */}
-          <div className={styles.userSearchContainer} ref={userSearchRef}>
-            <input
-              type="text"
-              className={styles.userSearchInput}
-              placeholder="Search users..."
-              value={userSearch}
-              onChange={e => setUserSearch(e.target.value)}
-            />
-            {/* Search results dropdown */}
-            {userSearchOpen && userMatches.length > 0 && (
-              <div className={styles.userSearchResults}>
-                {userMatches.map(user => (
-                  <div
-                    key={user.uid}
-                    className={styles.userResult}
-                    onClick={() => {
-                      window.location.href = `/account/${user.uid}`
-                      setUserSearch('')
-                      setUserSearchOpen(false)
-                    }}
-                  >
-                    <img
-                      src={user.profilePic || '/placeholder-user.png'}
-                      alt={user.username}
-                      className={styles.userResultAvatar}
-                    />
-                    <span className={styles.userResultName}>{user.username}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {/* No results message */}
-            {userSearchOpen && userSearch.length >= 2 && userMatches.length === 0 && (
-              <div className={styles.userSearchResults}>
-                <div className={styles.noResults}>No users found</div>
-              </div>
-            )}
-          </div>
 
           <nav className={styles.tabs}>
             {/* Trending Info */}

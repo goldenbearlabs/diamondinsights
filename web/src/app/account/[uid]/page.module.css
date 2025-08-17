@@ -106,6 +106,47 @@
     background-clip: text;
     color: transparent;
   }
+
+  .accountCreated {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+    font-style: italic;
+  }
+
+  .profileActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  @media (max-width: 768px) {
+    .profileActions {
+      flex-direction: column;
+    }
+  }
+
+  .bioPlaceholder {
+    background: rgba(30, 30, 30, 0.4);
+    border-radius: 10px;
+    padding: 30px;
+    border: 2px dashed rgba(255, 255, 255, 0.1);
+    text-align: center;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .bioPlaceholderText {
+    color: var(--text-secondary);
+    font-style: italic;
+    margin: 0;
+    opacity: 0.7;
+  }
   
   .profileDetails {
     display: grid;

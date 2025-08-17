@@ -50,7 +50,7 @@ export async function GET() {
       const u = docSnap.data() as UserData
       userMap[docSnap.id] = {
         username:     u.username || 'Unknown',
-        profilePicUrl: u.profilePic || '/placeholder-user.png'
+        profilePicUrl: u.profilePic || '/default_profile.jpg'
       }
     }
   })
@@ -59,7 +59,7 @@ export async function GET() {
   const comments = raw.map(c => ({
     ...c,
     username:       userMap[c.userId]?.username       || 'Unknown',
-    profilePicUrl:  userMap[c.userId]?.profilePicUrl  || '/placeholder-user.png',
+    profilePicUrl:  userMap[c.userId]?.profilePicUrl  || '/default_profile.jpg',
   }))
 
   return NextResponse.json(comments)

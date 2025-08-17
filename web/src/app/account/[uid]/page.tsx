@@ -22,6 +22,187 @@ const StubsIcon = ({ className = "" }: { className?: string }) => (
     }}
   />
 )
+
+// Friend request status types for TypeScript
+type FriendshipStatus = 'none' | 'pending_sent' | 'pending_received' | 'friends' | 'loading'
+
+// Educational: Friend Button Component
+// This demonstrates React state management and API integration patterns
+function FriendButton({ targetUserId, currentUser }: { 
+  targetUserId: string, 
+  currentUser: FirebaseUser | null 
+}) {
+  const [friendStatus, setFriendStatus] = useState<FriendshipStatus>('loading')
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [requestId, setRequestId] = useState<string | null>(null)
+
+  // Educational: Effect to check friendship status when component mounts
+  useEffect(() => {
+    if (!currentUser || !targetUserId || currentUser.uid === targetUserId) {
+      setFriendStatus('none')
+      return
+    }
+
+    const checkFriendshipStatus = async () => {
+      try {
+        const token = await currentUser.getIdToken()
+        const response = await fetch(`/api/friends/status/${targetUserId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          setFriendStatus(data.status)
+          if (data.requestId) {
+            setRequestId(data.requestId)
+          }
+        } else {
+          setFriendStatus('none')
+        }
+      } catch (error) {
+        console.error('Error checking friendship status:', error)
+        setFriendStatus('none')
+      }
+    }
+
+    checkFriendshipStatus()
+  }, [currentUser, targetUserId])
+
+  // Educational: Function to send friend request
+  const sendFriendRequest = async () => {
+    if (!currentUser) return
+
+    setIsProcessing(true)
+    try {
+      const token = await currentUser.getIdToken()
+      const response = await fetch('/api/friends/request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          receiverId: targetUserId
+        })
+      })
+
+      if (response.ok) {
+        setFriendStatus('pending_sent')
+        alert('Friend request sent successfully!')
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to send friend request')
+      }
+    } catch (error) {
+      console.error('Error sending friend request:', error)
+      alert('Failed to send friend request')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // Function to accept friend request
+  const acceptFriendRequest = async () => {
+    if (!currentUser || !requestId) return
+
+    setIsProcessing(true)
+    try {
+      const token = await currentUser.getIdToken()
+      const response = await fetch('/api/friends/respond', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          requestId: requestId,
+          action: 'accept'
+        })
+      })
+
+      if (response.ok) {
+        setFriendStatus('friends')
+        alert('Friend request accepted! You are now friends.')
+        // Refresh the page to update friend count
+        window.location.reload()
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to accept friend request')
+      }
+    } catch (error) {
+      console.error('Error accepting friend request:', error)
+      alert('Failed to accept friend request')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // Educational: Conditional rendering based on friendship status
+  // This demonstrates how UI should adapt to different states
+  if (!currentUser || currentUser.uid === targetUserId) {
+    return null // Don't show friend button for own profile
+  }
+
+  if (friendStatus === 'loading') {
+    return (
+      <div className={styles.detailCard}>
+        <div className="btn btn-secondary" style={{ opacity: 0.6 }}>
+          Checking...
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {friendStatus === 'none' && (
+        <button 
+          className="btn btn-primary"
+          onClick={sendFriendRequest}
+          disabled={isProcessing}
+        >
+          {isProcessing ? 'Sending...' : (
+            <>
+              <FaUserPlus style={{ marginRight: '8px' }} />
+              Add Friend
+            </>
+          )}
+        </button>
+      )}
+      
+      {friendStatus === 'pending_sent' && (
+        <div className="btn btn-secondary" style={{ opacity: 0.7 }}>
+          <FaClock style={{ marginRight: '8px' }} />
+          Request Sent
+        </div>
+      )}
+      
+      {friendStatus === 'pending_received' && (
+        <button 
+          className="btn btn-primary"
+          onClick={acceptFriendRequest}
+          disabled={isProcessing}
+        >
+          {isProcessing ? 'Accepting...' : (
+            <>
+              <FaHandshake style={{ marginRight: '8px' }} />
+              Accept Request
+            </>
+          )}
+        </button>
+      )}
+      
+      {friendStatus === 'friends' && (
+        <div className="btn btn-success" style={{ opacity: 0.8 }}>
+          <FaUserCheck style={{ marginRight: '8px' }} />
+          Friends
+        </div>
+      )}
+    </>
+  )
+}
 import {
   onAuthStateChanged,
   User as FirebaseUser
@@ -36,7 +217,7 @@ import {
   where,
   getDocs
 } from 'firebase/firestore'
-import { FaSpinner } from 'react-icons/fa'
+import { FaSpinner, FaUserPlus, FaClock, FaHandshake, FaUserCheck } from 'react-icons/fa'
 
 
 interface ProfileData {
@@ -65,7 +246,8 @@ export default function AccountPage() {
     invCount: number
     totalInvested: number
     totalMessages: number
-  }>({ invCount: 0, totalInvested: 0, totalMessages: 0 })
+    friendsCount: number
+  }>({ invCount: 0, totalInvested: 0, totalMessages: 0, friendsCount: 0 })
 
   const viewingUid = uid || currentUser?.uid
   const isOwner    = currentUser?.uid === viewingUid
@@ -134,10 +316,26 @@ export default function AccountPage() {
         msgCount += snap.size
       }
 
+      // friends count - Educational: Using server-side API to avoid Firestore permission issues
+      let friendsCount = 0
+      try {
+        const friendsResponse = await fetch(`/api/friends/count/${viewingUid}`)
+        if (friendsResponse.ok) {
+          const friendsData = await friendsResponse.json()
+          friendsCount = friendsData.friendsCount
+        } else {
+          console.warn('Failed to fetch friends count, defaulting to 0')
+        }
+      } catch (error) {
+        console.error('Error fetching friends count:', error)
+        // friendsCount remains 0 if API call fails
+      }
+
       setStats({
         invCount: invSnap.size,
         totalInvested: total,
-        totalMessages: msgCount
+        totalMessages: msgCount,
+        friendsCount: friendsCount
       })
 
       setLoading(false)
@@ -230,66 +428,79 @@ export default function AccountPage() {
               }}
             />
             <div className={styles.profileInfo}>
-            <h3>{profile?.username}</h3>
+              <h3>{profile?.username}</h3>
+              {!isOwner && (
+                <p className={styles.accountCreated}>Member since {createdDate}</p>
+              )}
             </div>
           </div>
 
+          {/* Profile actions for visitors */}
+          {!isOwner && (
+            <div className={styles.profileActions}>
+              <FriendButton targetUserId={viewingUid!} currentUser={currentUser} />
+              {profile?.investmentsPublic && (
+                <Link
+                  href={`/investment/${viewingUid}`}
+                  className="btn btn-secondary"
+                >
+                  View Investments
+                </Link>
+              )}
+            </div>
+          )}
+
           <div className={styles.profileDetails}>
             {isOwner && (
-              <div className={styles.detailCard}>
-                <h4>Email</h4>
-                <p className={styles.value}>{profile?.email}</p>
-              </div>
-            )}
-
-            <div className={styles.detailCard}>
-              <h4>Account Created</h4>
-              <p className={styles.value}>{createdDate}</p>
-            </div>
-
-            {isOwner ? (
-              <div className={styles.detailCard}>
-                <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-                  <h4>Investments Visibility</h4>
-                  <button
-                    className={styles.tooltipBtn}
-                    onClick={e => {
-                      e.stopPropagation()
-                      setTooltipOpen(open => open === 'investments' ? null : 'investments')
-                    }}
-                  >?</button>
-                  {tooltipOpen === 'investments' && (
-                    <div className={styles.tooltipPopup} onClick={e => e.stopPropagation()}>
-                      Public investments are viewable by anyone visiting your profile. Private investments are only visible to you.
-                    </div>
-                  )}
-                </div>
-                <label className={styles.switch}>
-                  <input
-                    type="checkbox"
-                    checked={!!profile?.investmentsPublic}
-                    onChange={toggleVisibility}
-                    disabled={saving}
-                  />
-                  <span className={styles.slider} />
-                </label>
-                <p className={styles.helpText}>
-                  {profile?.investmentsPublic
-                    ? 'Your investments are public.'
-                    : 'Your investments are private.'}
-                </p>
-              </div>
-            ) : (
-              profile?.investmentsPublic && (
+              <>
                 <div className={styles.detailCard}>
-                  <Link
-                    href={`/investment/${viewingUid}`}
-                    className="btn btn-secondary"
-                  >
-                    View {profile?.username}’s Investments
-                  </Link>
+                  <h4>Email</h4>
+                  <p className={styles.value}>{profile?.email}</p>
                 </div>
-              )
+
+                <div className={styles.detailCard}>
+                  <h4>Account Created</h4>
+                  <p className={styles.value}>{createdDate}</p>
+                </div>
+
+                <div className={styles.detailCard}>
+                  <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                    <h4>Investments Visibility</h4>
+                    <button
+                      className={styles.tooltipBtn}
+                      onClick={e => {
+                        e.stopPropagation()
+                        setTooltipOpen(open => open === 'investments' ? null : 'investments')
+                      }}
+                    >?</button>
+                    {tooltipOpen === 'investments' && (
+                      <div className={styles.tooltipPopup} onClick={e => e.stopPropagation()}>
+                        Public investments are viewable by anyone visiting your profile. Private investments are only visible to you.
+                      </div>
+                    )}
+                  </div>
+                  <label className={styles.switch}>
+                    <input
+                      type="checkbox"
+                      checked={!!profile?.investmentsPublic}
+                      onChange={toggleVisibility}
+                      disabled={saving}
+                    />
+                    <span className={styles.slider} />
+                  </label>
+                  <p className={styles.helpText}>
+                    {profile?.investmentsPublic
+                      ? 'Your investments are public.'
+                      : 'Your investments are private.'}
+                  </p>
+                </div>
+              </>
+            )}
+            
+            {!isOwner && (
+              <div className={styles.bioPlaceholder}>
+                <p className={styles.bioPlaceholderText}>Bio section - coming soon</p>
+              </div>
             )}
           </div>
         </div>
@@ -317,6 +528,11 @@ export default function AccountPage() {
             <div className={styles.statItem}>
               <h5>Total Messages</h5>
               <p className={styles.value}>{stats.totalMessages}</p>
+            </div>
+            {/* Friends count statistic */}
+            <div className={styles.statItem}>
+              <h5>Friends</h5>
+              <p className={styles.value}>{stats.friendsCount}</p>
             </div>
           </div>
         </div>

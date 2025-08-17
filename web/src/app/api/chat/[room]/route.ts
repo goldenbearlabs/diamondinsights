@@ -99,7 +99,7 @@ export async function GET(
     parentId:       m.parentId  || null,
     userId:         m.userId,
     username:       userMap[m.userId]?.username      || 'Unknown',
-    profilePicUrl:  userMap[m.userId]?.profilePic    || '/placeholder-user.png',
+    profilePicUrl:  userMap[m.userId]?.profilePic    || '/default_profile.jpg',
     text:           m.text,
     timestamp:      m.timestamp,
     likes:          m.likedBy.length,

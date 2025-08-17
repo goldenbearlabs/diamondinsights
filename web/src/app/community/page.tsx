@@ -304,7 +304,7 @@ export default function CommunityPage() {
           const d = ds.data() as UserData
           acc[ds.id] = {
             username:      d.username    || 'Unknown',
-            profilePicUrl: d.profilePic  || '/placeholder-user.png'
+            profilePicUrl: d.profilePic  || '/default_profile.jpg'
           }
         }
         return acc
@@ -314,7 +314,7 @@ export default function CommunityPage() {
       const withNames = raw.map(m => ({
         ...m,
         username:      userMap[m.userId]?.username      || 'Unknown',
-        profilePicUrl: userMap[m.userId]?.profilePicUrl || '/placeholder-user.png'
+        profilePicUrl: userMap[m.userId]?.profilePicUrl || '/default_profile.jpg'
       }))
 
       setMsgs(withNames)
@@ -589,7 +589,7 @@ export default function CommunityPage() {
                     }}
                   >
                     <img
-                      src={user.profilePic || '/placeholder-user.png'}
+                      src={user.profilePic || '/default_profile.jpg'}
                       alt={user.username}
                       className={styles.userResultAvatar}
                     />
