@@ -8,6 +8,7 @@ type Card = {
   name: string | null
   team?: string | null
   display_position?: string | null
+  primary_position?: string | null
   rarity?: string | null
   ovr: number | null
   true_ovr?: number | null
@@ -51,6 +52,8 @@ type RankingType =
   | 'baserunning' | 'defense'
 type TopCount = 5 | 10 | 25
 
+const LOCAL_TTL_MS = 60 * 60 * 1000
+
 function isPitcherPos(pos?: string | null) {
   if (!pos) return false
   const p = pos.toUpperCase()
@@ -71,30 +74,66 @@ export default function PlayerRankingsPage() {
   const [view, setView] = useState<ViewMode>('overall')
   const [rankingType, setRankingType] = useState<RankingType>('true_ovr')
   const [topCount, setTopCount] = useState<TopCount>(5)
+  const [allowSecondaries, setAllowSecondaries] = useState(false)
 
-  async function fetchData(force = false) {
+  const cacheKey = (allowSec: boolean) => `players_cache:${allowSec ? 'withsec' : 'nosec'}`
+
+  function loadFromLocal(allowSec = allowSecondaries): Card[] | null {
+    try {
+      const raw = localStorage.getItem(cacheKey(allowSec))
+      if (!raw) return null
+      const { t, items } = JSON.parse(raw)
+      if (!t || !Array.isArray(items)) return null
+      if (Date.now() - t > LOCAL_TTL_MS) return null
+      setLastUpdated(t)
+      return items
+    } catch {
+      return null
+    }
+  }
+
+  function saveToLocal(items: Card[], allowSec = allowSecondaries) {
+    const payload = JSON.stringify({ t: Date.now(), items })
+    try { localStorage.setItem(cacheKey(allowSec), payload) } catch {}
+  }
+
+  async function fetchData(force = false, allowSec = allowSecondaries) {
     setLoading(true)
     setError(null)
     try {
-      const url = force ? '/api/player-rankings?force=1' : '/api/player-rankings'
+      if (!force) {
+        const cached = loadFromLocal(allowSec)
+        if (cached) {
+          setItems(cached)
+          setLoading(false)
+          return
+        }
+      }
+      const params = new URLSearchParams()
+      if (force) params.set('force', '1')
+      if (allowSec) params.set('allow_secondaries', '1')
+      const url = `/api/player-rankings${params.toString() ? `?${params.toString()}` : ''}`
+
       const res = await fetch(url, { cache: 'no-store' })
       if (!res.ok) throw new Error(`API ${res.status}`)
       const data: ApiResp = await res.json()
-      setItems(data.items ?? [])
+      const itemsNext = data.items ?? []
+      setItems(itemsNext)
       setLastUpdated(Date.now())
+      saveToLocal(itemsNext, allowSec)
     } catch (e: any) {
-      setError(e?.message ?? 'Error')
-      setItems([])
+      setError(e?.message ?? 'Error'); setItems([])
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchData()
-    const id = setInterval(() => fetchData(), 60 * 60 * 1000)
-    return () => clearInterval(id)
-  }, [])
+    const cached = loadFromLocal()
+    if (cached) setItems(cached)
+    else fetchData(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowSecondaries])
 
   const rankingLabel = useMemo(() => {
     switch (rankingType) {
@@ -142,7 +181,7 @@ export default function PlayerRankingsPage() {
   const displayScore = (c: Card): number | null => {
     const s = rawScore(c)
     if (!Number.isFinite(s)) return null
-    return Math.min(s as number, 125)
+    return Math.min(s as number, 150)
   }
 
   const hittersTop = useMemo(() => {
@@ -155,14 +194,9 @@ export default function PlayerRankingsPage() {
   const pitchersTop = useMemo(() => {
     return (items || [])
       .filter(i => isPitcherPos(i.display_position))
-      .sort((a, b) => {
-        // still default pitchers to True OVR unless you add pitcher facets later
-        const sA = (typeof a.true_ovr === 'number' ? a.true_ovr : (a.ovr ?? -Infinity))
-        const sB = (typeof b.true_ovr === 'number' ? b.true_ovr : (b.ovr ?? -Infinity))
-        return (sB as number) - (sA as number)
-      })
+      .sort((a, b) => rawScore(b) - rawScore(a))   // ← use rawScore
       .slice(0, topCount)
-  }, [items, topCount])
+  }, [items, rankingType, topCount])    
 
   const byPosition = useMemo(() => {
     const order = ['C','1B','2B','3B','SS','LF','CF','RF','SP','Bullpen'] as const
@@ -174,16 +208,9 @@ export default function PlayerRankingsPage() {
       groups[key].push(c)
     }
     for (const k of Object.keys(groups)) {
-      const sorter =
-        k === 'SP' || k === 'Bullpen'
-          ? (a: Card, b: Card) => {
-              const sA = (typeof a.true_ovr === 'number' ? a.true_ovr : (a.ovr ?? -Infinity))
-              const sB = (typeof b.true_ovr === 'number' ? b.true_ovr : (b.ovr ?? -Infinity))
-              return (sB as number) - (sA as number)
-            }
-          : (a: Card, b: Card) => rawScore(b) - rawScore(a)
-      groups[k] = groups[k].sort(sorter).slice(0, topCount)
-    }
+        const sorter = (a: Card, b: Card) => rawScore(b) - rawScore(a)
+        groups[k] = groups[k].sort(sorter).slice(0, topCount)
+      }
     return { order, groups }
   }, [items, rankingType, topCount])
 
@@ -200,14 +227,9 @@ export default function PlayerRankingsPage() {
 
     return sections.map(s => ({
       title: s.key,
-      rows: items.filter(s.filter).sort((a, b) => {
-        if (isPitcherPos(a.display_position) && isPitcherPos(b.display_position)) {
-          const sA = (typeof a.true_ovr === 'number' ? a.true_ovr : (a.ovr ?? -Infinity))
-          const sB = (typeof b.true_ovr === 'number' ? b.true_ovr : (b.ovr ?? -Infinity))
-          return (sB as number) - (sA as number)
-        }
-        return rawScore(b) - rawScore(a)
-      }).slice(0, topCount)
+      rows: items
+        .filter(s.filter)
+        .sort((a, b) => rawScore(b) - rawScore(a))
     }))
   }, [items, rankingType, topCount])
 
@@ -244,7 +266,7 @@ export default function PlayerRankingsPage() {
                   <span>{c.name ?? '—'}</span>
                 </td>
                 <td className={styles.tdCenter}>{c.team ?? '—'}</td>
-                <td className={styles.tdCenter}>{c.display_position ?? '—'}</td>
+                <td className={styles.tdCenter}>{c.primary_position ?? c.display_position ?? '—'}</td>
                 <td className={styles.tdCenter}><strong>{fmt(disp, 1)}</strong></td>
               </tr>
             )
@@ -272,7 +294,32 @@ export default function PlayerRankingsPage() {
         </div>
       </div>
 
+      {error && <div className={styles.error}>Error: {error}</div>}
+      {loading && (
+        <div className={styles.loadingOverlay}>
+          <div>
+            <div className={styles.spinner} />
+            <div className={styles.loadingText}>Loading…</div>
+          </div>
+        </div>
+      )}
+
       <div className={styles.controlsRow}>
+        <div className={styles.toggleRow}>
+          <label className={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={allowSecondaries}
+              onChange={(e) => {
+                const checked = e.target.checked
+                setAllowSecondaries(checked)
+                fetchData(false, checked)
+              }}
+            />
+            Allow secondaries & OOP
+          </label>
+        </div>
+
         <div className={styles.rankingType}>
           <label>Ranking Type:</label>
           <select
@@ -315,14 +362,20 @@ export default function PlayerRankingsPage() {
             <ListTable rows={hittersTop} title={`Top ${topCount} Hitters (${rankingLabel})`} />
           </section>
           <section className={styles.section}>
-            <ListTable rows={pitchersTop} title={`Top ${topCount} Pitchers (${rankingLabel === 'True OVR' ? rankingLabel : 'True OVR'})`} />
+            <ListTable
+              rows={pitchersTop}
+              title={`Top ${topCount} Pitchers (${rankingLabel})`}
+            />
           </section>
         </div>
       ) : view === 'position' ? (
         <div className={styles.posGrid}>
           {byPosition.order.map((pos) => (
             <section key={pos} className={styles.section}>
-              <ListTable rows={byPosition.groups[pos]} title={`Top ${topCount} ${pos} (${pos === 'SP' || pos === 'Bullpen' ? 'True OVR' : rankingLabel})`} />
+              <ListTable
+                rows={byPosition.groups[pos]}
+                title={`Top ${topCount} ${pos} (${rankingLabel})`}
+              />
             </section>
           ))}
         </div>
@@ -330,7 +383,10 @@ export default function PlayerRankingsPage() {
         <div className={styles.posGrid}>
           {byHand.map(({ title, rows }) => (
             <section key={title} className={styles.section}>
-              <ListTable rows={rows} title={`Top ${topCount} ${title} (${title.includes('Hitters') ? rankingLabel : 'True OVR'})`} />
+              <ListTable
+                rows={rows}
+                title={`Top ${topCount} ${title} (${rankingLabel})`}
+              />
             </section>
           ))}
         </div>
