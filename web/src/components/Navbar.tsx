@@ -26,6 +26,7 @@ export default function Navbar() {
   const [inboxOpen, setInboxOpen] = useState(false)
   const [stubsOpen, setStubsOpen] = useState(false)
   const [gameplayOpen, setGameplayOpen] = useState(false)
+  const [communityOpen, setCommunityOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
 
   const listRef = useRef<HTMLDivElement>(null)
@@ -35,6 +36,7 @@ export default function Navbar() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const stubsRef = useRef<HTMLDivElement>(null)
   const gameplayRef = useRef<HTMLDivElement>(null)
+  const communityRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch('/api/cards/live')
@@ -61,7 +63,8 @@ export default function Navbar() {
         desktopInboxRef.current?.contains(e.target as Node) ||
         dropdownRef.current?.contains(e.target as Node) ||
         stubsRef.current?.contains(e.target as Node) ||
-        gameplayRef.current?.contains(e.target as Node)
+        gameplayRef.current?.contains(e.target as Node) ||
+        communityRef.current?.contains(e.target as Node)
       ) {
         return
       }
@@ -70,6 +73,7 @@ export default function Navbar() {
       setInboxOpen(false)
       setStubsOpen(false)
       setGameplayOpen(false)
+      setCommunityOpen(false)
     }
     document.addEventListener('click', onClick)
     return () => document.removeEventListener('click', onClick)
@@ -104,6 +108,8 @@ export default function Navbar() {
     pathname.startsWith('/investment');
 
   const isGameplayActive = pathname.startsWith('/player-rankings')
+
+  const isCommunityActive = pathname.startsWith('/community')
 
   return (
     <div className={styles.navbarContainer}>
@@ -145,7 +151,7 @@ export default function Navbar() {
               <div className={styles.stubsDropdown} ref={stubsRef}>
                 <button 
                   className={`${styles.navLink} ${isStubsActive ? styles.active : ''}`}
-                  onClick={() => { setStubsOpen(o => !o); setGameplayOpen(false) }}
+                  onClick={() => { setStubsOpen(o => !o); setGameplayOpen(false); setCommunityOpen(false) }}
                 >
                   Stubs <FaCaretDown className={styles.caretIcon} />
                 </button>
@@ -189,7 +195,7 @@ export default function Navbar() {
               <div className={styles.stubsDropdown} ref={gameplayRef}>
                 <button 
                   className={`${styles.navLink} ${isGameplayActive ? styles.active : ''}`}
-                  onClick={() => { setGameplayOpen(o => !o); setStubsOpen(false) }}
+                  onClick={() => { setGameplayOpen(o => !o); setStubsOpen(false); setCommunityOpen(false) }}
                 >
                   Gameplay <FaCaretDown className={styles.caretIcon} />
                 </button>
@@ -209,7 +215,59 @@ export default function Navbar() {
                 )}
               </div>
               
-              <Link href="/community" className={`${styles.navLink} ${pathname.startsWith('/community') ? styles.active : ''}`} onClick={() => setMobileMenuOpen(false)}>Community</Link>
+              {/* Community dropdown */}
+              <div className={styles.stubsDropdown} ref={communityRef}>
+                <button 
+                  className={`${styles.navLink} ${isCommunityActive ? styles.active : ''}`}
+                  onClick={() => { setCommunityOpen(o => !o); setStubsOpen(false); setGameplayOpen(false) }}
+                >
+                  Community <FaCaretDown className={styles.caretIcon} />
+                </button>
+                {communityOpen && (
+                  <div className={styles.stubsMenu}>
+                    <Link 
+                      href="/community/chat" 
+                      className={`${styles.stubsLink} ${pathname.startsWith('/community/chat') ? styles.activeStubs : ''}`} 
+                      onClick={() => {
+                        setCommunityOpen(false);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      Chat
+                    </Link>
+                    <Link 
+                      href="/community/live-comments" 
+                      className={`${styles.stubsLink} ${pathname.startsWith('/community/live-comments') ? styles.activeStubs : ''}`} 
+                      onClick={() => {
+                        setCommunityOpen(false);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      Live Comments
+                    </Link>
+                    <Link 
+                      href="/community/trending" 
+                      className={`${styles.stubsLink} ${pathname.startsWith('/community/trending') ? styles.activeStubs : ''}`} 
+                      onClick={() => {
+                        setCommunityOpen(false);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      Trending
+                    </Link>
+                    <Link 
+                      href="/community/friends" 
+                      className={`${styles.stubsLink} ${pathname.startsWith('/community/friends') ? styles.activeStubs : ''}`} 
+                      onClick={() => {
+                        setCommunityOpen(false);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      Friends
+                    </Link>
+                  </div>
+                )}
+              </div>
               
               <div className={styles.autocompleteContainer} ref={listRef}>
                 <input
