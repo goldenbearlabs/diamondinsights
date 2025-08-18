@@ -127,8 +127,8 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('Error getting user recommendations:', error)
     
-    // Educational: Specific error handling
-    if (error instanceof admin.auth.DecodedIdToken) {
+    // Specific error handling
+    if (error instanceof Error && error.message.includes('auth')) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
     

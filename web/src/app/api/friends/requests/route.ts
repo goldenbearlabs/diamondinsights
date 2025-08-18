@@ -172,7 +172,7 @@ export async function GET(request: Request) {
     console.error('Error fetching friend requests:', error)
     
     // Specific error handling
-    if (error instanceof admin.auth.DecodedIdToken) {
+    if (error instanceof Error && error.message.includes('auth')) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
     

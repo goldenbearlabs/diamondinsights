@@ -155,7 +155,7 @@ export async function POST(request: Request) {
     console.error('Error sending friend request:', error)
     
     // Specific error handling
-    if (error instanceof admin.auth.DecodedIdToken) {
+    if (error instanceof Error && error.message.includes('auth')) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
     

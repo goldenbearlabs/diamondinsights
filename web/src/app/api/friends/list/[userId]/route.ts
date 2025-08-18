@@ -157,7 +157,7 @@ export async function GET(
     console.error('Error fetching friends list:', error)
     
     // Specific error handling
-    if (error instanceof admin.auth.DecodedIdToken) {
+    if (error instanceof Error && error.message.includes('auth')) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
     
