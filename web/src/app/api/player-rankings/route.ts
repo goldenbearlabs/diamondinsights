@@ -1,13 +1,15 @@
 // app/api/player-rankings/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { scoreTrueOvrFromRaw, loadTrueOvrModel } from '@/lib/trueOvr'
-import { computeMetaOvr } from '@/lib/metaOvr'
+import { scoreTrueOvrFromRaw } from '@/lib/trueOvr'
+import { computeMetaOvr, computeMetaFacet, type MetaFacet } from '@/lib/metaOvr'
+import { computePitcherMetaOvr, computePitcherFacet } from '@/lib/metaOvrPitcher'
 
-export const runtime = 'nodejs' // reads local JSON model
+export const runtime = 'nodejs'
 
 const BASE = 'https://mlb25.theshow.com/apis/items.json'
-const TTL_MS = 60 * 60 * 1000 // 1 hour
+const TTL_MS = 60 * 60 * 1000
 const CONCURRENCY = 10
+const PRIMARY_LIMIT_PER_POS = 250
 
 type CacheEntry<T = any> = { t: number; data: T }
 const cache = new Map<string, CacheEntry>()
@@ -18,11 +20,38 @@ function toNum(v: unknown): number | null {
   const n = Number(String(v).replace(/[^0-9.-]/g, ''))
   return Number.isFinite(n) ? n : null
 }
+
+function normalizePos(p: string): string | null {
+  const s = p.trim().toUpperCase()
+  const map: Record<string, string> = {
+    'CATCHER': 'C', 'C': 'C',
+    'FIRST BASE': '1B', '1B': '1B',
+    'SECOND BASE': '2B', '2B': '2B',
+    'THIRD BASE': '3B', '3B': '3B',
+    'SHORTSTOP': 'SS', 'SS': 'SS',
+    'LEFT FIELD': 'LF', 'LF': 'LF',
+    'CENTER FIELD': 'CF', 'CF': 'CF',
+    'RIGHT FIELD': 'RF', 'RF': 'RF',
+    'DH': 'DH',
+    'SP': 'SP', 'RP': 'RP', 'CP': 'CP'
+  }
+  return map[s] ?? null
+}
+function normalizePosStrict(p: unknown): string | null {
+  const s = String(p ?? '').toUpperCase().trim()
+  const first = s.split(/[\/,]/)[0]?.trim() || ''
+  return normalizePos(first)
+}
+function getPrimaryKey(raw: any): string | null {
+  return normalizePosStrict(raw?.primary_position) ?? normalizePosStrict(raw?.display_position)
+}
+
 function isPitcher(raw: any): boolean {
   if (typeof raw?.is_hitter === 'boolean') return !raw.is_hitter
   const pos = String(raw?.display_position || '').toUpperCase()
   return pos === 'SP' || pos === 'RP' || pos === 'CP'
 }
+
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n))
 }
@@ -36,224 +65,193 @@ function parseHeightInches(h: unknown): number | null {
   return Number.isFinite(total) ? total : null
 }
 
-/**
- * Uniform-boost scaler:
- * - Only numeric features (non pos_*) are considered for normalization.
- * - We renormalize using ONLY features that are actually present on the item,
- *   so items with missing attributes aren’t penalized.
- */
-function scoreWithScaledWeights(
-  raw: any,
-  boostKeys: Set<string>,
-  handBonus: number = 0,
-  boostFactor: number = 10
-): number | null {
-  const model = loadTrueOvrModel()
-  const role = isPitcher(raw) ? 'pitcher' : 'hitter'
-  const rm = model.models[role]
-  if (!rm || rm.winner !== 'linear' || !rm.linear) return null
-
-  const { intercept, coefficients } = rm.linear
-  const posStr = String(raw?.display_position || '').toUpperCase()
-
-  let dotNumScaled = 0
-  let dotPos = 0
-  let sumAbsPresent = 0
-  let sumAbsScaledPresent = 0
-
-  for (const [feat, w] of Object.entries(coefficients)) {
-    if (feat.startsWith('pos_')) {
-      const need = feat.slice(4).toUpperCase()
-      dotPos += w * (posStr === need ? 1 : 0)
-      continue
-    }
-    const present = (raw as any)[feat] != null
-    const xVal = toNum((raw as any)[feat]) ?? 0
-    const scale = boostKeys.has(feat) ? boostFactor : 1
-
-    dotNumScaled += (w * scale) * xVal
-    if (present) {
-      sumAbsPresent += Math.abs(w)
-      sumAbsScaledPresent += Math.abs(w) * scale
-    }
-  }
-
-  let y = intercept + dotPos + dotNumScaled
-  if (sumAbsPresent > 0 && sumAbsScaledPresent > 0) {
-    const norm = sumAbsScaledPresent / sumAbsPresent
-    y = intercept + dotPos + (dotNumScaled / norm)
-  }
-  return y + handBonus
+function computeFacetSafe(rawAny: any, facet: MetaFacet): number | null {
+  const raw = rawAny ?? {}
+  const disp = normalizePosStrict(raw?.display_position)
+  const v1 = computeMetaFacet({ ...raw, display_position: disp }, facet)
+  if (v1 != null) return v1
+  const prim = normalizePosStrict(raw?.primary_position)
+  if (!prim) return null
+  return computeMetaFacet({ ...raw, display_position: prim }, facet)
 }
 
-/** Per-feature scales with present-only renormalization. */
-function scoreWithPerFeatureScales(
-  raw: any,
-  scales: Record<string, number>,
-  handBonus: number = 0
-): number | null {
-  const model = loadTrueOvrModel()
-  const role = isPitcher(raw) ? 'pitcher' : 'hitter'
-  const rm = model.models[role]
-  if (!rm || rm.winner !== 'linear' || !rm.linear) return null
-
-  const { intercept, coefficients } = rm.linear
-  const posStr = String(raw?.display_position || '').toUpperCase()
-
-  let dotNumScaled = 0
-  let dotPos = 0
-  let sumAbsPresent = 0
-  let sumAbsScaledPresent = 0
-
-  for (const [feat, w] of Object.entries(coefficients)) {
-    if (feat.startsWith('pos_')) {
-      const need = feat.slice(4).toUpperCase()
-      dotPos += w * (posStr === need ? 1 : 0)
-      continue
-    }
-    const present = (raw as any)[feat] != null
-    const xVal = toNum((raw as any)[feat]) ?? 0
-    const scale = scales[feat] ?? 1
-
-    dotNumScaled += (w * scale) * xVal
-    if (present) {
-      sumAbsPresent += Math.abs(w)
-      sumAbsScaledPresent += Math.abs(w) * scale
-    }
-  }
-
-  let y = intercept + dotPos + dotNumScaled
-  if (sumAbsPresent > 0 && sumAbsScaledPresent > 0) {
-    const norm = sumAbsScaledPresent / sumAbsPresent
-    y = intercept + dotPos + (dotNumScaled / norm)
-  }
-  return y + handBonus
+/* secondaries & OOP */
+function parseSecondaryPositions(raw: any): string[] {
+  const s = String(raw?.display_secondary_positions ?? '').trim()
+  if (!s) return []
+  const primary = normalizePosStrict(raw?.display_position)
+  const allowed = new Set(['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF'])
+  return s
+    .split(',')
+    .flatMap(tok => tok.split('/'))
+    .map(t => normalizePosStrict(t) ?? '')
+    .filter(Boolean)
+    .filter(p => p !== 'DH')
+    .filter(p => allowed.has(p))
+    .filter(p => p !== primary)
+    .filter(p => !isPitcher({ display_position: p }))
 }
 
-/** Override some raw attrs (used for vsL / vsR) then apply uniform-boost scaler. */
-function scoreWithOverridesAndScaling(
-  raw: any,
-  overrides: Record<string, unknown>,
-  boostKeys: Set<string>,
-  handBonus = 0,
-  boostFactor: number = 5
-): number | null {
-  const merged = { ...raw, ...overrides }
-  return scoreWithScaledWeights(merged, boostKeys, handBonus, boostFactor)
+const OOP_MAP: Record<string, Record<string, number>> = {
+  C: { '1B': 0.85 },
+  '1B': { '3B': 0.90 },
+  '2B': { '1B': 0.85, 'SS': 0.90 },
+  SS: { '1B': 0.85, '2B': 0.90, '3B': 0.85, 'LF': 0.85, 'CF': 0.85, 'RF': 0.85 },
+  '3B': { '1B': 0.90 },
+  CF: { 'LF': 0.90, 'RF': 0.90 },
+  LF: { 'RF': 0.90 },
+  RF: { 'LF': 0.90 },
 }
 
-function normalizeItem(i: any) {
-  // Base scores
-  const true_ovr = scoreTrueOvrFromRaw(i)
-  const meta_ovr = computeMetaOvr(i, typeof true_ovr === 'number' ? true_ovr : null)
-
-  const bat_hand = i.bat_hand ?? null
-  const throw_hand = i.throw_hand ?? null
-  const isHitter = !isPitcher(i)
-
-  // ---- facet key sets ----
-  const POWER_KEYS   = new Set(['power_left', 'power_right'])
-  const CONTACT_KEYS = new Set(['contact_left', 'contact_right'])
-  const BASERUN_KEYS = new Set(['speed', 'baserunning_ability', 'baserunning_aggression'])
-  const DEFENSE_KEYS = new Set(['speed', 'fielding_ability', 'arm_strength', 'arm_accuracy', 'reaction_time', 'blocking'])
-
-  // Platoon bonuses (small flat bump)
-  const vsLBonus = bat_hand === 'R' || bat_hand === 'S' ? 2 : 0
-  const vsRBonus = bat_hand === 'L' || bat_hand === 'S' ? 2 : 0
-
-  // VS LEFT / VS RIGHT duplication so the off-side doesn’t matter; then 5x boost on all side stats
-  const cl = toNum(i.contact_left)
-  const pl = toNum(i.power_left)
-  const cr = toNum(i.contact_right)
-  const pr = toNum(i.power_right)
-
-  const vsLeftOverrides: Record<string, unknown> = {}
-  if (cl != null) vsLeftOverrides['contact_right'] = cl
-  if (pl != null) vsLeftOverrides['power_right']   = pl
-  const VS_LEFT_ALL_KEYS = new Set(['contact_left','contact_right','power_left','power_right'])
-
-  const vsRightOverrides: Record<string, unknown> = {}
-  if (cr != null) vsRightOverrides['contact_left'] = cr
-  if (pr != null) vsRightOverrides['power_left']   = pr
-  const VS_RIGHT_ALL_KEYS = new Set(['contact_left','contact_right','power_left','power_right'])
-
-  const vs_left  = isHitter ? scoreWithOverridesAndScaling(i, vsLeftOverrides,  VS_LEFT_ALL_KEYS,  vsLBonus, 5) : null
-  const vs_right = isHitter ? scoreWithOverridesAndScaling(i, vsRightOverrides, VS_RIGHT_ALL_KEYS, vsRBonus, 5) : null
-
-  // Power / Contact facets (10x)
-  const power    = isHitter ? scoreWithScaledWeights(i, POWER_KEYS,   0, 10) : null
-  const contact  = isHitter ? scoreWithScaledWeights(i, CONTACT_KEYS, 0, 10) : null
-
-  // Bunting facet — stronger emphasis on bunting stats than speed, with present-only renorm
-  // (These scales are intentionally big to overcome the base model’s small bunting weights.)
-  const buntingScales = {
-    bunting_ability: 300,
-    drag_bunting_ability: 300,
-    speed: 25,
-  }
-  const bunting  = isHitter ? scoreWithPerFeatureScales(i, buntingScales, 0) : null
-
-  // Baserunning & Defense facets (heavy boosts)
-  let  baserun   = isHitter ? scoreWithScaledWeights(i, BASERUN_KEYS, 0, 75) : null
-  const defense  =           scoreWithScaledWeights(i, DEFENSE_KEYS,  0, 75)
-
-  // Height tweak for baserunning: map 5'0" -> -5, 6'0" -> 0, 7'0" -> +5 (clamped)
-  if (isHitter && baserun != null) {
-    const hIn = parseHeightInches(i.height)
-    if (hIn != null) {
-      const clamped = clamp(hIn, 60, 84)   // 5'0" .. 7'0"
-      const deltaFrom72 = clamped - 72     // inches from 6'0"
-      const slope = 5 / 12                 // points per foot
-      baserun += deltaFrom72 * slope
+/* normalize to common shape + compute metas */
+function normalizeItem(i: any, overrides: Record<string, unknown> = {}) {
+    const merged = { ...i, ...overrides }
+  
+    const base_ovr = toNum(merged.ovr ?? merged.new_rank)
+  
+    const true_ovr_raw = scoreTrueOvrFromRaw(merged)
+    const true_ovr = Number.isFinite(true_ovr_raw as number)
+      ? (true_ovr_raw as number)
+      : (base_ovr ?? null)
+  
+    const pitcher = isPitcher(merged)
+    const meta_ovr_raw = pitcher
+      ? computePitcherMetaOvr(merged, typeof true_ovr === 'number' ? true_ovr : (base_ovr ?? null))
+      : computeMetaOvr(merged, typeof true_ovr === 'number' ? true_ovr : (base_ovr ?? null))
+    const meta_ovr = Number.isFinite(meta_ovr_raw as number)
+      ? (meta_ovr_raw as number)
+      : (typeof true_ovr === 'number' ? true_ovr : (base_ovr ?? null))
+  
+    // Facets...
+    const meta_vs_left  = pitcher ? computePitcherFacet(merged, 'vs_left')  : computeFacetSafe(merged, 'vs_left')
+    const meta_vs_right = pitcher ? computePitcherFacet(merged, 'vs_right') : computeFacetSafe(merged, 'vs_right')
+    const otherFacetValue = pitcher ? meta_ovr : null
+    const meta_power       = pitcher ? otherFacetValue : computeFacetSafe(merged, 'power')
+    const meta_contact     = pitcher ? otherFacetValue : computeFacetSafe(merged, 'contact')
+    const meta_bunting     = pitcher ? otherFacetValue : computeFacetSafe(merged, 'bunting')
+    const meta_baserunning = pitcher ? otherFacetValue : computeFacetSafe(merged, 'baserunning')
+    const meta_defense     = pitcher ? otherFacetValue : computeFacetSafe(merged, 'defense')
+  
+    const bat_hand = merged.bat_hand ?? null
+    const throw_hand = merged.throw_hand ?? null
+    const primary_position = String(merged.primary_position ?? merged.display_position ?? '').toUpperCase() || null
+  
+    // 👇 NEW: explicitly expose series (with light fallbacks)
+    const series =
+      (typeof merged.series === 'string' && merged.series.trim()) ? merged.series.trim()
+      : (typeof merged.set_name === 'string' && merged.set_name.trim()) ? merged.set_name.trim()
+      : (typeof merged.program === 'string' && merged.program.trim()) ? merged.program.trim()
+      : null
+  
+    return {
+      id: merged.uuid ?? merged.id ?? merged.name ?? null,
+      name: merged.name ?? null,
+      rarity: merged.rarity ?? null,
+      team: merged.team_short_name ?? merged.team ?? null,
+      display_position: merged.display_position ?? null,
+      primary_position,
+      ovr: base_ovr,
+      image: merged.baked_img ?? merged.img ?? null,
+      type: merged.type ?? null,
+      is_hitter: !pitcher,
+      bat_hand,
+      throw_hand,
+      height: merged.height ?? null,
+      height_in: parseHeightInches(merged.height),
+  
+      // ✅ make series available to downstream routes
+      series,
+  
+      true_ovr,
+      meta_ovr,
+  
+      contact_left: toNum(merged.contact_left),
+      contact_right: toNum(merged.contact_right),
+      power_left: toNum(merged.power_left),
+      power_right: toNum(merged.power_right),
+      bunting_ability: toNum(merged.bunting_ability),
+      drag_bunting_ability: toNum(merged.drag_bunting_ability),
+      speed: toNum(merged.speed),
+      baserunning_ability: toNum(merged.baserunning_ability),
+      baserunning_aggression: toNum(merged.baserunning_aggression),
+      fielding_ability: toNum(merged.fielding_ability),
+      arm_strength: toNum(merged.arm_strength),
+      arm_accuracy: toNum(merged.arm_accuracy),
+      reaction_time: toNum(merged.reaction_time),
+      blocking: toNum(merged.blocking),
+  
+      vs_left: meta_vs_left,
+      vs_right: meta_vs_right,
+      power: meta_power,
+      contact: meta_contact,
+      bunting: meta_bunting,
+      baserunning: meta_baserunning,
+      defense: meta_defense,
     }
   }
 
-  return {
-    id: i.uuid ?? null,
-    name: i.name ?? null,
-    rarity: i.rarity ?? null,
-    team: i.team_short_name ?? i.team ?? null,
-    display_position: i.display_position ?? null,
-    ovr: toNum(i.ovr ?? i.new_rank),
-    image: i.baked_img ?? i.img ?? null,
-    type: i.type ?? null,
-    is_hitter: isHitter,
-    bat_hand,
-    throw_hand,
-    height: i.height ?? null,
-    height_in: parseHeightInches(i.height),
+/* expand primaries + (optional) secondaries/OOP */
+function expandPlayer(raw: any, allowSecondaries: boolean) {
+  const primKey = getPrimaryKey(raw)
+  const out = [normalizeItem(raw, { primary_position: primKey ?? null })]
+  if (!allowSecondaries || isPitcher(raw)) return out
 
-    // core scores
-    true_ovr: Number.isFinite(true_ovr as number) ? (true_ovr as number) : null,
-    meta_ovr: Number.isFinite(meta_ovr as number) ? (meta_ovr as number) : null,
+  const secArray = parseSecondaryPositions(raw)
+  const secSet = new Set(secArray)
+  const SECONDARY_FACTOR = 0.95
 
-    // expose raw attrs (optional UI/tooltips)
-    contact_left: toNum(i.contact_left),
-    contact_right: toNum(i.contact_right),
-    power_left: toNum(i.power_left),
-    power_right: toNum(i.power_right),
-    bunting_ability: toNum(i.bunting_ability),
-    drag_bunting_ability: toNum(i.drag_bunting_ability),
-    speed: toNum(i.speed),
-    baserunning_ability: toNum(i.baserunning_ability),
-    baserunning_aggression: toNum(i.baserunning_aggression),
-    fielding_ability: toNum(i.fielding_ability),
-    arm_strength: toNum(i.arm_strength),
-    arm_accuracy: toNum(i.arm_accuracy),
-    reaction_time: toNum(i.reaction_time),
-    blocking: toNum(i.blocking),
-
-    // derived facets (raw floats; UI caps to 125.0/1dp)
-    vs_left,
-    vs_right,
-    power,
-    contact,
-    bunting,
-    baserunning: baserun,
-    defense,
+  for (const pos of secArray) {
+    const overrides: Record<string, unknown> = {
+      display_position: pos,
+      primary_position: primKey ?? pos,
+      uuid: `${raw.uuid ?? raw.id ?? raw.name}|${pos}`,
+    }
+    const f = toNum(raw.fielding_ability); if (f != null) overrides.fielding_ability = f * SECONDARY_FACTOR
+    const r = toNum(raw.reaction_time);    if (r != null) overrides.reaction_time   = r * SECONDARY_FACTOR
+    const aa = toNum(raw.arm_accuracy);    if (aa != null) overrides.arm_accuracy   = aa * SECONDARY_FACTOR
+    out.push(normalizeItem(raw, overrides))
   }
+
+  const oop = OOP_MAP[primKey ?? ''] || {}
+  for (const [pos, factor] of Object.entries(oop)) {
+    if (secSet.has(pos)) continue
+    if (isPitcher({ display_position: pos })) continue
+    const overrides: Record<string, unknown> = {
+      display_position: pos,
+      primary_position: primKey ?? pos,
+      uuid: `${raw.uuid ?? raw.id ?? raw.name}|${pos}`,
+    }
+    const f = toNum(raw.fielding_ability); if (f != null) overrides.fielding_ability = f * factor
+    const r = toNum(raw.reaction_time);    if (r != null) overrides.reaction_time   = r * factor
+    const aa = toNum(raw.arm_accuracy);    if (aa != null) overrides.arm_accuracy   = aa * factor
+    out.push(normalizeItem(raw, overrides))
+  }
+
+  return out
 }
 
+/* pick Top N by base OVR per primary position */
+function pickTopByPrimary(raws: any[], perPos = PRIMARY_LIMIT_PER_POS): any[] {
+  const groups: Record<string, any[]> = Object.create(null)
+  for (const r of raws) {
+    const pos = String(r?.display_position || '').toUpperCase()
+    if (!pos) continue
+    if (!groups[pos]) groups[pos] = []
+    groups[pos].push(r)
+  }
+  const out: any[] = []
+  for (const arr of Object.values(groups)) {
+    arr.sort((a, b) => {
+      const sb = toNum(b?.ovr ?? b?.new_rank) ?? -Infinity
+      const sa = toNum(a?.ovr ?? a?.new_rank) ?? -Infinity
+      return sb - sa
+    })
+    out.push(...arr.slice(0, perPos))
+  }
+  return out
+}
+
+/* pool helper */
 async function mapPool<T, U>(arr: T[], limit: number, fn: (t: T, i: number) => Promise<U>): Promise<U[]> {
   const out: U[] = new Array(arr.length)
   let i = 0
@@ -268,51 +266,93 @@ async function mapPool<T, U>(arr: T[], limit: number, fn: (t: T, i: number) => P
   return out
 }
 
+/* GET */
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url)
-    const force = url.searchParams.get('force') // ?force=1 to bust cache manually
-    const cacheKey = 'items:mlb_card:trueovr+derived+meta'
+    const force = url.searchParams.get('force')
+    const allowSecondaries = url.searchParams.has('allow_secondaries')
+
+    const cacheKey = `items:mlb_card:meta+facets:${allowSecondaries ? 'withsec' : 'nosec'}:top${PRIMARY_LIMIT_PER_POS}`
 
     const now = Date.now()
     const hit = cache.get(cacheKey)
     if (!force && hit && now - hit.t < TTL_MS) {
+      try {
+        const cachedPitchNames = hit.data?.meta?.pitch_names
+        if (Array.isArray(cachedPitchNames)) {
+          console.log('[pitch names][cached]', cachedPitchNames)
+        }
+      } catch {}
       return NextResponse.json(
-        { items: hit.data.items, meta: { cached: true, cached_at: hit.t } },
+        { items: hit.data.items, meta: hit.data.meta },
         { headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=60' } }
       )
     }
 
-    // page 1 to get total_pages
     const r1 = await fetch(`${BASE}?type=mlb_card&page=1`, { headers: { accept: 'application/json' } })
     if (!r1.ok) return NextResponse.json({ error: `Upstream ${r1.status}` }, { status: 502 })
     const j1 = await r1.json()
     const totalPages = Number(j1.total_pages ?? 1) || 1
-    const items1 = Array.isArray(j1.items) ? j1.items.map(normalizeItem) : []
 
-    // fetch remaining pages concurrently
+    const itemsPage1: any[] = Array.isArray(j1.items) ? j1.items : []
     const pages: number[] = []
     for (let p = 2; p <= totalPages; p++) pages.push(p)
 
-    const results = await mapPool(pages, CONCURRENCY, async (p) => {
+    const rest = await mapPool(pages, CONCURRENCY, async (p) => {
       const r = await fetch(`${BASE}?type=mlb_card&page=${p}`, { headers: { accept: 'application/json' } })
       if (!r.ok) return []
       const j = await r.json()
-      return Array.isArray(j.items) ? j.items.map(normalizeItem) : []
+      return Array.isArray(j.items) ? j.items : []
     })
 
-    // dedupe by id (or fallback to name)
-    const dedup = new Map<string, any>()
-    for (const it of [...items1, ...results.flat()]) {
-      const key = String(it.id ?? it.name)
-      if (!dedup.has(key)) dedup.set(key, it)
+    const rawDedup = new Map<string, any>()
+    for (const it of [...itemsPage1, ...rest.flat()]) {
+      const key = String(it?.uuid ?? it?.id ?? it?.name ?? '')
+      if (!key) continue
+      if (!rawDedup.has(key)) rawDedup.set(key, it)
     }
-    const items = Array.from(dedup.values())
+    const allRaw = Array.from(rawDedup.values())
 
-    cache.set(cacheKey, { t: now, data: { items } })
+    const primaryTop = pickTopByPrimary(allRaw, PRIMARY_LIMIT_PER_POS)
+    const expanded = primaryTop.flatMap((raw) => expandPlayer(raw, allowSecondaries))
+
+    const outMap = new Map<string, any>()
+    for (const it of expanded) {
+      const key = String(it?.id ?? it?.name ?? '')
+      if (!key) continue
+      if (!outMap.has(key)) outMap.set(key, it)
+    }
+    const items = Array.from(outMap.values())
+
+    const pitchNameSet = new Set<string>()
+    for (const it of allRaw) {
+      if (!isPitcher(it)) continue
+      const ps = Array.isArray(it?.pitches) ? it.pitches : []
+      for (const p of ps) {
+        const nm = String(p?.name ?? '').trim()
+        if (nm) pitchNameSet.add(nm)
+      }
+    }
+    const pitchNames = Array.from(pitchNameSet).sort()
+    console.log('[pitch names]', pitchNames)
+
+    const meta = {
+      cached: false,
+      fetched_at: now,
+      pages: totalPages,
+      total_raw: allRaw.length,
+      primary_selected: primaryTop.length,
+      expanded_count: items.length,
+      allow_secondaries: !!allowSecondaries,
+      per_pos_limit: PRIMARY_LIMIT_PER_POS,
+      pitch_names: pitchNames,
+    }
+
+    cache.set(cacheKey, { t: now, data: { items, meta } })
 
     return NextResponse.json(
-      { items, meta: { cached: false, fetched_at: now, pages: totalPages, count: items.length } },
+      { items, meta },
       { headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=60' } }
     )
   } catch (e: any) {

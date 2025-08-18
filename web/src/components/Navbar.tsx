@@ -202,6 +202,16 @@ export default function Navbar() {
                 {gameplayOpen && (
                   <div className={styles.stubsMenu}>
                     <Link 
+                      href="/insights"
+                      className={`${styles.stubsLink} ${pathname.startsWith('/insights') ? styles.activeStubs : ''}`}
+                      onClick={() => {
+                        setGameplayOpen(false);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      Insights
+                    </Link>
+                    <Link 
                       href="/player-rankings"
                       className={`${styles.stubsLink} ${pathname.startsWith('/player-rankings') ? styles.activeStubs : ''}`}
                       onClick={() => {
@@ -211,6 +221,27 @@ export default function Navbar() {
                     >
                       Player Rankings
                     </Link>
+                    <Link 
+                      href="/team-builder"
+                      className={`${styles.stubsLink} ${pathname.startsWith('/team-builder') ? styles.activeStubs : ''}`}
+                      onClick={() => {
+                        setGameplayOpen(false);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      Team Builder
+                    </Link>
+                    <Link 
+                      href="/tierlist"
+                      className={`${styles.stubsLink} ${pathname.startsWith('/tierlist') ? styles.activeStubs : ''}`}
+                      onClick={() => {
+                        setGameplayOpen(false);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      Tierlist
+                    </Link>
+
                   </div>
                 )}
               </div>

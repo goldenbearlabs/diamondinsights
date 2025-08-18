@@ -1,6 +1,7 @@
 {
-  "/api/cards/live/route": "app/api/cards/live/route.js",
-  "/api/cards/[cardId]/predictions/route": "app/api/cards/[cardId]/predictions/route.js",
-  "/api/cards/[cardId]/route": "app/api/cards/[cardId]/route.js",
-  "/page": "app/page.js"
+  "/_not-found/page": "app/_not-found/page.js",
+  "/community/page": "app/community/page.js",
+  "/page": "app/page.js",
+  "/player-rankings/page": "app/player-rankings/page.js",
+  "/team-builder/page": "app/team-builder/page.js"
 }
