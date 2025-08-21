@@ -570,9 +570,9 @@ export default function PredictionsPage() {
                     const raw = (c as Record<string, unknown>)[col]
                     let cell: string | number | undefined                    
                     
-                    if (col === 'delta_rank_pred') {
+                    if (col === 'delta_rank_pred' || col === 'delta_rank_low' || col === 'delta_rank_high') {
                       const num = typeof raw === 'number' ? raw : Number(raw)
-                      cell = num.toFixed(2)
+                      cell = num >= 0 ? `+${num.toFixed(2)}` : num.toFixed(2)
                     }
                     // ── existing formatting for percentages ──
                     else if (col.endsWith('_pct') || col === 'confidence_percentage') {
@@ -588,8 +588,24 @@ export default function PredictionsPage() {
                         cell = String(raw)
                       }
                     }
+                    // Define specific columns that should be colored based on their values
+                    const changeColumns = [
+                      'delta_rank_low', 'delta_rank_pred', 'delta_rank_high',
+                      'predicted_profit_low', 'predicted_profit', 'predicted_profit_high', 
+                      'predicted_ev_profit', 'predicted_profit_pct'
+                    ]
+                    
+                    const isChangeColumn = changeColumns.includes(col)
+                    const numericValue = typeof raw === 'number' ? raw : Number(raw)
+                    const isPositive = !isNaN(numericValue) && numericValue > 0
+                    const isNegative = !isNaN(numericValue) && numericValue < 0
+                    
+                    const cellClassName = isChangeColumn && !isNaN(numericValue) 
+                      ? (isPositive ? styles.positive : isNegative ? styles.negative : '')
+                      : ''
+
                     return (
-                      <td key={col} data-key={col}>
+                      <td key={col} data-key={col} className={cellClassName}>
                         {col === 'card' ? (
                           <a href={`/player/${c.id}`}>
                             <img src={c.baked_img!} alt={c.name} className={styles.cardIcon}/>
