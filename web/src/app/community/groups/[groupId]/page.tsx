@@ -12,7 +12,7 @@ import {
   doc,
   getDoc
 } from 'firebase/firestore'
-import { FaSpinner, FaUsers, FaCrown, FaSignOutAlt, FaTrash, FaArrowLeft, FaBars, FaTimes, FaHeart, FaReply, FaCog, FaCopy } from 'react-icons/fa'
+import { FaSpinner, FaUsers, FaCrown, FaSignOutAlt, FaTrash, FaArrowLeft, FaBars, FaTimes, FaHeart, FaReply, FaCog, FaCopy, FaComments } from 'react-icons/fa'
 
 interface Group {
   id: string
@@ -681,7 +681,7 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
                 setMobileSidebarOpen(false)
               }}
             >
-              <span className={styles.tabIcon}>💬</span>
+              <span className={styles.tabIcon}><FaComments /></span>
               <span className={styles.tabLabel}>Chat</span>
             </button>
             <button

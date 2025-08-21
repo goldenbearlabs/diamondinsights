@@ -450,17 +450,16 @@ export default function CardPage() {
             alt={card.name}
             className={styles.playerImage}
           />
-        </div>
-
-        <div className={styles.playerBasicInfo}>
-          <div className={styles.playerNameRow}>
-            <h1 className={styles.playerName}>{card.name}</h1>
+          <div className={styles.voteContainer}>
+            <div className={styles.voteQuestion}>
+              Do you think {card.name} will be upgraded or downgraded?
+            </div>
             <div className={styles.voteButtons}>
               <button 
                 className={`${styles.voteBtn} ${styles.upvoteBtn} ${votes.userVote === 'up' ? styles.active : ''}`}
                 onClick={() => handleVote('up')}
                 disabled={!user || votesLoading}
-                title={user ? 'Upvote this prediction' : 'Login to vote'}
+                title={user ? 'Vote: Player will be upgraded' : 'Login to vote'}
               >
                 {votesLoading ? '...' : `↑ ${votes.upvotes}`}
               </button>
@@ -468,11 +467,17 @@ export default function CardPage() {
                 className={`${styles.voteBtn} ${styles.downvoteBtn} ${votes.userVote === 'down' ? styles.active : ''}`}
                 onClick={() => handleVote('down')}
                 disabled={!user || votesLoading}
-                title={user ? 'Downvote this prediction' : 'Login to vote'}
+                title={user ? 'Vote: Player will be downgraded' : 'Login to vote'}
               >
                 {votesLoading ? '...' : `↓ ${votes.downvotes}`}
               </button>
             </div>
+          </div>
+        </div>
+
+        <div className={styles.playerBasicInfo}>
+          <div className={styles.playerNameRow}>
+            <h1 className={styles.playerName}>{card.name}</h1>
             <div className={styles.playerMeta}>
               <span>{card.team_short_name}</span>
               <span>{card.display_position}</span>

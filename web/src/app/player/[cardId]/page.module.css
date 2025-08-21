@@ -77,10 +77,28 @@
     color: var(--accent-secondary);
   }
 
+  .voteContainer {
+    background: var(--bg-medium);
+    border: 1px solid var(--accent-primary);
+    border-radius: 12px;
+    padding: 12px;
+    margin: 12px 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    width: 240px;
+  }
+
+  .voteQuestion {
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 14px;
+    text-align: left;
+    margin-bottom: 12px;
+  }
+
   .voteButtons {
     display: flex;
-    gap: 8px;
-    margin: 8px 0 12px;
+    gap: 12px;
+    justify-content: center;
   }
 
   .voteBtn {
