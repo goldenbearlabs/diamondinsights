@@ -217,7 +217,7 @@ import {
   where,
   getDocs
 } from 'firebase/firestore'
-import { FaSpinner, FaUserPlus, FaClock, FaHandshake, FaUserCheck } from 'react-icons/fa'
+import { FaSpinner, FaUserPlus, FaClock, FaHandshake, FaUserCheck, FaArrowLeft } from 'react-icons/fa'
 
 
 interface ProfileData {
@@ -406,6 +406,15 @@ export default function AccountPage() {
   return (
     <div className={styles.accountContainer}>
       <div className={styles.accountHeader}>
+        {!isOwner && (
+          <button 
+            className={styles.backButton}
+            onClick={() => router.back()}
+          >
+            <FaArrowLeft />
+            Back
+          </button>
+        )}
         <h2>
         {isOwner ? 'My Account' : `${profile?.username}'s Account`}
         </h2>

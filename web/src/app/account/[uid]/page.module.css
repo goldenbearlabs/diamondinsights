@@ -8,6 +8,36 @@
     text-align: center;
     margin-bottom: 40px;
     padding-top: 20px;
+    position: relative;
+  }
+
+  .backButton {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+
+  .backButton:hover {
+    background: rgba(18, 99, 221, 0.1);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    transform: translateX(2px);
+  }
+
+  .backButton svg {
+    font-size: 0.8rem;
   }
   
   .accountHeader h2 {
@@ -425,4 +455,19 @@
     border-width: 6px;
     border-style: solid;
     border-color: transparent transparent var(--bg-dark) transparent;
+  }
+
+  /* Mobile responsiveness for back button */
+  @media (max-width: 768px) {
+    .backButton {
+      position: static;
+      margin-bottom: 20px;
+      align-self: flex-start;
+    }
+    
+    .accountHeader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
   }

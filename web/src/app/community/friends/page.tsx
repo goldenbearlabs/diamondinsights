@@ -83,13 +83,19 @@ export default function FriendsPage() {
   const [loadingRecommendations, setLoadingRecommendations] = useState(false)
   const [processingRequests, setProcessingRequests] = useState<Set<string>>(new Set())
 
-  // User search functionality state
+  // User search functionality state (sidebar)
   const [userSearch, setUserSearch] = useState('')
   const [userMatches, setUserMatches] = useState<UserSearchResult[]>([])
   const [userSearchOpen, setUserSearchOpen] = useState(false)
 
+  // Top search functionality state (Find Friends tab)
+  const [topSearch, setTopSearch] = useState('')
+  const [topMatches, setTopMatches] = useState<UserSearchResult[]>([])
+  const [topSearchOpen, setTopSearchOpen] = useState(false)
+
   // DOM references for click outside detection
   const userSearchRef = useRef<HTMLDivElement>(null)
+  const topSearchRef = useRef<HTMLDivElement>(null)
 
   // Set up authentication state listener
   useEffect(() => {
@@ -230,6 +236,31 @@ export default function FriendsPage() {
     return () => clearTimeout(timeoutId)
   }, [userSearch])
 
+  // Top search functionality with debounced API calls
+  useEffect(() => {
+    const searchTopUsers = async () => {
+      const val = topSearch.trim()
+      if (val.length < 2) {
+        setTopMatches([])
+        setTopSearchOpen(false)
+        return
+      }
+
+      try {
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(val)}`)
+        const data = await res.json()
+        setTopMatches(data)
+        setTopSearchOpen(true)
+      } catch {
+        setTopMatches([])
+      }
+    }
+
+    // Debounce search to avoid excessive API calls
+    const timeoutId = setTimeout(searchTopUsers, 300)
+    return () => clearTimeout(timeoutId)
+  }, [topSearch])
+
   // Close user search dropdown when clicking outside
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -242,6 +273,19 @@ export default function FriendsPage() {
       return () => document.removeEventListener('click', onClick)
     }
   }, [userSearchOpen])
+
+  // Close top search dropdown when clicking outside
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (topSearchRef.current && !topSearchRef.current.contains(e.target as Node)) {
+        setTopSearchOpen(false)
+      }
+    }
+    if (topSearchOpen) {
+      document.addEventListener('click', onClick)
+      return () => document.removeEventListener('click', onClick)
+    }
+  }, [topSearchOpen])
 
   // Close mobile sidebar when clicking outside (mobile UX)
   useEffect(() => {
@@ -381,17 +425,6 @@ export default function FriendsPage() {
 
         {/* FRIENDS AREA */}
         <section className={styles.chatArea}>
-          <header className={styles.chatHeader}>
-            <div className={styles.roomInfo}>
-              <span className={styles.roomIcon}>
-                <FaUsers />
-              </span>
-              <h3 className={styles.roomName}>
-                Friends
-              </h3>
-            </div>
-          </header>
-
           <div className={styles.messagesContainer}>
             {loading ? (
               <div className={styles.loadingContainer}>
@@ -575,6 +608,52 @@ export default function FriendsPage() {
                         )}
                         Refresh
                       </button>
+                    </div>
+
+                    {/* Top Search Section */}
+                    <div className={styles.topSearchSection}>
+                      <div className={styles.topSearchContainer} ref={topSearchRef}>
+                        <h4 className={styles.topSearchTitle}>Search Users</h4>
+                        <div className={styles.topSearchWrapper}>
+                          <FaSearch className={styles.topSearchIcon} />
+                          <input
+                            type="text"
+                            className={styles.topSearchInput}
+                            placeholder="Search for users to add as friends..."
+                            value={topSearch}
+                            onChange={e => setTopSearch(e.target.value)}
+                          />
+                        </div>
+                        {/* Top Search Results Dropdown */}
+                        {topSearchOpen && topMatches.length > 0 && (
+                          <div className={styles.topSearchResults}>
+                            {topMatches.map(user => (
+                              <div
+                                key={user.uid}
+                                className={styles.topSearchResult}
+                                onClick={() => {
+                                  window.location.href = `/account/${user.uid}`
+                                  setTopSearch('')
+                                  setTopSearchOpen(false)
+                                }}
+                              >
+                                <img
+                                  src={user.profilePic || '/default_profile.jpg'}
+                                  alt={user.username}
+                                  className={styles.topSearchAvatar}
+                                />
+                                <span className={styles.topSearchName}>{user.username}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {/* No results message */}
+                        {topSearchOpen && topSearch.length >= 2 && topMatches.length === 0 && (
+                          <div className={styles.topSearchResults}>
+                            <div className={styles.topSearchNoResults}>No users found</div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
                     {/* Recommended Users Section */}

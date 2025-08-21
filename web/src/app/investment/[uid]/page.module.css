@@ -73,6 +73,34 @@
 /* Owner Header */
 .ownerHeader {
   margin-bottom: 2rem;
+  position: relative;
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.backButton:hover {
+  background: rgba(18, 99, 221, 0.1);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  transform: translateX(-2px);
+}
+
+.backButton svg {
+  font-size: 0.8rem;
 }
 
 .headerContent {
@@ -148,6 +176,18 @@
   .portfolioSummary .summaryCard:nth-child(5) {
     grid-column: 2;
     grid-row: 3;
+  }
+
+  /* Mobile back button */
+  .headerContent {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .backButton {
+    order: -1;
+    align-self: flex-start;
   }
 }
 

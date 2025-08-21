@@ -10,7 +10,7 @@ import styles                        from './page.module.css'
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth'
 import { doc, getDoc }               from 'firebase/firestore'
 import { db }                        from '@/lib/firebaseClient'
-import { FaSpinner } from 'react-icons/fa'
+import { FaSpinner, FaArrowLeft } from 'react-icons/fa'
 
 // Stubs currency icon component
 const StubsIcon = ({ className = "" }: { className?: string }) => (
@@ -410,6 +410,15 @@ export default function InvestmentPage() {
               )}
             </div>
           </Link>
+          {!isOwner && (
+            <button 
+              className={styles.backButton}
+              onClick={() => router.back()}
+            >
+              <FaArrowLeft />
+              Back
+            </button>
+          )}
         </div>
       </section>
 
