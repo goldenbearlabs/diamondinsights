@@ -266,6 +266,7 @@ export default function Navbar() {
                     >
                       Chat
                     </Link>
+
                     <Link 
                       href="/community/live-comments" 
                       className={`${styles.stubsLink} ${pathname.startsWith('/community/live-comments') ? styles.activeStubs : ''}`} 
@@ -276,6 +277,7 @@ export default function Navbar() {
                     >
                       Live Comments
                     </Link>
+
                     <Link 
                       href="/community/trending" 
                       className={`${styles.stubsLink} ${pathname.startsWith('/community/trending') ? styles.activeStubs : ''}`} 
@@ -286,6 +288,7 @@ export default function Navbar() {
                     >
                       Trending
                     </Link>
+
                     <Link 
                       href="/community/friends" 
                       className={`${styles.stubsLink} ${pathname.startsWith('/community/friends') ? styles.activeStubs : ''}`} 
@@ -296,6 +299,18 @@ export default function Navbar() {
                     >
                       Friends
                     </Link>
+
+                    <Link
+                      href="/community/groups"
+                      className={`${styles.stubsLink} ${pathname.startsWith('/community/groups') ? styles.activeStubs : ''}`}
+                      onClick={() => {
+                        setCommunityOpen(false);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      Groups
+                    </Link>
+                    
                   </div>
                 )}
               </div>
