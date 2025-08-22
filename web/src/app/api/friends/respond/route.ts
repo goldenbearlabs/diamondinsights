@@ -72,6 +72,12 @@ export async function POST(request: Request) {
       const timestamp = Date.now()
       const senderId = requestData.senderId
 
+      // Step 3: Get user documents for friend counts (MUST READ BEFORE ANY WRITES)
+      const senderRef = firestore.collection('users').doc(senderId)
+      const receiverRef = firestore.collection('users').doc(currentUserId)
+      const senderDoc = await transaction.get(senderRef)
+      const receiverDoc = await transaction.get(receiverRef)
+
       if (action === 'accept') {
         // Creating a friendship requires careful data handling
         
@@ -90,13 +96,6 @@ export async function POST(request: Request) {
 
         // Update friend counts for both users
         // This is critical for maintaining accurate statistics
-        const senderRef = firestore.collection('users').doc(senderId)
-        const receiverRef = firestore.collection('users').doc(currentUserId)
-        
-        // Get current friend counts
-        const senderDoc = await transaction.get(senderRef)
-        const receiverDoc = await transaction.get(receiverRef)
-        
         const senderFriendsCount = (senderDoc.data()?.friendsCount || 0) + 1
         const receiverFriendsCount = (receiverDoc.data()?.friendsCount || 0) + 1
         

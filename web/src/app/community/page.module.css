@@ -317,6 +317,147 @@
   color: var(--negative);
 }
 
+.removeMemberBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.removeMemberBtn:hover {
+  background: rgba(244, 67, 54, 0.1);
+  color: var(--negative);
+}
+
+.memberActions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.banMemberBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.banMemberBtn:hover {
+  background: rgba(139, 69, 19, 0.15);
+  color: #8B4513;
+}
+
+.bannedUsersList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bannedUserCard {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: var(--bg-light);
+  border-radius: 8px;
+  border: 1px solid rgba(139, 69, 19, 0.2);
+}
+
+.unbanBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.unbanBtn:hover {
+  background: rgba(76, 175, 80, 0.1);
+  color: var(--positive);
+}
+
+.settingsButtons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.settingsButtons .editButton {
+  margin-top: 0;
+}
+
+.manageBannedButton {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  margin: 0;
+  height: auto;
+  line-height: 1;
+}
+
+.manageBannedButton:hover {
+  background: var(--accent-secondary);
+  transform: translateY(-1px);
+}
+
+.bannedUsersSection {
+  background: var(--bg-light);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sectionHeader h4 {
+  margin: 0 0 4px 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+}
+
+.sectionHeader p {
+  margin: 0 0 16px 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.emptyState h5 {
+  margin: 8px 0 4px 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
 .deleteButton {
   background: none;
   border: none;

@@ -12,7 +12,7 @@ import {
   doc,
   getDoc
 } from 'firebase/firestore'
-import { FaSpinner, FaUsers, FaCrown, FaSignOutAlt, FaTrash, FaArrowLeft, FaBars, FaTimes, FaHeart, FaReply, FaCog, FaCopy, FaComments } from 'react-icons/fa'
+import { FaSpinner, FaUsers, FaCrown, FaSignOutAlt, FaTrash, FaArrowLeft, FaBars, FaTimes, FaHeart, FaReply, FaCog, FaCopy, FaComments, FaUserMinus, FaBan } from 'react-icons/fa'
 
 interface Group {
   id: string
@@ -22,6 +22,7 @@ interface Group {
   inviteCode: string
   ownerId: string
   memberIds: string[]
+  bannedUsers?: string[]
   memberCount: number
   lastActivity: number
   createdAt: number
@@ -75,6 +76,7 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
   const [user, setUser] = useState<User | null>(null)
   const [group, setGroup] = useState<Group | null>(null)
   const [members, setMembers] = useState<Member[]>([])
+  const [bannedUsers, setBannedUsers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -105,6 +107,7 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
   // UI state
   const [activeTab, setActiveTab] = useState<'chat' | 'members' | 'settings'>('chat')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [showBannedUsers, setShowBannedUsers] = useState(false)
   
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -152,6 +155,48 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
         })) || []
         
         setMembers(membersData)
+        
+        // Load banned users data if current user is owner
+        if (groupData.ownerId === user?.uid && groupData.bannedUsers?.length > 0) {
+          try {
+            // Fetch user profiles for banned users
+            const bannedUsersData = await Promise.all(
+              groupData.bannedUsers.map(async (userId: string) => {
+                try {
+                  const userResponse = await fetch(`/api/users/${userId}`)
+                  if (userResponse.ok) {
+                    const userData = await userResponse.json()
+                    return {
+                      userId: userId,
+                      username: userData.username || 'Unknown User',
+                      profilePic: userData.profilePic || '/default_profile.jpg',
+                      role: 'banned' as const,
+                      joinedAt: Date.now() // Use current time as placeholder for ban date
+                    }
+                  }
+                } catch (error) {
+                  console.error(`Failed to load banned user ${userId}:`, error)
+                }
+                
+                // Fallback data for failed requests
+                return {
+                  userId: userId,
+                  username: 'Unknown User',
+                  profilePic: '/default_profile.jpg',
+                  role: 'banned' as const,
+                  joinedAt: Date.now()
+                }
+              })
+            )
+            
+            setBannedUsers(bannedUsersData.filter(Boolean))
+          } catch (error) {
+            console.error('Failed to load banned users:', error)
+          }
+        } else {
+          setBannedUsers([])
+        }
+        
         setLoading(false)
         console.log('🔥 GROUP LOADING: Loading complete')
       } catch (error) {
@@ -587,6 +632,87 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
     }
   }
 
+  const handleRemoveMember = async (memberId: string, memberName: string) => {
+    if (!user || !group) return
+    
+    if (!confirm(`Are you sure you want to remove ${memberName} from the group?`)) return
+    
+    try {
+      const token = await user.getIdToken()
+      const response = await fetch(`/api/groups/${groupId}/members/${memberId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.ok) {
+        setSuccess(`${memberName} has been removed from the group`)
+        // Reload group data to get updated member list and count
+        loadGroup()
+      } else {
+        const data = await response.json()
+        setError(data.error || 'Failed to remove member')
+      }
+    } catch (error) {
+      setError('Failed to remove member. Please try again.')
+    }
+  }
+
+  const handleBanMember = async (memberId: string, memberName: string) => {
+    if (!user || !group) return
+    
+    if (!confirm(`Are you sure you want to BAN ${memberName} from the group?\n\nThis will remove them and prevent them from ever rejoining. This action is permanent unless you unban them later.`)) return
+    
+    try {
+      const token = await user.getIdToken()
+      const response = await fetch(`/api/groups/${groupId}/members/${memberId}/ban`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.ok) {
+        setSuccess(`${memberName} has been banned from the group`)
+        // Reload group data to get updated member list and count
+        loadGroup()
+      } else {
+        const data = await response.json()
+        setError(data.error || 'Failed to ban member')
+      }
+    } catch (error) {
+      setError('Failed to ban member. Please try again.')
+    }
+  }
+
+  const handleUnbanMember = async (memberId: string, memberName: string) => {
+    if (!user || !group) return
+    
+    if (!confirm(`Are you sure you want to unban ${memberName}?\n\nThey will be able to rejoin the group.`)) return
+    
+    try {
+      const token = await user.getIdToken()
+      const response = await fetch(`/api/groups/${groupId}/members/${memberId}/unban`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.ok) {
+        setSuccess(`${memberName} has been unbanned and can rejoin the group`)
+        // Reload group data to get updated banned users list
+        loadGroup()
+      } else {
+        const data = await response.json()
+        setError(data.error || 'Failed to unban member')
+      }
+    } catch (error) {
+      setError('Failed to unban member. Please try again.')
+    }
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -885,6 +1011,24 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
                         Joined {new Date(member.joinedAt).toLocaleDateString()}
                       </div>
                     </div>
+                    {group?.ownerId === user?.uid && member.role !== 'owner' && (
+                      <div className={styles.memberActions}>
+                        <button
+                          className={styles.removeMemberBtn}
+                          onClick={() => handleRemoveMember(member.userId, member.username)}
+                          title={`Remove ${member.username} from group`}
+                        >
+                          <FaUserMinus /> Remove
+                        </button>
+                        <button
+                          className={styles.banMemberBtn}
+                          onClick={() => handleBanMember(member.userId, member.username)}
+                          title={`Ban ${member.username} from group permanently`}
+                        >
+                          <FaBan /> Ban
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1002,12 +1146,68 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
                       </div>
                     )}
 
-                    <button
-                      className={styles.editButton}
-                      onClick={startEditingSettings}
-                    >
-                      <FaCog /> Edit Settings
-                    </button>
+                    <div className={styles.settingsButtons}>
+                      <button
+                        className={styles.editButton}
+                        onClick={startEditingSettings}
+                      >
+                        <FaCog /> Edit Settings
+                      </button>
+                      
+                      <button
+                        className={styles.manageBannedButton}
+                        onClick={() => setShowBannedUsers(!showBannedUsers)}
+                      >
+                        <FaBan /> {showBannedUsers ? 'Hide' : 'Manage'} Banned Users
+                      </button>
+                    </div>
+
+                    {showBannedUsers && (
+                      <div className={styles.bannedUsersSection}>
+                        <div className={styles.sectionHeader}>
+                          <h4>Banned Users</h4>
+                          <p>Users who are banned from this group</p>
+                        </div>
+                        
+                        {bannedUsers.length === 0 ? (
+                          <div className={styles.emptyState}>
+                            <div className={styles.emptyIcon}><FaBan /></div>
+                            <h5>No banned users</h5>
+                            <p>Users you ban from the group will appear here</p>
+                          </div>
+                        ) : (
+                          <div className={styles.bannedUsersList}>
+                            {bannedUsers.map(user => (
+                              <div key={user.userId} className={styles.bannedUserCard}>
+                                <img
+                                  src={user.profilePic}
+                                  className={styles.memberAvatar}
+                                  alt={user.username}
+                                  onError={e => { (e.currentTarget as HTMLImageElement).src = '/default_profile.jpg' }}
+                                />
+                                <div className={styles.memberInfo}>
+                                  <div className={styles.memberName}>
+                                    <a href={`/account/${user.userId}`}>
+                                      {user.username}
+                                    </a>
+                                  </div>
+                                  <div className={styles.memberMeta}>
+                                    Banned {new Date(user.joinedAt).toLocaleDateString()}
+                                  </div>
+                                </div>
+                                <button
+                                  className={styles.unbanBtn}
+                                  onClick={() => handleUnbanMember(user.userId, user.username)}
+                                  title={`Unban ${user.username}`}
+                                >
+                                  <FaBan /> Unban
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className={styles.dangerZone}>
                       <p>Permanently delete this group and all its messages.</p>
@@ -1023,6 +1223,7 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
               </div>
             </div>
           )}
+
         </section>
       </div>
     </main>

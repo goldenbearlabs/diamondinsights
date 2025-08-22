@@ -29,6 +29,8 @@ interface Group {
     ownerId: string
     memberCount: number
     lastActivity: number
+    userIsMember?: boolean
+    userIsOwner?: boolean
 }
 
 interface CreateGroupData {
@@ -108,7 +110,13 @@ export default function GroupsPage() {
 
     const loadPublicGroups = async () => {
         try {
-            const response = await fetch('/api/groups/public')
+            const headers: HeadersInit = {}
+            if (user) {
+                const token = await user.getIdToken()
+                headers['Authorization'] = `Bearer ${token}`
+            }
+            
+            const response = await fetch('/api/groups/public', { headers })
             
             if (response.ok) {
                 const data = await response.json()
@@ -571,9 +579,16 @@ export default function GroupsPage() {
                                                     <div className={styles.groupHeader}>
                                                         <div className={styles.groupTitle}>
                                                             <h4>{group.name}</h4>
-                                                            <span className={styles.privacyBadge}>
-                                                                <FaGlobe /> Public
-                                                            </span>
+                                                            <div className={styles.groupMeta}>
+                                                                <span className={styles.privacyBadge}>
+                                                                    <FaGlobe /> Public
+                                                                </span>
+                                                                {group.userIsOwner && (
+                                                                    <span className={styles.ownerBadge}>
+                                                                        <FaCrown /> Owner
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                         <div className={styles.groupStats}>
                                                             <span>{group.memberCount} members</span>
@@ -584,13 +599,33 @@ export default function GroupsPage() {
                                                         <p className={styles.groupDescription}>{group.description}</p>
                                                     )}
                                                     
-                                                    <button
-                                                        onClick={e => handleJoinGroup(e, group.id)}
-                                                        disabled={joining}
-                                                        className={styles.joinBtn}
-                                                    >
-                                                        {joining ? <FaSpinner className="spinner" /> : 'Join Group'}
-                                                    </button>
+                                                    {group.userIsOwner ? (
+                                                        <div className={styles.groupActions}>
+                                                            <Link 
+                                                                href={`/community/groups/${group.id}`} 
+                                                                className={styles.enterGroupBtn}
+                                                            >
+                                                                Enter Your Group
+                                                            </Link>
+                                                        </div>
+                                                    ) : group.userIsMember ? (
+                                                        <div className={styles.groupActions}>
+                                                            <Link 
+                                                                href={`/community/groups/${group.id}`} 
+                                                                className={styles.enterGroupBtn}
+                                                            >
+                                                                Enter Group
+                                                            </Link>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={e => handleJoinGroup(e, group.id)}
+                                                            disabled={joining}
+                                                            className={styles.joinBtn}
+                                                        >
+                                                            {joining ? <FaSpinner className="spinner" /> : 'Join Group'}
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>

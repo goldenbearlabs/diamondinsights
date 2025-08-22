@@ -74,6 +74,11 @@ export async function POST(request: Request) {
         throw new Error('You are already a member of this group')
       }
 
+      // Check if user is banned from this group
+      if (groupData.bannedUsers && groupData.bannedUsers.includes(userId)) {
+        throw new Error('You are banned from this group and cannot join')
+      }
+
       const timestamp = Date.now()
 
       // Add user to group members
@@ -132,8 +137,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 404 })
       }
       
-      if (error.message.includes('already a member') || error.message.includes('Cannot join private group')) {
-        return NextResponse.json({ error: error.message }, { status: 400 })
+      if (error.message.includes('already a member') || 
+          error.message.includes('Cannot join private group') ||
+          error.message.includes('banned from this group')) {
+        return NextResponse.json({ error: error.message }, { status: 403 })
       }
     }
     
