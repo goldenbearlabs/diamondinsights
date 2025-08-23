@@ -1835,14 +1835,12 @@
 .topSearchSection {
   margin-bottom: 30px;
   padding: 20px;
-  background: linear-gradient(145deg, rgba(40, 40, 40, 0.7), rgba(30, 30, 30, 0.7));
-  border: 1px solid rgba(77, 184, 184, 0.15);
+  background: linear-gradient(145deg, rgba(40, 40, 40, 0.8), rgba(30, 30, 30, 0.8));
+  border: 1px solid rgba(77, 184, 184, 0.2);
   border-radius: 12px;
-  backdrop-filter: blur(8px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
   position: relative;
   overflow: visible;
-  z-index: 1001;
 }
 
 .topSearchSection::before {
@@ -1858,7 +1856,6 @@
 .topSearchContainer {
   position: relative;
   overflow: visible;
-  z-index: 1002;
 }
 
 .topSearchTitle {

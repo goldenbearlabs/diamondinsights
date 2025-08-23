@@ -43,6 +43,12 @@ export default function Footer() {
           <p> </p>
           {/* Legal disclaimer to avoid trademark/affiliation confusion */}
           <p>Not affiliated with San Diego Studios or Major League Baseball.</p>
+          {/* Legal links */}
+          <div className={styles.legalLinks}>
+            <Link href="/privacy">Privacy Policy</Link>
+            <span className={styles.linkSeparator}>•</span>
+            <Link href="/terms">Terms of Service</Link>
+          </div>
         </div>
 
         {/* Footer navigation links organized by category */}
